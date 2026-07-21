@@ -213,20 +213,40 @@
   }
   .kiosk-backdrop.active { display: block; }
   .kiosk-header {
-    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 61;
-    display: flex; align-items: center; gap: 14px; background: var(--card-bg); padding: 8px 10px 8px 18px;
+    display: none; position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 61;
+    align-items: center; gap: 14px; background: var(--card-bg); padding: 8px 10px 8px 18px;
     border-radius: 999px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
   }
+  .kiosk-header.active { display: flex; }
   #kioskTeamName { font-weight: 800; color: var(--ink); }
   .kiosk-exit-btn {
     font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--ink); background: var(--toolbar-bg);
     border: none; padding: 6px 14px; border-radius: 999px; cursor: pointer;
   }
+  /* TV/kiosk mode targets a real 16:9 landscape screen — a tall portrait map alone
+     would waste most of that width, so the card becomes a 16:9 frame with the map
+     (still in its own correct portrait shape, just height-driven) beside a bigger,
+     TV-readable info panel instead of stacked below it like the normal card. */
   .team-map-card.kiosk-active {
-    position: fixed; top: 9vh; left: 50%; transform: translateX(-50%); width: min(94vw, 640px);
-    max-height: 86vh; overflow-y: auto; z-index: 60; background: var(--card-bg); border-radius: 24px;
-    padding: 18px 22px 22px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(94vw, calc(94vh * 16 / 9)); aspect-ratio: 16 / 9;
+    z-index: 60; background: var(--card-bg); border-radius: 24px; overflow: hidden;
+    padding: 28px 40px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+    display: grid; column-gap: 44px; row-gap: 10px; justify-content: center; align-content: center;
+    grid-template-columns: auto minmax(300px, 460px);
+    grid-template-rows: auto 1fr 1fr 1fr;
+    grid-template-areas: "header header" "frame  place" "frame  bar" "frame  stamps";
   }
+  .kiosk-active .team-map-header { grid-area: header; align-self: end; }
+  .kiosk-active .map-frame { grid-area: frame; width: auto; height: 100%; justify-self: start; }
+  .kiosk-active .team-map-place { grid-area: place; align-self: center; }
+  .kiosk-active .roster-bar-track { grid-area: bar; align-self: center; height: 16px; }
+  .kiosk-active .team-map-stamps { grid-area: stamps; align-self: center; }
+  .kiosk-active .team-map-name { font-size: 1.8rem; }
+  .kiosk-active .team-map-km { font-size: 1.8rem; }
+  .kiosk-active .team-map-rank { font-size: 1.4rem; }
+  .kiosk-active .team-map-place { font-size: 1.2rem; }
+  .kiosk-active .stamp-chip { width: 34px; height: 34px; font-size: 0.9rem; }
 
   /* Final stretch — last 50km before Chiang Rai gets a golden glow + a small callout */
   .runner.final-stretch .runner-badge { animation: final-stretch-glow 1.2s ease-in-out infinite; }
@@ -272,15 +292,17 @@
 
     <div class="team-maps-grid" id="teamMapsGrid"></div>
 
-    <!-- Lives inside .page (not as a sibling) so it shares .page's own stacking context
-         with the enlarged .kiosk-active card — .page has its own z-index (to sit above
-         the fixed sky background), which would otherwise trap a fixed-position descendant
-         behind any sibling-of-.page overlay regardless of that descendant's own z-index. -->
-    <div class="kiosk-backdrop" id="kioskBackdrop">
-      <div class="kiosk-header">
-        <span id="kioskTeamName"></span>
-        <button type="button" class="kiosk-exit-btn" id="kioskExit">✕ ออกจากโหมดจอทีวี</button>
-      </div>
+    <!-- Both live inside .page (not as siblings of it) so they share .page's own
+         stacking context with the enlarged .kiosk-active card — .page has its own
+         z-index (to sit above the fixed sky background), which would otherwise trap a
+         fixed-position descendant behind any sibling-of-.page overlay regardless of
+         that descendant's own z-index. Header is a separate element (not nested inside
+         the backdrop) so its z-index compares directly against the card's, instead of
+         being trapped inside the backdrop's own (lower) stacking position. -->
+    <div class="kiosk-backdrop" id="kioskBackdrop"></div>
+    <div class="kiosk-header" id="kioskHeader">
+      <span id="kioskTeamName"></span>
+      <button type="button" class="kiosk-exit-btn" id="kioskExit">✕ ออกจากโหมดจอทีวี</button>
     </div>
   </div>
 

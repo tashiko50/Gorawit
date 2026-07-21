@@ -15,6 +15,7 @@
   var rankSummaryEl = document.getElementById("rankSummary");
   var kioskToggleBtn = document.getElementById("kioskToggle");
   var kioskBackdrop = document.getElementById("kioskBackdrop");
+  var kioskHeader = document.getElementById("kioskHeader");
   var kioskTeamNameEl = document.getElementById("kioskTeamName");
   var kioskExitBtn = document.getElementById("kioskExit");
 
@@ -551,6 +552,7 @@
     if (!lastTeamsSnapshot.length) return;
     kioskActive = true;
     kioskBackdrop.classList.add("active");
+    kioskHeader.classList.add("active");
     kioskIndex = 0;
     showKioskTeam(kioskIndex);
     kioskTimer = setInterval(function () {
@@ -563,6 +565,7 @@
     kioskActive = false;
     clearInterval(kioskTimer);
     kioskBackdrop.classList.remove("active");
+    kioskHeader.classList.remove("active");
     if (kioskCurrentTeamId) {
       var refs = cardRefs.get(kioskCurrentTeamId);
       if (refs) refs.card.classList.remove("kiosk-active");
