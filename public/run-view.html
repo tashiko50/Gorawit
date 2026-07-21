@@ -209,8 +209,7 @@
   /* Kiosk/TV mode — blows up one team's actual card (in place, via fixed positioning),
      cycling through teams automatically. No reparenting: just a class toggle. */
   .kiosk-backdrop {
-    display: none; position: fixed; inset: 0; background: rgba(10, 14, 24, 0.78); z-index: 55;
-    backdrop-filter: blur(2px);
+    display: none; position: fixed; inset: 0; background: #0b0e16; z-index: 55;
   }
   .kiosk-backdrop.active { display: block; }
   .kiosk-header {
@@ -272,12 +271,16 @@
     <div class="rank-summary" id="rankSummary"></div>
 
     <div class="team-maps-grid" id="teamMapsGrid"></div>
-  </div>
 
-  <div class="kiosk-backdrop" id="kioskBackdrop">
-    <div class="kiosk-header">
-      <span id="kioskTeamName"></span>
-      <button type="button" class="kiosk-exit-btn" id="kioskExit">✕ ออกจากโหมดจอทีวี</button>
+    <!-- Lives inside .page (not as a sibling) so it shares .page's own stacking context
+         with the enlarged .kiosk-active card — .page has its own z-index (to sit above
+         the fixed sky background), which would otherwise trap a fixed-position descendant
+         behind any sibling-of-.page overlay regardless of that descendant's own z-index. -->
+    <div class="kiosk-backdrop" id="kioskBackdrop">
+      <div class="kiosk-header">
+        <span id="kioskTeamName"></span>
+        <button type="button" class="kiosk-exit-btn" id="kioskExit">✕ ออกจากโหมดจอทีวี</button>
+      </div>
     </div>
   </div>
 
