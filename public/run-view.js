@@ -329,21 +329,11 @@
       return chip;
     }) : [];
 
-    // On wide screens .team-map-body goes side-by-side (map | info) so the whole card
-    // fits on screen without scrolling; on narrow screens it falls back to stacking.
-    var info = document.createElement("div");
-    info.className = "team-map-info";
-    info.appendChild(place);
-    info.appendChild(barTrack);
-    info.appendChild(stamps);
-
-    var body = document.createElement("div");
-    body.className = "team-map-body";
-    body.appendChild(frame);
-    body.appendChild(info);
-
     card.appendChild(header);
-    card.appendChild(body);
+    card.appendChild(frame);
+    card.appendChild(place);
+    card.appendChild(barTrack);
+    card.appendChild(stamps);
 
     var refs = {
       card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,

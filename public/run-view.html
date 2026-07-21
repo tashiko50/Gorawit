@@ -8,8 +8,7 @@
 <style>
   /* Each location gets its own independent map card — no shared canvas, so one team's
      runner/animation never competes for space or overlaps another's. */
-  .team-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(22px, 3vw, 40px); width: 100%; max-width: 1720px; }
-  @media (min-width: 700px) { .team-maps-grid { grid-template-columns: repeat(auto-fit, minmax(640px, 1fr)); } }
+  .team-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(22px, 3vw, 40px); width: 100%; max-width: 1600px; }
   .team-map-card {
     --accent-deep: color-mix(in srgb, var(--accent, #4a90d9) 70%, black);
     display: flex; flex-direction: column; gap: 10px;
@@ -20,12 +19,6 @@
   .team-map-place { font-size: 0.8rem; color: var(--ink-soft); }
   .team-maps-empty { text-align: center; color: var(--ink-soft); font-size: 0.85rem; padding: 40px; width: 100%; }
 
-  /* Map + info stack vertically by default (narrow screens); on wide screens they go
-     side-by-side (see the min-width media query further down) so the whole card fits
-     on screen at once instead of needing a scroll down past a tall portrait map. */
-  .team-map-body { display: flex; flex-direction: column; gap: 10px; }
-  .team-map-info { display: flex; flex-direction: column; gap: 10px; }
-
   .map-frame {
     position: relative; width: 100%; aspect-ratio: 520 / 860; border-radius: 26px; overflow: hidden;
     box-shadow: 0 10px 30px var(--panel-shadow); border: 3px solid var(--card-border);
@@ -33,14 +26,6 @@
   }
   .map-frame svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .pins-layer, .runners-layer { position: absolute; inset: 0; pointer-events: none; }
-
-  /* This must come AFTER the base .team-map-body/.map-frame/.team-map-info rules above —
-     same specificity, so source order decides, and this is the one meant to win at >=700px. */
-  @media (min-width: 700px) {
-    .team-map-body { flex-direction: row; align-items: flex-start; }
-    .map-frame { width: clamp(220px, 24vw, 300px); flex: 0 0 auto; }
-    .team-map-info { flex: 1 1 220px; min-width: 200px; padding-top: 4px; }
-  }
 
   /* Weather — same rotation the village view uses, applied per-card via Scoreboard.applyWeather */
   .map-frame[data-weather="rain"] { filter: saturate(0.8) brightness(0.9); }
