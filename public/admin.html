@@ -19,33 +19,12 @@
   .palette button { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--card-bg); box-shadow: 0 0 0 1px var(--card-border); cursor: pointer; padding: 0; }
   .palette button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
 
-  .points-input, .token-count-input {
+  .points-input {
     font: inherit; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--ink); background: transparent;
-    border: none; text-align: center; -moz-appearance: textfield;
+    border: none; text-align: center; -moz-appearance: textfield; width: 4.4ch; font-size: 1.4rem;
   }
-  .points-input { width: 54px; font-size: 1.5rem; }
-  .token-count-input { width: 30px; font-size: 0.9rem; font-weight: 800; }
-  .points-input::-webkit-outer-spin-button, .points-input::-webkit-inner-spin-button,
-  .token-count-input::-webkit-outer-spin-button, .token-count-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .points-input:hover, .points-input:focus-visible, .token-count-input:hover, .token-count-input:focus-visible {
-    outline: 2px dashed var(--accent-soft); border-radius: 6px;
-  }
-  .token-group { cursor: pointer; border-radius: 10px; padding: 4px 6px; }
-  .token-group:hover, .token-group:focus-within { outline: 2px dashed var(--accent-soft); }
-  .token-cycle { border: none; background: transparent; cursor: pointer; padding: 0; display: flex; }
-
-  .decor-toggle {
-    margin-top: 10px; width: 100%; font: inherit; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em;
-    border: none; background: transparent; color: var(--ink-soft); cursor: pointer; padding: 4px;
-  }
-  .decor-toggle:hover { color: var(--ink); }
-  .decor-panel { width: 100%; display: none; flex-direction: column; gap: 4px; margin-top: 4px; }
-  .decor-panel.open { display: flex; }
-  .decor-row { display: flex; align-items: center; justify-content: space-between; background: var(--accent-tint); border-radius: 10px; padding: 4px 8px; }
-  .decor-row .decor-label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--ink-soft); }
-  .decor-row .decor-icon { width: 18px; height: 18px; }
-  .decor-row .decor-controls { display: flex; align-items: center; gap: 6px; }
-  .decor-count { font-weight: 800; font-variant-numeric: tabular-nums; min-width: 1.4ch; text-align: center; font-size: 0.8rem; }
+  .points-input::-webkit-outer-spin-button, .points-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .points-input:hover, .points-input:focus-visible { outline: 2px dashed var(--accent-soft); border-radius: 6px; }
 
   .add-card {
     width: 240px; min-height: 260px; border-radius: 22px; border: 2px dashed var(--card-border); background: transparent;
@@ -65,7 +44,7 @@
     padding: 8px 16px; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px var(--panel-shadow); text-decoration: none;
   }
   .toolbar button:hover, .toolbar a:hover { color: var(--title-stroke); }
-  .toolbar button:focus-visible, .toolbar a:focus-visible, .step-btn:focus-visible, .token-cycle:focus-visible,
+  .toolbar button:focus-visible, .toolbar a:focus-visible, .step-btn:focus-visible,
   .palette button:focus-visible, .remove-btn:focus-visible { outline: 2px solid var(--title-stroke); outline-offset: 2px; }
 
   .save-flash { position: fixed; top: 14px; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 20;

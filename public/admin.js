@@ -132,8 +132,6 @@
 
     var levelBadge = document.createElement("div");
     levelBadge.className = "level-badge";
-    var level = S.levelForKm(team.km);
-    levelBadge.textContent = "ระดับบ้าน " + level + " / " + S.MAX_LEVEL;
     card.appendChild(levelBadge);
 
     var levelProgress = document.createElement("div");
@@ -176,102 +174,14 @@
     pointsGroup.appendChild(ptsCol);
     pointsGroup.appendChild(plusBtn);
     scoreCard.appendChild(pointsGroup);
-
-    var tokenGroup = document.createElement("div");
-    tokenGroup.className = "token-group";
-    var tokenCycle = document.createElement("button");
-    tokenCycle.type = "button"; tokenCycle.className = "token-cycle";
-    tokenCycle.setAttribute("aria-label", "เปลี่ยนไอคอนรางวัล");
-    var tokenIconSpan = document.createElement("span");
-    tokenIconSpan.className = "token-icon";
-    tokenIconSpan.innerHTML = S.TOKEN_ICONS[team.tokenType] || S.TOKEN_ICONS.star;
-    tokenCycle.appendChild(tokenIconSpan);
-    tokenCycle.addEventListener("click", function () {
-      var idx = S.TOKEN_TYPES.indexOf(team.tokenType);
-      var next = S.TOKEN_TYPES[(idx + 1) % S.TOKEN_TYPES.length];
-      postAction("setTokenType", team.id, { tokenType: next });
-    });
-    var tokenMinus = document.createElement("button");
-    tokenMinus.type = "button"; tokenMinus.className = "step-btn"; tokenMinus.style.width = "18px"; tokenMinus.style.height = "18px"; tokenMinus.textContent = "−";
-    tokenMinus.setAttribute("aria-label", "ลดจำนวนรางวัล");
-    tokenMinus.addEventListener("click", function (e) { e.stopPropagation(); postAction("adjustTokenCount", team.id, { delta: -1 }); });
-    var tokenCountInput = document.createElement("input");
-    tokenCountInput.type = "number"; tokenCountInput.className = "token-count-input"; tokenCountInput.value = team.tokenCount; tokenCountInput.inputMode = "numeric";
-    tokenCountInput.addEventListener("click", function (e) { e.stopPropagation(); });
-    tokenCountInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); tokenCountInput.blur(); } });
-    tokenCountInput.addEventListener("blur", function () {
-      var n = parseInt(tokenCountInput.value, 10);
-      if (isNaN(n) || n < 0) n = 0;
-      if (n !== team.tokenCount) postAction("adjustTokenCount", team.id, { delta: n - team.tokenCount });
-      else tokenCountInput.value = team.tokenCount;
-    });
-    var tokenPlus = document.createElement("button");
-    tokenPlus.type = "button"; tokenPlus.className = "step-btn"; tokenPlus.style.width = "18px"; tokenPlus.style.height = "18px"; tokenPlus.textContent = "+";
-    tokenPlus.setAttribute("aria-label", "เพิ่มจำนวนรางวัล");
-    tokenPlus.addEventListener("click", function (e) { e.stopPropagation(); postAction("adjustTokenCount", team.id, { delta: 1 }); });
-
-    tokenGroup.appendChild(tokenCycle);
-    tokenGroup.appendChild(tokenMinus);
-    tokenGroup.appendChild(tokenCountInput);
-    tokenGroup.appendChild(tokenPlus);
-    scoreCard.appendChild(tokenGroup);
+    scoreCard.appendChild(S.buildRunIcon());
 
     card.appendChild(scoreCard);
 
-    var decorToggle = document.createElement("button");
-    decorToggle.type = "button";
-    decorToggle.className = "decor-toggle";
-    decorToggle.textContent = "🌿 ตกแต่งหมู่บ้าน ▾";
-    var decorPanel = document.createElement("div");
-    decorPanel.className = "decor-panel";
-    decorToggle.addEventListener("click", function () {
-      var open = decorPanel.classList.toggle("open");
-      decorToggle.textContent = "🌿 ตกแต่งหมู่บ้าน " + (open ? "▴" : "▾");
-    });
-
-    var decorRefs = {};
-    S.DECORATION_TYPES.forEach(function (type) {
-      var row = document.createElement("div");
-      row.className = "decor-row";
-      var labelWrap = document.createElement("div");
-      labelWrap.className = "decor-label";
-      var iconSpan = document.createElement("span");
-      iconSpan.className = "decor-icon";
-      iconSpan.innerHTML = S.DECOR_ICONS[type] || "";
-      labelWrap.appendChild(iconSpan);
-      var labelText = document.createElement("span");
-      labelText.textContent = S.DECORATION_LABELS[type];
-      labelWrap.appendChild(labelText);
-      row.appendChild(labelWrap);
-
-      var controls = document.createElement("div");
-      controls.className = "decor-controls";
-      var minus = document.createElement("button");
-      minus.type = "button"; minus.className = "step-btn"; minus.style.width = "18px"; minus.style.height = "18px"; minus.textContent = "−";
-      minus.addEventListener("click", function () { postAction("adjustDecoration", team.id, { decoType: type, delta: -1 }); });
-      var countSpan = document.createElement("span");
-      countSpan.className = "decor-count";
-      countSpan.textContent = team.decorations[type] || 0;
-      var plus = document.createElement("button");
-      plus.type = "button"; plus.className = "step-btn"; plus.style.width = "18px"; plus.style.height = "18px"; plus.textContent = "+";
-      plus.addEventListener("click", function () { postAction("adjustDecoration", team.id, { decoType: type, delta: 1 }); });
-      controls.appendChild(minus);
-      controls.appendChild(countSpan);
-      controls.appendChild(plus);
-      row.appendChild(controls);
-
-      decorPanel.appendChild(row);
-      decorRefs[type] = { countSpan: countSpan };
-    });
-
-    card.appendChild(decorToggle);
-    card.appendChild(decorPanel);
-
     cardRefs.set(team.id, {
       card: card, nameEl: nameEl, palette: palette, house: visual.house, plot: visual.plot, decorLayer: visual.decorLayer,
-      levelBadge: levelBadge, levelProgress: levelProgress,
-      kmInput: kmInput, tokenIconSpan: tokenIconSpan, tokenCountInput: tokenCountInput,
-      decorRefs: decorRefs
+      levelBadge: levelBadge, levelProgress: levelProgress, kmInput: kmInput,
+      lastStage: S.stageForLevel(S.levelForKm(team.km)), lastLevel: S.levelForKm(team.km)
     });
 
     updateLevelText(levelBadge, levelProgress, team);
@@ -280,9 +190,9 @@
 
   function updateLevelText(levelBadge, levelProgress, team) {
     var level = S.levelForKm(team.km);
-    levelBadge.textContent = "ระดับบ้าน " + level + " / " + S.MAX_LEVEL;
+    levelBadge.textContent = "ระดับ " + level + " · " + S.stageNameForLevel(level);
     var toNext = S.kmToNextLevel(team.km);
-    levelProgress.textContent = toNext > 0 ? "อีก " + toNext + " กม. ถึงระดับถัดไป" : "อัปเกรดสูงสุดแล้ว";
+    levelProgress.textContent = "อีก " + toNext + " กม. ถึงระดับถัดไป";
   }
 
   function buildAddCard() {
@@ -326,21 +236,16 @@
       dot.setAttribute("aria-pressed", String(dot.dataset.hex === team.color.toLowerCase()));
     });
 
-    S.updateHouseLevel(refs, team);
+    var newLevel = S.levelForKm(team.km);
+    var newStage = S.updateHouseVisual(refs, team);
     updateLevelText(refs.levelBadge, refs.levelProgress, team);
-
-    var accessoryEl = refs.house.querySelector(".accessory");
-    if (accessoryEl) accessoryEl.innerHTML = S.ACCESSORY_ICONS[team.tokenType] || S.ACCESSORY_ICONS.star;
-    S.renderDecorLayer(refs.decorLayer, team.decorations);
-
     if (document.activeElement !== refs.kmInput) refs.kmInput.value = team.km;
-    refs.tokenIconSpan.innerHTML = S.TOKEN_ICONS[team.tokenType] || S.TOKEN_ICONS.star;
-    if (document.activeElement !== refs.tokenCountInput) refs.tokenCountInput.value = team.tokenCount;
 
-    S.DECORATION_TYPES.forEach(function (type) {
-      var r = refs.decorRefs[type];
-      if (r) r.countSpan.textContent = team.decorations[type] || 0;
-    });
+    if (newLevel > refs.lastLevel) {
+      S.celebrateUpgrade(refs.plot, newStage > refs.lastStage, newStage > refs.lastStage ? "🎉 อัปเกรดเป็น " + S.stageNameForLevel(newLevel) + " แล้ว!" : null);
+    }
+    refs.lastLevel = newLevel;
+    refs.lastStage = newStage;
   }
 
   function render(state) {

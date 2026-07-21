@@ -66,34 +66,23 @@
     scoreWrap.appendChild(kmEl);
     scoreWrap.appendChild(kmLabel);
     scoreCard.appendChild(scoreWrap);
-
-    var tokenGroup = document.createElement("div");
-    tokenGroup.className = "token-group";
-    var tokenIconSpan = document.createElement("span");
-    tokenIconSpan.className = "token-icon";
-    tokenIconSpan.innerHTML = S.TOKEN_ICONS[team.tokenType] || S.TOKEN_ICONS.star;
-    var tokenCountEl = document.createElement("span");
-    tokenCountEl.className = "token-count";
-    tokenCountEl.textContent = team.tokenCount;
-    tokenGroup.appendChild(tokenIconSpan);
-    tokenGroup.appendChild(tokenCountEl);
-    scoreCard.appendChild(tokenGroup);
+    scoreCard.appendChild(S.buildRunIcon());
 
     card.appendChild(scoreCard);
 
     cardRefs.set(team.id, {
       card: card, nameEl: nameEl, levelBadge: levelBadge, levelProgress: levelProgress,
-      house: visual.house, plot: visual.plot, decorLayer: visual.decorLayer,
-      kmEl: kmEl, tokenIconSpan: tokenIconSpan, tokenCountEl: tokenCountEl
+      house: visual.house, plot: visual.plot, decorLayer: visual.decorLayer, kmEl: kmEl,
+      lastStage: S.stageForLevel(S.levelForKm(team.km)), lastLevel: S.levelForKm(team.km)
     });
     return card;
   }
 
   function setLevelText(levelBadge, levelProgress, team) {
     var level = S.levelForKm(team.km);
-    levelBadge.textContent = "ระดับบ้าน " + level + " / " + S.MAX_LEVEL;
+    levelBadge.textContent = "ระดับ " + level + " · " + S.stageNameForLevel(level);
     var toNext = S.kmToNextLevel(team.km);
-    levelProgress.textContent = toNext > 0 ? "อีก " + toNext + " กม. ถึงระดับถัดไป" : "อัปเกรดสูงสุดแล้ว";
+    levelProgress.textContent = "อีก " + toNext + " กม. ถึงระดับถัดไป";
   }
 
   function fullRebuild(state) {
@@ -109,13 +98,16 @@
     refs.card.style.setProperty("--accent", team.color);
     refs.nameEl.textContent = team.name;
     setLevelText(refs.levelBadge, refs.levelProgress, team);
-    S.updateHouseLevel(refs, team);
-    var accessoryEl = refs.house.querySelector(".accessory");
-    if (accessoryEl) accessoryEl.innerHTML = S.ACCESSORY_ICONS[team.tokenType] || S.ACCESSORY_ICONS.star;
-    S.renderDecorLayer(refs.decorLayer, team.decorations);
+
+    var newLevel = S.levelForKm(team.km);
+    var newStage = S.updateHouseVisual(refs, team);
     refs.kmEl.textContent = team.km;
-    refs.tokenIconSpan.innerHTML = S.TOKEN_ICONS[team.tokenType] || S.TOKEN_ICONS.star;
-    refs.tokenCountEl.textContent = team.tokenCount;
+
+    if (newLevel > refs.lastLevel) {
+      S.celebrateUpgrade(refs.plot, newStage > refs.lastStage, newStage > refs.lastStage ? "🎉 อัปเกรดเป็น " + S.stageNameForLevel(newLevel) + " แล้ว!" : null);
+    }
+    refs.lastLevel = newLevel;
+    refs.lastStage = newStage;
   }
 
   function renderFeed(events) {

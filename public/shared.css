@@ -121,75 +121,109 @@ h1.board-title {
 .level-badge { font-size: 0.68rem; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
 .level-progress { font-size: 0.68rem; color: var(--ink-soft); margin-bottom: 10px; }
 
-/* house — 2.5D village hut that unlocks detail every 10km */
+/* house — 2.5D village hut whose structure advances every 100km (5 levels x 20km) */
 .house-plot { position: relative; width: 260px; height: 224px; margin-bottom: 12px; }
+
+.ground-shadow {
+  position: absolute; left: 50%; bottom: 48px; transform: translateX(-50%);
+  width: 128px; height: 18px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(20, 30, 20, 0.22), transparent 75%);
+  transition: width 0.3s ease;
+}
+.house-plot:has(.house[data-stage="1"]) .ground-shadow { width: 140px; }
+.house-plot:has(.house[data-stage="2"]) .ground-shadow, .house-plot:has(.house[data-stage="3"]) .ground-shadow { width: 154px; }
+
+.grass-tufts { position: absolute; left: 0; right: 0; bottom: 42px; height: 14px; overflow: hidden; }
+.grass-tufts::before {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(circle at 4px 14px, transparent 5px, var(--hill-near) 5px 6px, transparent 7px),
+    radial-gradient(circle at 14px 14px, transparent 5px, var(--hill-near) 5px 6px, transparent 7px);
+  background-size: 18px 14px; background-repeat: repeat-x; opacity: 0.55;
+}
+
 .house {
   position: absolute; left: 50%; bottom: 54px; transform: translateX(-50%);
   width: 140px; height: 100px;
-  transition: width 0.3s ease, height 0.3s ease;
+  transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.house[data-level="1"] { width: 152px; height: 112px; }
-.house[data-level="2"], .house[data-level="3"] { width: 164px; height: 136px; }
+.house[data-stage="1"] { width: 152px; height: 112px; }
+.house[data-stage="2"], .house[data-stage="3"] { width: 164px; height: 136px; }
 
 .house .roof {
   position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 0; height: 0;
   border-left: 70px solid transparent; border-right: 70px solid transparent;
-  border-bottom: 46px solid color-mix(in srgb, var(--accent, #4a90d9) 84%, white);
-  transition: border-width 0.3s ease;
+  border-bottom: 46px solid color-mix(in srgb, var(--accent, #4a90d9) 88%, white);
+  filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--accent, #4a90d9) 60%, black));
+  transition: border-width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.house[data-level="1"] .roof { border-left-width: 76px; border-right-width: 76px; border-bottom-width: 50px; }
-.house[data-level="2"] .roof, .house[data-level="3"] .roof { border-left-width: 82px; border-right-width: 82px; border-bottom-width: 54px; }
+.house[data-stage="1"] .roof { border-left-width: 76px; border-right-width: 76px; border-bottom-width: 50px; }
+.house[data-stage="2"] .roof, .house[data-stage="3"] .roof { border-left-width: 82px; border-right-width: 82px; border-bottom-width: 54px; }
+
+.house .roof-shine {
+  position: absolute; top: 14px; left: -46px; width: 34px; height: 0;
+  border-left: 17px solid transparent; border-right: 17px solid transparent;
+  border-bottom: 14px solid color-mix(in srgb, var(--accent, #4a90d9) 40%, white);
+  opacity: 0.65; transform: rotate(-27deg);
+}
 
 .house .roof-side {
   position: absolute; top: 0; right: -1px; width: 16px; height: 46px;
   background: var(--accent-deep); clip-path: polygon(0% 100%, 100% 34%, 100% 100%);
-  transition: height 0.3s ease;
+  transition: height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.house[data-level="1"] .roof-side { height: 50px; }
-.house[data-level="2"] .roof-side, .house[data-level="3"] .roof-side { height: 54px; }
+.house[data-stage="1"] .roof-side { height: 50px; }
+.house[data-stage="2"] .roof-side, .house[data-stage="3"] .roof-side { height: 54px; }
 
 .house .chimney { display: none; position: absolute; top: 4px; right: 30px; width: 13px; height: 24px; background: var(--accent-deep); border-radius: 2px 2px 0 0; }
-.house[data-level="2"] .chimney, .house[data-level="3"] .chimney { display: block; }
+.house[data-stage="2"] .chimney, .house[data-stage="3"] .chimney { display: block; }
+.smoke {
+  position: absolute; left: 50%; bottom: 100%; width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75); transform: translateX(-50%); opacity: 0;
+  animation: smoke-rise 3.2s ease-in infinite;
+}
+.smoke--b { animation-delay: 1.6s; }
+@keyframes smoke-rise {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.6); }
+  15% { opacity: 0.75; }
+  100% { opacity: 0; transform: translate(-30%, -26px) scale(1.4); }
+}
 
 .house .wall {
   position: absolute; top: 46px; left: 10px; right: 10px; bottom: 0;
   background: color-mix(in srgb, var(--accent, #4a90d9) 20%, var(--card-bg));
   border: 2px solid var(--accent-soft); border-right: none; border-radius: 0 0 0 12px;
-  transition: top 0.3s ease;
+  transition: top 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.house[data-level="1"] .wall { top: 50px; }
-.house[data-level="2"] .wall, .house[data-level="3"] .wall { top: 54px; }
+.house[data-stage="1"] .wall { top: 50px; }
+.house[data-stage="2"] .wall, .house[data-stage="3"] .wall { top: 54px; }
 
 .house .wall-side {
   position: absolute; top: 46px; right: -12px; bottom: 0; width: 12px;
-  background: var(--accent-deep); transition: top 0.3s ease;
+  background: var(--accent-deep); transition: top 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.house[data-level="1"] .wall-side { top: 50px; }
-.house[data-level="2"] .wall-side, .house[data-level="3"] .wall-side { top: 54px; }
+.house[data-stage="1"] .wall-side { top: 50px; }
+.house[data-stage="2"] .wall-side, .house[data-stage="3"] .wall-side { top: 54px; }
 
 .house .window { display: none; position: absolute; left: 24px; bottom: 6px; width: 26px; height: 26px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 6%, white); border: 3px solid var(--accent-deep); box-shadow: 0 1px 3px var(--panel-shadow); }
-.house[data-level="1"] .window, .house[data-level="2"] .window, .house[data-level="3"] .window { display: block; }
+.house[data-stage="1"] .window, .house[data-stage="2"] .window, .house[data-stage="3"] .window { display: block; }
 .house .window::before, .house .window::after { content: ""; position: absolute; background: var(--accent-deep); }
 .house .window::before { top: 50%; left: 3px; right: 3px; height: 2px; transform: translateY(-50%); }
 .house .window::after { left: 50%; top: 3px; bottom: 3px; width: 2px; transform: translateX(-50%); }
 
 .house .window--upper { display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 20px; height: 20px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 6%, white); border: 2px solid var(--accent-deep); box-shadow: 0 1px 2px var(--panel-shadow); }
-.house[data-level="2"] .window--upper, .house[data-level="3"] .window--upper { display: block; }
+.house[data-stage="2"] .window--upper, .house[data-stage="3"] .window--upper { display: block; }
 .house .window--upper::before, .house .window--upper::after { content: ""; position: absolute; background: var(--accent-deep); }
 .house .window--upper::before { top: 50%; left: 2px; right: 2px; height: 1.5px; transform: translateY(-50%); }
 .house .window--upper::after { left: 50%; top: 2px; bottom: 2px; width: 1.5px; transform: translateX(-50%); }
 
 .house .pillar { display: none; position: absolute; bottom: 0; width: 6px; height: 26px; background: var(--accent-deep); border-radius: 2px 2px 0 0; }
-.house[data-level="1"] .pillar, .house[data-level="2"] .pillar, .house[data-level="3"] .pillar { display: block; }
+.house[data-stage="1"] .pillar, .house[data-stage="2"] .pillar, .house[data-stage="3"] .pillar { display: block; }
 .house .pillar--left { left: 14px; }
 .house .pillar--right { right: 22px; }
 
 .house .door { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 26px; height: 38px; background: var(--accent-deep); border-radius: 7px 7px 0 0; }
 .house .door::after { content: ""; position: absolute; right: 4px; top: 50%; width: 3.5px; height: 3.5px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 20%, var(--card-bg)); }
-
-.house .accessory { position: absolute; top: -18px; right: 2px; width: 28px; height: 28px; color: var(--accent-deep); transition: top 0.3s ease; }
-.house[data-level="2"] .accessory, .house[data-level="3"] .accessory { top: -26px; }
-.house .accessory svg { width: 100%; height: 100%; overflow: visible; }
 
 .fence { display: none; position: absolute; left: 2%; right: 2%; bottom: 6px; height: 16px; }
 .house-plot[data-fence="true"] .fence { display: block; }
@@ -208,8 +242,26 @@ h1.board-title {
 }
 
 /* decorations — confined to the margins/yard around the house so nothing overlaps it */
-.decor { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); }
+.decor { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); transform-origin: 50% 100%; }
 .decor svg { width: 100%; height: 100%; }
+.decor--trees, .decor--flowers { animation: sway 3.6s ease-in-out infinite; animation-delay: var(--sway-delay, 0s); }
+.decor--people { animation: idle-shuffle 2.2s ease-in-out infinite; animation-delay: var(--sway-delay, 0s); }
+.decor--animals { animation: idle-bob 2.6s ease-in-out infinite; animation-delay: var(--sway-delay, 0s); }
+@keyframes sway {
+  0%, 100% { transform: translate(-50%, -50%) rotate(-3deg); }
+  50% { transform: translate(-50%, -50%) rotate(3deg); }
+}
+@keyframes idle-shuffle {
+  0%, 100% { transform: translate(-50%, -50%) translateX(0) scaleY(1); }
+  25% { transform: translate(-55%, -50%) translateX(-1.5px) scaleY(0.97); }
+  75% { transform: translate(-45%, -50%) translateX(1.5px) scaleY(0.97); }
+}
+@keyframes idle-bob {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0) rotate(-2deg); }
+  50% { transform: translate(-50%, -52%) translateY(-2px) rotate(2deg); }
+}
+@media (prefers-reduced-motion: reduce) { .decor--trees, .decor--flowers, .decor--people, .decor--animals { animation: none; } }
+
 .decor-badge {
   position: absolute; transform: translate(-50%, -50%); font-size: 0.62rem; font-weight: 800;
   color: var(--ink); background: var(--card-bg); border: 1px solid var(--card-border);
@@ -220,7 +272,54 @@ h1.board-title {
   height: calc(5px * var(--rows, 1) + 4px);
   background-image: repeating-linear-gradient(90deg, #6fae4e 0 9px, #5c9a42 9px 18px);
   border-radius: 6px; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25);
+  background-size: 200% 100%; animation: tea-ripple 6s linear infinite;
 }
+@media (prefers-reduced-motion: reduce) { .tea-field { animation: none; } }
+@keyframes tea-ripple { from { background-position: 0 0; } to { background-position: -36px 0; } }
+
+/* level-up feedback — an explicit, unmissable moment, not a silent attribute swap */
+.house-plot.pulse-up .house { animation: pulse-house 0.5s ease; }
+.house-plot.celebrate-up .house { animation: celebrate-house 0.9s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes pulse-house {
+  0% { filter: drop-shadow(0 0 0 transparent); }
+  40% { transform: translateX(-50%) scale(1.06); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 70%, white)); }
+  100% { transform: translateX(-50%) scale(1); filter: drop-shadow(0 0 0 transparent); }
+}
+@keyframes celebrate-house {
+  0% { transform: translateX(-50%) scale(1) rotate(0deg); }
+  30% { transform: translateX(-50%) scale(0.88) rotate(-2deg); }
+  55% { transform: translateX(-50%) scale(1.18) rotate(2deg); filter: drop-shadow(0 0 22px color-mix(in srgb, var(--accent) 80%, white)); }
+  80% { transform: translateX(-50%) scale(0.97) rotate(-1deg); }
+  100% { transform: translateX(-50%) scale(1) rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .house-plot.pulse-up .house, .house-plot.celebrate-up .house { animation: none; }
+}
+
+.sparkle-burst { position: absolute; left: 50%; top: 40%; width: 0; height: 0; pointer-events: none; }
+.sparkle {
+  position: absolute; left: 0; top: 0; font-size: 16px; transform-origin: 0 0;
+  animation: sparkle-fly 0.9s ease-out forwards;
+  transform: rotate(var(--angle)) translateY(0);
+}
+@keyframes sparkle-fly {
+  0% { opacity: 1; transform: rotate(var(--angle)) translateY(0) scale(0.4); }
+  100% { opacity: 0; transform: rotate(var(--angle)) translateY(-70px) scale(1.1); }
+}
+.upgrade-toast {
+  position: absolute; left: 50%; top: -6px; transform: translate(-50%, -100%);
+  background: var(--card-bg); color: var(--ink); font-size: 0.78rem; font-weight: 800;
+  padding: 7px 14px; border-radius: 999px; box-shadow: 0 6px 16px var(--panel-shadow);
+  white-space: nowrap; animation: toast-pop 2s ease forwards;
+}
+@keyframes toast-pop {
+  0% { opacity: 0; transform: translate(-50%, -80%) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, -100%) scale(1.05); }
+  25% { transform: translate(-50%, -100%) scale(1); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -130%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .sparkle, .upgrade-toast { animation: none; opacity: 0; } }
 
 /* score card */
 .score-card {
@@ -232,9 +331,21 @@ h1.board-title {
 .points-value { font-weight: 900; font-variant-numeric: tabular-nums; font-size: 1.5rem; color: var(--ink); min-width: 2ch; text-align: center; }
 .pts-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
 .pts-col { display: flex; flex-direction: column; align-items: center; }
-.token-group { display: flex; align-items: center; gap: 5px; }
-.token-icon { width: 26px; height: 26px; flex-shrink: 0; }
-.token-count { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 0.9rem; color: var(--ink); min-width: 1.4ch; text-align: center; }
+
+.run-icon { position: relative; width: 30px; height: 30px; flex-shrink: 0; }
+.run-frame { position: absolute; inset: 0; animation: run-cycle 0.7s steps(1) infinite; }
+.run-frame--a { animation-name: run-cycle-a; }
+.run-frame--b { animation-name: run-cycle-b; }
+@keyframes run-cycle-a { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes run-cycle-b { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
+.run-icon { animation: run-bob 0.35s ease-in-out infinite alternate; }
+@keyframes run-bob { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) {
+  .run-frame { animation: none; }
+  .run-frame--a { opacity: 1; }
+  .run-frame--b { opacity: 0; }
+  .run-icon { animation: none; }
+}
 
 .step-btn {
   width: 22px; height: 22px; border-radius: 50%; border: none; background: var(--card-bg); color: var(--accent-deep);

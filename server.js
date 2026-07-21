@@ -11,46 +11,34 @@ const STATE_FILE = path.join(DATA_DIR, "state.json");
 const ADMIN_PIN = process.env.ADMIN_PIN || "0000";
 const MAX_EVENTS = 60;
 const MAX_TEAMS = 12;
-const MAX_LEVEL = 3;
-const KM_PER_LEVEL = 10;
+const KM_PER_LEVEL = 20;
+const STRUCTURAL_STAGES = 4;
+const LEVELS_PER_STAGE = 5;
 
-const DECORATION_MAX = { trees: 20, flowers: 20, people: 30, animals: 20, teaField: 10 };
+const STAGE_NAMES = ["แคมป์เล็กๆ", "กระท่อมน่าอยู่", "บ้านไร่ชา", "คฤหาสน์หมู่บ้าน"];
 
 const PALETTE = ["#4A90D9", "#E2934A", "#4F9A5B", "#D1587A", "#8B6FD1", "#3FA9A0"];
-const TOKEN_TYPES = ["star", "coin", "coins", "chest"];
-const DECORATION_TYPES = ["trees", "flowers", "people", "animals", "teaField"];
-const DECORATION_LABELS = {
-  trees: "ต้นไม้",
-  flowers: "ดอกไม้",
-  people: "ผู้คน",
-  animals: "สัตว์เลี้ยง",
-  teaField: "แปลงชา"
-};
 
 function levelForKm(km) {
-  return Math.max(0, Math.min(MAX_LEVEL, Math.floor(km / KM_PER_LEVEL)));
+  return Math.max(0, Math.floor((Number(km) || 0) / KM_PER_LEVEL));
 }
 
-function makeTeam(id, name, color, tokenType) {
-  return {
-    id,
-    name,
-    color,
-    km: 0,
-    tokenType,
-    tokenCount: 0,
-    decorations: { trees: 0, flowers: 0, people: 0, animals: 0, teaField: 0 }
-  };
+function stageForLevel(level) {
+  return Math.min(STRUCTURAL_STAGES - 1, Math.floor(level / LEVELS_PER_STAGE));
+}
+
+function makeTeam(id, name, color) {
+  return { id, name, color, km: 0 };
 }
 
 function defaultState() {
   return {
     title: "Village Builders Scoreboard",
     teams: [
-      makeTeam("t1", "Team “spacex”", PALETTE[0], "star"),
-      makeTeam("t2", "Team “yes-or-no”", PALETTE[1], "coin"),
-      makeTeam("t3", "Team “lerd-lerd”", PALETTE[2], "coins"),
-      makeTeam("t4", "Team “plain-flavor-stars”", PALETTE[3], "chest")
+      makeTeam("t1", "Team “spacex”", PALETTE[0]),
+      makeTeam("t2", "Team “yes-or-no”", PALETTE[1]),
+      makeTeam("t3", "Team “lerd-lerd”", PALETTE[2]),
+      makeTeam("t4", "Team “plain-flavor-stars”", PALETTE[3])
     ],
     events: []
   };
@@ -90,18 +78,18 @@ function nextTeamId() {
   return "t" + n;
 }
 
-function clamp(n, lo, hi) {
-  return Math.max(lo, Math.min(hi, n));
-}
-
 function applyKmChange(team, nextKm) {
   const prevLevel = levelForKm(team.km);
-  team.km = nextKm;
+  const prevStage = stageForLevel(prevLevel);
+  team.km = Math.max(0, nextKm);
   const newLevel = levelForKm(team.km);
-  if (newLevel > prevLevel) {
-    pushEvent(`\u{1F3E1}✨ ${team.name} ปลดล็อกบ้านระดับ ${newLevel} แล้ว! (ถึง ${newLevel * KM_PER_LEVEL} กม.)`);
+  const newStage = stageForLevel(newLevel);
+  if (newStage > prevStage) {
+    pushEvent(`\u{1F3D8}✨ ${team.name} อัปเกรดหมู่บ้านเป็น "${STAGE_NAMES[newStage]}" แล้ว! (${newLevel * KM_PER_LEVEL} กม.)`);
+  } else if (newLevel > prevLevel) {
+    pushEvent(`\u{1F331} ${team.name} หมู่บ้านคึกคักขึ้น! (ถึง ${newLevel * KM_PER_LEVEL} กม.)`);
   } else if (newLevel < prevLevel) {
-    pushEvent(`⬇️ ${team.name} กม. ลดลง บ้านตกกลับไประดับ ${newLevel}`);
+    pushEvent(`⬇️ ${team.name} กม. ลดลง หมู่บ้านเล็กลงเล็กน้อย`);
   }
 }
 
@@ -126,7 +114,7 @@ app.post("/api/actions", requirePin, (req, res) => {
   const team = teamId ? findTeam(teamId) : null;
   let createdTeamId = null;
 
-  if (["renameTeam", "setColor", "adjustKm", "setKm", "setTokenType", "adjustTokenCount", "adjustDecoration", "removeTeam"].includes(type) && !team) {
+  if (["renameTeam", "setColor", "adjustKm", "setKm", "removeTeam"].includes(type) && !team) {
     return res.status(404).json({ error: "team_not_found" });
   }
 
@@ -140,8 +128,7 @@ app.post("/api/actions", requirePin, (req, res) => {
       if (state.teams.length >= MAX_TEAMS) return res.status(400).json({ error: "max_teams" });
       const id = nextTeamId();
       const color = PALETTE[state.teams.length % PALETTE.length];
-      const tokenType = TOKEN_TYPES[state.teams.length % TOKEN_TYPES.length];
-      const created = makeTeam(id, "New Team", color, tokenType);
+      const created = makeTeam(id, "New Team", color);
       state.teams.push(created);
       createdTeamId = id;
       pushEvent(`\u{1F3D8}️ เพิ่มทีมใหม่: ${created.name}`);
@@ -170,42 +157,14 @@ app.post("/api/actions", requirePin, (req, res) => {
     case "adjustKm": {
       const delta = Math.trunc(Number(payload.delta)) || 0;
       applyKmChange(team, team.km + delta);
-      pushEvent(`\u{1F45F} ${team.name} ${delta >= 0 ? "+" : ""}${delta} กม. (รวม ${team.km} กม.)`);
+      pushEvent(`\u{1F3C3} ${team.name} ${delta >= 0 ? "+" : ""}${delta} กม. (รวม ${team.km} กม.)`);
       break;
     }
     case "setKm": {
       const km = Math.trunc(Number(payload.km));
       if (Number.isFinite(km)) {
         applyKmChange(team, km);
-        pushEvent(`\u{1F45F} ${team.name} ตั้งระยะทางเป็น ${km} กม.`);
-      }
-      break;
-    }
-    case "setTokenType": {
-      if (TOKEN_TYPES.includes(payload.tokenType)) {
-        team.tokenType = payload.tokenType;
-        pushEvent(`\u{1F504} ${team.name} เปลี่ยนไอคอนรางวัล`);
-      }
-      break;
-    }
-    case "adjustTokenCount": {
-      const delta = Math.trunc(Number(payload.delta)) || 0;
-      const next = Math.max(0, team.tokenCount + delta);
-      if (next !== team.tokenCount) {
-        team.tokenCount = next;
-        pushEvent(`\u{1FA99} ${team.name} เหรียญ ${delta >= 0 ? "+" : ""}${delta} (รวม ${team.tokenCount})`);
-      }
-      break;
-    }
-    case "adjustDecoration": {
-      const decoType = payload.decoType;
-      if (!DECORATION_TYPES.includes(decoType)) return res.status(400).json({ error: "bad_decoration_type" });
-      const delta = Math.trunc(Number(payload.delta)) || 0;
-      const max = DECORATION_MAX[decoType] || 20;
-      const next = clamp(team.decorations[decoType] + delta, 0, max);
-      if (next !== team.decorations[decoType]) {
-        team.decorations[decoType] = next;
-        pushEvent(`${delta >= 0 ? "\u{1F331}" : "\u{1F9F9}"} ${team.name} ${delta >= 0 ? "เพิ่ม" : "ลด"}${DECORATION_LABELS[decoType]}`);
+        pushEvent(`\u{1F3C3} ${team.name} ตั้งระยะทางเป็น ${km} กม.`);
       }
       break;
     }
