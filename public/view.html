@@ -6,13 +6,9 @@
 <title>Village Builders Scoreboard — View</title>
 <link rel="stylesheet" href="shared.css" />
 <style>
-  .level-badge { margin-bottom: 10px; }
   .view-score { display: flex; align-items: baseline; gap: 4px; }
   .view-points { font-weight: 900; font-variant-numeric: tabular-nums; font-size: 1.5rem; color: var(--ink); }
   .view-pts-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
-
-  .layout { width: 100%; max-width: 1320px; display: flex; gap: clamp(16px, 3vw, 28px); align-items: flex-start; justify-content: center; flex-wrap: wrap-reverse; }
-  .board { flex: 1 1 640px; }
 
   .live-badge {
     display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
@@ -22,14 +18,32 @@
   @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76,175,106,0.5); } 70% { box-shadow: 0 0 0 6px rgba(76,175,106,0); } 100% { box-shadow: 0 0 0 0 rgba(76,175,106,0); } }
   @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 
-  .feed-panel {
-    flex: 0 1 300px; min-width: 260px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px;
-    padding: 16px 16px 18px; box-shadow: 0 6px 16px var(--panel-shadow); max-height: min(560px, 70vh); display: flex; flex-direction: column;
+  /* Floating feed widget — fixed positioning keeps it out of normal flow entirely,
+     so it never affects the board's centering or size. */
+  .feed-widget { position: fixed; right: clamp(10px, 2vw, 24px); bottom: clamp(10px, 2vw, 24px); z-index: 15; }
+
+  .feed-toggle {
+    display: flex; align-items: center; gap: 8px; font: inherit; font-size: 0.82rem; font-weight: 700; color: var(--ink);
+    background: color-mix(in srgb, var(--card-bg) 78%, transparent); backdrop-filter: blur(8px);
+    border: 1px solid var(--card-border); border-radius: 999px; padding: 9px 16px; cursor: pointer;
+    box-shadow: 0 6px 16px var(--panel-shadow);
   }
-  .feed-panel h2 { margin: 0 0 4px; font-size: 0.95rem; color: var(--ink); }
-  .feed-sub { margin: 0 0 12px; font-size: 0.72rem; color: var(--ink-soft); }
+  .feed-toggle:hover { color: var(--title-stroke); }
+  .feed-count { background: #e6536b; color: #fff; font-size: 0.68rem; font-weight: 800; border-radius: 999px; padding: 1px 7px; min-width: 1.4em; text-align: center; }
+
+  .feed-panel {
+    position: absolute; right: 0; bottom: calc(100% + 10px); width: min(320px, 82vw); max-height: min(60vh, 460px);
+    background: color-mix(in srgb, var(--card-bg) 80%, transparent); backdrop-filter: blur(10px);
+    border: 1px solid var(--card-border); border-radius: 18px; padding: 14px 16px 16px;
+    box-shadow: 0 12px 28px var(--panel-shadow); display: none; flex-direction: column;
+  }
+  .feed-widget.open .feed-panel { display: flex; }
+  .feed-widget.open .feed-toggle { box-shadow: 0 2px 8px var(--panel-shadow); }
+
+  .feed-panel h2 { margin: 0 0 4px; font-size: 0.92rem; color: var(--ink); }
+  .feed-sub { margin: 0 0 10px; font-size: 0.7rem; color: var(--ink-soft); }
   .feed-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-  .feed-item { font-size: 0.84rem; color: var(--ink); line-height: 1.4; padding-bottom: 10px; border-bottom: 1px solid var(--card-border); animation: feedIn 0.35s ease; }
+  .feed-item { font-size: 0.83rem; color: var(--ink); line-height: 1.4; padding-bottom: 10px; border-bottom: 1px solid var(--card-border); animation: feedIn 0.35s ease; }
   .feed-item:last-child { border-bottom: none; padding-bottom: 0; }
   .feed-time { display: block; font-size: 0.68rem; color: var(--ink-soft); margin-top: 2px; }
   .feed-empty { font-size: 0.82rem; color: var(--ink-soft); }
@@ -55,14 +69,19 @@
       <div class="live-badge"><span class="live-dot"></span><span id="lastUpdated">กำลังเชื่อมต่อ…</span></div>
     </div>
 
-    <div class="layout">
-      <div class="board" id="board"></div>
-      <aside class="feed-panel">
-        <h2>อัปเดตล่าสุด</h2>
-        <p class="feed-sub">รายการเปลี่ยนแปลงคะแนนและหมู่บ้านแบบเรียลไทม์</p>
-        <ul class="feed-list" id="feedList"></ul>
-      </aside>
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="feed-widget" id="feedWidget">
+    <div class="feed-panel">
+      <h2>อัปเดตล่าสุด</h2>
+      <p class="feed-sub">รายการเปลี่ยนแปลงระยะทางและหมู่บ้านแบบเรียลไทม์</p>
+      <ul class="feed-list" id="feedList"></ul>
     </div>
+    <button type="button" class="feed-toggle" id="feedToggle">
+      <span>🔔 อัปเดตล่าสุด</span>
+      <span class="feed-count" id="feedCount" hidden>0</span>
+    </button>
   </div>
 
   <script src="shared.js"></script>

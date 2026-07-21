@@ -7,12 +7,18 @@
   var boardEl = document.getElementById("board");
   var titleEl = document.getElementById("boardTitle");
   var feedListEl = document.getElementById("feedList");
+  var feedWidget = document.getElementById("feedWidget");
+  var feedToggle = document.getElementById("feedToggle");
+  var feedCountEl = document.getElementById("feedCount");
   var lastUpdatedEl = document.getElementById("lastUpdated");
 
   var cardRefs = new Map();
   var lastTeamOrder = "";
   var lastEventIds = "";
   var lastFetchTs = null;
+  var seenEventId = null;
+  var feedOpen = false;
+  var feedInitialized = false;
 
   function relativeTime(ts) {
     var diff = Math.max(0, Date.now() - ts);
@@ -36,10 +42,13 @@
     nameEl.textContent = team.name;
     card.appendChild(nameEl);
 
-    var levelEl = document.createElement("div");
-    levelEl.className = "level-badge";
-    levelEl.textContent = "ระดับบ้าน " + team.level;
-    card.appendChild(levelEl);
+    var levelBadge = document.createElement("div");
+    levelBadge.className = "level-badge";
+    card.appendChild(levelBadge);
+    var levelProgress = document.createElement("div");
+    levelProgress.className = "level-progress";
+    card.appendChild(levelProgress);
+    setLevelText(levelBadge, levelProgress, team);
 
     card.appendChild(visual.plot);
 
@@ -48,14 +57,14 @@
 
     var scoreWrap = document.createElement("div");
     scoreWrap.className = "view-score";
-    var pointsEl = document.createElement("span");
-    pointsEl.className = "view-points";
-    pointsEl.textContent = team.points;
-    var ptsLabel = document.createElement("span");
-    ptsLabel.className = "view-pts-label";
-    ptsLabel.textContent = "pts";
-    scoreWrap.appendChild(pointsEl);
-    scoreWrap.appendChild(ptsLabel);
+    var kmEl = document.createElement("span");
+    kmEl.className = "view-points";
+    kmEl.textContent = team.km;
+    var kmLabel = document.createElement("span");
+    kmLabel.className = "view-pts-label";
+    kmLabel.textContent = "กม.";
+    scoreWrap.appendChild(kmEl);
+    scoreWrap.appendChild(kmLabel);
     scoreCard.appendChild(scoreWrap);
 
     var tokenGroup = document.createElement("div");
@@ -73,10 +82,18 @@
     card.appendChild(scoreCard);
 
     cardRefs.set(team.id, {
-      card: card, nameEl: nameEl, levelEl: levelEl, house: visual.house, decorLayer: visual.decorLayer,
-      pointsEl: pointsEl, tokenIconSpan: tokenIconSpan, tokenCountEl: tokenCountEl
+      card: card, nameEl: nameEl, levelBadge: levelBadge, levelProgress: levelProgress,
+      house: visual.house, plot: visual.plot, decorLayer: visual.decorLayer,
+      kmEl: kmEl, tokenIconSpan: tokenIconSpan, tokenCountEl: tokenCountEl
     });
     return card;
+  }
+
+  function setLevelText(levelBadge, levelProgress, team) {
+    var level = S.levelForKm(team.km);
+    levelBadge.textContent = "ระดับบ้าน " + level + " / " + S.MAX_LEVEL;
+    var toNext = S.kmToNextLevel(team.km);
+    levelProgress.textContent = toNext > 0 ? "อีก " + toNext + " กม. ถึงระดับถัดไป" : "อัปเกรดสูงสุดแล้ว";
   }
 
   function fullRebuild(state) {
@@ -91,43 +108,71 @@
     if (!refs) return;
     refs.card.style.setProperty("--accent", team.color);
     refs.nameEl.textContent = team.name;
-    refs.levelEl.textContent = "ระดับบ้าน " + team.level;
-    refs.house.dataset.level = String(team.level);
-    refs.house.style.setProperty("--accent", team.color);
+    setLevelText(refs.levelBadge, refs.levelProgress, team);
+    S.updateHouseLevel(refs, team);
     var accessoryEl = refs.house.querySelector(".accessory");
     if (accessoryEl) accessoryEl.innerHTML = S.ACCESSORY_ICONS[team.tokenType] || S.ACCESSORY_ICONS.star;
     S.renderDecorLayer(refs.decorLayer, team.decorations);
-    refs.pointsEl.textContent = team.points;
+    refs.kmEl.textContent = team.km;
     refs.tokenIconSpan.innerHTML = S.TOKEN_ICONS[team.tokenType] || S.TOKEN_ICONS.star;
     refs.tokenCountEl.textContent = team.tokenCount;
   }
 
   function renderFeed(events) {
     var ids = events.map(function (e) { return e.id; }).join(",");
-    if (ids === lastEventIds) return;
-    lastEventIds = ids;
-    feedListEl.innerHTML = "";
-    if (!events.length) {
-      var empty = document.createElement("li");
-      empty.className = "feed-empty";
-      empty.textContent = "ยังไม่มีความเคลื่อนไหว";
-      feedListEl.appendChild(empty);
-      return;
+    if (ids !== lastEventIds) {
+      lastEventIds = ids;
+      feedListEl.innerHTML = "";
+      if (!events.length) {
+        var empty = document.createElement("li");
+        empty.className = "feed-empty";
+        empty.textContent = "ยังไม่มีความเคลื่อนไหว";
+        feedListEl.appendChild(empty);
+      } else {
+        events.forEach(function (event) {
+          var li = document.createElement("li");
+          li.className = "feed-item";
+          var text = document.createElement("span");
+          text.textContent = event.text;
+          var time = document.createElement("span");
+          time.className = "feed-time";
+          time.dataset.ts = event.ts;
+          time.textContent = relativeTime(event.ts);
+          li.appendChild(text);
+          li.appendChild(time);
+          feedListEl.appendChild(li);
+        });
+      }
     }
-    events.forEach(function (event) {
-      var li = document.createElement("li");
-      li.className = "feed-item";
-      var text = document.createElement("span");
-      text.textContent = event.text;
-      var time = document.createElement("span");
-      time.className = "feed-time";
-      time.dataset.ts = event.ts;
-      time.textContent = relativeTime(event.ts);
-      li.appendChild(text);
-      li.appendChild(time);
-      feedListEl.appendChild(li);
-    });
+
+    if (!feedInitialized) {
+      feedInitialized = true;
+      if (events.length) seenEventId = events[0].id;
+    }
+
+    var unseenCount = 0;
+    if (events.length) {
+      if (seenEventId === null) {
+        unseenCount = events.length;
+      } else {
+        var idx = events.findIndex(function (e) { return e.id === seenEventId; });
+        unseenCount = idx === -1 ? events.length : idx;
+      }
+    }
+    if (feedOpen && events.length) seenEventId = events[0].id;
+    feedCountEl.hidden = unseenCount <= 0;
+    feedCountEl.textContent = unseenCount > 9 ? "9+" : String(unseenCount);
   }
+
+  feedToggle.addEventListener("click", function () {
+    feedOpen = !feedOpen;
+    feedWidget.classList.toggle("open", feedOpen);
+    if (feedOpen && lastEventIds) {
+      var ids = lastEventIds.split(",");
+      seenEventId = ids[0] || null;
+      feedCountEl.hidden = true;
+    }
+  });
 
   function render(state) {
     var order = state.teams.map(function (t) { return t.id; }).join(",");

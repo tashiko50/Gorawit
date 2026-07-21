@@ -19,8 +19,6 @@
   .palette button { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--card-bg); box-shadow: 0 0 0 1px var(--card-border); cursor: pointer; padding: 0; }
   .palette button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
 
-  .level-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
-
   .points-input, .token-count-input {
     font: inherit; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--ink); background: transparent;
     border: none; text-align: center; -moz-appearance: textfield;
@@ -121,7 +119,7 @@
   <div class="pin-overlay" id="pinOverlay" hidden>
     <div class="pin-card">
       <h2>กรอก Admin PIN</h2>
-      <p>ต้องใส่ PIN เพื่อแก้ไขคะแนน (ขอ PIN จากผู้ดูแลระบบ)</p>
+      <p>ต้องใส่ PIN เพื่อแก้ไขระยะทาง/หมู่บ้าน (ขอ PIN จากผู้ดูแลระบบ)</p>
       <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
       <button id="pinSubmit" type="button">ยืนยัน</button>
       <div class="pin-error" id="pinError"></div>

@@ -118,54 +118,106 @@ h1.board-title {
 .team-name[contenteditable="true"] { outline: none; cursor: text; }
 .team-name[contenteditable="true"]:hover, .team-name[contenteditable="true"]:focus-visible { outline: 2px dashed var(--accent-soft); }
 
-.level-badge { font-size: 0.68rem; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+.level-badge { font-size: 0.68rem; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+.level-progress { font-size: 0.68rem; color: var(--ink-soft); margin-bottom: 10px; }
 
-/* house */
-.house-plot { position: relative; width: 190px; height: 160px; margin-bottom: 12px; }
-.house { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 150px; height: 128px; transition: width 0.25s ease, height 0.25s ease; }
-.house[data-level="2"] { width: 168px; height: 136px; }
-.house[data-level="3"] { width: 186px; height: 146px; }
+/* house — 2.5D village hut that unlocks detail every 10km */
+.house-plot { position: relative; width: 260px; height: 224px; margin-bottom: 12px; }
+.house {
+  position: absolute; left: 50%; bottom: 54px; transform: translateX(-50%);
+  width: 140px; height: 100px;
+  transition: width 0.3s ease, height 0.3s ease;
+}
+.house[data-level="1"] { width: 152px; height: 112px; }
+.house[data-level="2"], .house[data-level="3"] { width: 164px; height: 136px; }
 
-.house .roof { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 78px solid transparent; border-right: 78px solid transparent; border-bottom: 56px solid var(--accent, #4a90d9); filter: drop-shadow(0 3px 0 var(--accent-deep)); transition: border-width 0.25s ease; }
-.house[data-level="2"] .roof { border-left-width: 84px; border-right-width: 84px; border-bottom-width: 60px; }
-.house[data-level="3"] .roof { border-left-width: 93px; border-right-width: 93px; border-bottom-width: 66px; }
+.house .roof {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 0; height: 0;
+  border-left: 70px solid transparent; border-right: 70px solid transparent;
+  border-bottom: 46px solid color-mix(in srgb, var(--accent, #4a90d9) 84%, white);
+  transition: border-width 0.3s ease;
+}
+.house[data-level="1"] .roof { border-left-width: 76px; border-right-width: 76px; border-bottom-width: 50px; }
+.house[data-level="2"] .roof, .house[data-level="3"] .roof { border-left-width: 82px; border-right-width: 82px; border-bottom-width: 54px; }
 
-.house .chimney { position: absolute; top: 6px; right: 28px; width: 14px; height: 26px; background: var(--accent-deep); border-radius: 2px 2px 0 0; }
-.house .chimney2 { position: absolute; top: 10px; left: 24px; width: 11px; height: 20px; background: var(--accent-deep); border-radius: 2px 2px 0 0; display: none; }
-.house[data-level="3"] .chimney2 { display: block; }
+.house .roof-side {
+  position: absolute; top: 0; right: -1px; width: 16px; height: 46px;
+  background: var(--accent-deep); clip-path: polygon(0% 100%, 100% 34%, 100% 100%);
+  transition: height 0.3s ease;
+}
+.house[data-level="1"] .roof-side { height: 50px; }
+.house[data-level="2"] .roof-side, .house[data-level="3"] .roof-side { height: 54px; }
 
-.house .wall { position: absolute; top: 50px; left: 12px; right: 12px; bottom: 0; background: var(--accent-tint); border: 2px solid var(--accent-soft); border-radius: 0 0 14px 14px; }
+.house .chimney { display: none; position: absolute; top: 4px; right: 30px; width: 13px; height: 24px; background: var(--accent-deep); border-radius: 2px 2px 0 0; }
+.house[data-level="2"] .chimney, .house[data-level="3"] .chimney { display: block; }
+
+.house .wall {
+  position: absolute; top: 46px; left: 10px; right: 10px; bottom: 0;
+  background: color-mix(in srgb, var(--accent, #4a90d9) 20%, var(--card-bg));
+  border: 2px solid var(--accent-soft); border-right: none; border-radius: 0 0 0 12px;
+  transition: top 0.3s ease;
+}
+.house[data-level="1"] .wall { top: 50px; }
 .house[data-level="2"] .wall, .house[data-level="3"] .wall { top: 54px; }
 
-.house .window { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 12%, white); border: 3px solid var(--accent-soft); }
-.house .window::before, .house .window::after { content: ""; position: absolute; background: var(--accent-soft); }
+.house .wall-side {
+  position: absolute; top: 46px; right: -12px; bottom: 0; width: 12px;
+  background: var(--accent-deep); transition: top 0.3s ease;
+}
+.house[data-level="1"] .wall-side { top: 50px; }
+.house[data-level="2"] .wall-side, .house[data-level="3"] .wall-side { top: 54px; }
+
+.house .window { display: none; position: absolute; left: 24px; bottom: 6px; width: 26px; height: 26px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 6%, white); border: 3px solid var(--accent-deep); box-shadow: 0 1px 3px var(--panel-shadow); }
+.house[data-level="1"] .window, .house[data-level="2"] .window, .house[data-level="3"] .window { display: block; }
+.house .window::before, .house .window::after { content: ""; position: absolute; background: var(--accent-deep); }
 .house .window::before { top: 50%; left: 3px; right: 3px; height: 2px; transform: translateY(-50%); }
 .house .window::after { left: 50%; top: 3px; bottom: 3px; width: 2px; transform: translateX(-50%); }
 
-.house .window--side { display: none; top: 16px; left: 14%; width: 22px; height: 22px; transform: none; }
-.house[data-level="2"] .window--side, .house[data-level="3"] .window--side { display: block; }
+.house .window--upper { display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 20px; height: 20px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 6%, white); border: 2px solid var(--accent-deep); box-shadow: 0 1px 2px var(--panel-shadow); }
+.house[data-level="2"] .window--upper, .house[data-level="3"] .window--upper { display: block; }
+.house .window--upper::before, .house .window--upper::after { content: ""; position: absolute; background: var(--accent-deep); }
+.house .window--upper::before { top: 50%; left: 2px; right: 2px; height: 1.5px; transform: translateY(-50%); }
+.house .window--upper::after { left: 50%; top: 2px; bottom: 2px; width: 1.5px; transform: translateX(-50%); }
 
-.house .attic-window { display: none; position: absolute; top: -38px; left: 50%; transform: translateX(-50%); width: 16px; height: 16px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 20%, white); border: 2px solid var(--accent-deep); }
-.house[data-level="3"] .attic-window { display: block; }
+.house .pillar { display: none; position: absolute; bottom: 0; width: 6px; height: 26px; background: var(--accent-deep); border-radius: 2px 2px 0 0; }
+.house[data-level="1"] .pillar, .house[data-level="2"] .pillar, .house[data-level="3"] .pillar { display: block; }
+.house .pillar--left { left: 14px; }
+.house .pillar--right { right: 22px; }
 
-.house .door { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 30px; height: 44px; background: var(--accent-deep); border-radius: 8px 8px 0 0; }
-.house .door::after { content: ""; position: absolute; right: 5px; top: 50%; width: 4px; height: 4px; border-radius: 50%; background: var(--accent-tint); }
+.house .door { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 26px; height: 38px; background: var(--accent-deep); border-radius: 7px 7px 0 0; }
+.house .door::after { content: ""; position: absolute; right: 4px; top: 50%; width: 3.5px; height: 3.5px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 20%, var(--card-bg)); }
 
-.house .accessory { position: absolute; top: -20px; right: 4px; width: 30px; height: 30px; color: var(--accent-deep); }
-.house[data-level="3"] .accessory { top: -30px; }
+.house .accessory { position: absolute; top: -18px; right: 2px; width: 28px; height: 28px; color: var(--accent-deep); transition: top 0.3s ease; }
+.house[data-level="2"] .accessory, .house[data-level="3"] .accessory { top: -26px; }
 .house .accessory svg { width: 100%; height: 100%; overflow: visible; }
 
-/* decorations */
-.decor { position: absolute; width: 26px; height: 26px; transform: translate(-50%, -50%); }
+.fence { display: none; position: absolute; left: 2%; right: 2%; bottom: 6px; height: 16px; }
+.house-plot[data-fence="true"] .fence { display: block; }
+.fence::before {
+  content: ""; position: absolute; inset: 0; top: 6px; height: 4px;
+  background: color-mix(in srgb, var(--accent, #4a90d9) 55%, #8a5a3b);
+}
+.fence::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent, #4a90d9) 45%, #a9784f) 0 4px,
+    transparent 4px 16px
+  );
+}
+
+/* decorations — confined to the margins/yard around the house so nothing overlaps it */
+.decor { position: absolute; width: 24px; height: 24px; transform: translate(-50%, -50%); }
 .decor svg { width: 100%; height: 100%; }
 .decor-badge {
   position: absolute; transform: translate(-50%, -50%); font-size: 0.62rem; font-weight: 800;
   color: var(--ink); background: var(--card-bg); border: 1px solid var(--card-border);
-  border-radius: 999px; padding: 1px 5px; box-shadow: 0 1px 3px var(--panel-shadow);
+  border-radius: 999px; padding: 1px 5px; box-shadow: 0 1px 3px var(--panel-shadow); white-space: nowrap;
 }
 .tea-field {
-  position: absolute; left: 4%; right: 4%; bottom: 0;
-  height: calc(6px * var(--rows, 1) + 4px);
+  position: absolute; left: 6%; right: 6%; bottom: 26px;
+  height: calc(5px * var(--rows, 1) + 4px);
   background-image: repeating-linear-gradient(90deg, #6fae4e 0 9px, #5c9a42 9px 18px);
   border-radius: 6px; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25);
 }

@@ -5,6 +5,10 @@
   var TOKEN_TYPES = ["star", "coin", "coins", "chest"];
   var DECORATION_TYPES = ["trees", "flowers", "people", "animals", "teaField"];
   var DECORATION_LABELS = { trees: "ต้นไม้", flowers: "ดอกไม้", people: "ผู้คน", animals: "สัตว์เลี้ยง", teaField: "แปลงชา" };
+  var DECORATION_MAX = { trees: 20, flowers: 20, people: 30, animals: 20, teaField: 10 };
+
+  var KM_PER_LEVEL = 10;
+  var MAX_LEVEL = 3;
 
   var TOKEN_ICONS = {
     star: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5l2.7 6.35 6.9.6-5.2 4.6 1.6 6.8L12 17.6l-6 3.25 1.6-6.8-5.2-4.6 6.9-.6L12 2.5z" fill="#F4C542" stroke="#B8862A" stroke-width="1" stroke-linejoin="round"/></svg>',
@@ -24,38 +28,66 @@
     trees: '<svg viewBox="0 0 24 24"><path d="M12 2 6.5 10h2.7L4.5 17h6V22h3v-5h6l-4.7-7h2.7L12 2z" fill="#3f7d4c" stroke="#2b5636" stroke-width="0.6" stroke-linejoin="round"/></svg>',
     flowers: '<svg viewBox="0 0 24 24"><path d="M12 12v9" stroke="#4f9a5b" stroke-width="2" stroke-linecap="round"/><g fill="#f177a6"><circle cx="12" cy="7" r="2.6"/><circle cx="8.2" cy="9" r="2.2"/><circle cx="15.8" cy="9" r="2.2"/><circle cx="9.5" cy="12" r="2.2"/><circle cx="14.5" cy="12" r="2.2"/></g><circle cx="12" cy="10" r="2" fill="#ffd873"/></svg>',
     people: '<svg viewBox="0 0 24 24"><circle cx="12" cy="6.2" r="3" fill="#8a5a3b"/><path d="M6 21c0-5 3-8 6-8s6 3 6 8" fill="var(--accent, #4a90d9)"/></svg>',
-    animals: '<svg viewBox="0 0 24 24"><circle cx="18" cy="10" r="3" fill="#f3ede3" stroke="#c9bfae" stroke-width="1"/><ellipse cx="11" cy="14" rx="7.2" ry="5" fill="#f3ede3" stroke="#c9bfae" stroke-width="1"/><rect x="7" y="18" width="2.2" height="4" rx="1" fill="#c9bfae"/><rect x="13" y="18" width="2.2" height="4" rx="1" fill="#c9bfae"/></svg>'
+    animals: '<svg viewBox="0 0 24 24"><path d="M5 13c-1.2 0-2-.9-2-2s.8-2 2-2" fill="none" stroke="#c98a4b" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="11" cy="14.5" rx="6.4" ry="4.6" fill="#e9c095" stroke="#c98a4b" stroke-width="1"/><path d="M5.5 10.5 4 6.5l3 2.2z" fill="#e9c095" stroke="#c98a4b" stroke-width="1" stroke-linejoin="round"/><path d="M8 9.5 6.8 5.2l3 2.6z" fill="#e9c095" stroke="#c98a4b" stroke-width="1" stroke-linejoin="round"/><circle cx="6.6" cy="11.6" r="0.7" fill="#5c3d22"/><rect x="7" y="18" width="2" height="3.4" rx="1" fill="#c98a4b"/><rect x="13.5" y="18" width="2" height="3.4" rx="1" fill="#c98a4b"/><path d="M17.2 12.5c1.4.3 2 1.6 1.4 2.8" fill="none" stroke="#c98a4b" stroke-width="1.3" stroke-linecap="round"/></svg>'
   };
 
+  /* All slots (and their overflow badges) stay outside the house footprint:
+     trees/flowers hug the side margins (x well outside the widest house+2.5D-panel span),
+     people/animals stay in the yard strip below the house's fixed bottom edge. */
   var DECOR_SLOTS = {
-    trees: [[3, 82], [-4, 60], [10, 96]],
-    flowers: [[88, 90], [98, 70], [80, 99]],
-    people: [[42, 98], [58, 92]],
-    animals: [[26, 96], [70, 84]]
+    trees: [[4, 38], [2, 53], [9, 66]],
+    flowers: [[94, 40], [98, 55], [92, 68]],
+    people: [[22, 86], [72, 94], [48, 90]],
+    animals: [[12, 89], [86, 95]]
+  };
+  var DECOR_BADGE_POS = {
+    trees: [6, 78],
+    flowers: [95, 78],
+    people: [50, 97],
+    animals: [70, 97]
   };
 
   function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 
+  function levelForKm(km) {
+    return clamp(Math.floor((Number(km) || 0) / KM_PER_LEVEL), 0, MAX_LEVEL);
+  }
+
+  function kmToNextLevel(km) {
+    var level = levelForKm(km);
+    if (level >= MAX_LEVEL) return 0;
+    return (level + 1) * KM_PER_LEVEL - Number(km || 0);
+  }
+
   function buildHousePlot(team) {
+    var level = levelForKm(team.km);
+
     var plot = document.createElement("div");
     plot.className = "house-plot";
+    plot.dataset.fence = String(level >= 3);
 
     var house = document.createElement("div");
     house.className = "house";
-    house.dataset.level = String(team.level || 1);
+    house.dataset.level = String(level);
     house.style.setProperty("--accent", team.color);
     house.innerHTML =
       '<div class="roof"></div>' +
+      '<div class="roof-side"></div>' +
       '<div class="chimney"></div>' +
-      '<div class="chimney2"></div>' +
       '<div class="wall">' +
       '<div class="window"></div>' +
-      '<div class="window window--side"></div>' +
-      '<div class="attic-window"></div>' +
+      '<div class="window--upper"></div>' +
+      '<div class="pillar pillar--left"></div>' +
+      '<div class="pillar pillar--right"></div>' +
       '<div class="door"></div>' +
       "</div>" +
+      '<div class="wall-side"></div>' +
       '<div class="accessory">' + (ACCESSORY_ICONS[team.tokenType] || ACCESSORY_ICONS.star) + "</div>";
     plot.appendChild(house);
+
+    var fence = document.createElement("div");
+    fence.className = "fence";
+    plot.appendChild(fence);
 
     var decorLayer = document.createElement("div");
     decorLayer.className = "decor-layer";
@@ -63,6 +95,14 @@
     plot.appendChild(decorLayer);
 
     return { plot: plot, house: house, decorLayer: decorLayer };
+  }
+
+  function updateHouseLevel(refs, team) {
+    var level = levelForKm(team.km);
+    refs.house.dataset.level = String(level);
+    refs.house.style.setProperty("--accent", team.color);
+    refs.plot.dataset.fence = String(level >= 3);
+    return level;
   }
 
   function renderDecorLayer(layer, decorations) {
@@ -82,9 +122,9 @@
       if (count > slots.length) {
         var badge = document.createElement("div");
         badge.className = "decor-badge";
-        var last = slots[slots.length - 1];
-        badge.style.left = clamp(last[0] + 14, 0, 100) + "%";
-        badge.style.top = last[1] + "%";
+        var pos = DECOR_BADGE_POS[type];
+        badge.style.left = pos[0] + "%";
+        badge.style.top = pos[1] + "%";
         badge.textContent = "+" + (count - slots.length);
         layer.appendChild(badge);
       }
@@ -93,7 +133,7 @@
     if (teaField > 0) {
       var field = document.createElement("div");
       field.className = "tea-field";
-      field.style.setProperty("--rows", Math.min(teaField, 5));
+      field.style.setProperty("--rows", Math.min(teaField, 4));
       layer.appendChild(field);
     }
   }
@@ -103,10 +143,16 @@
     TOKEN_TYPES: TOKEN_TYPES,
     DECORATION_TYPES: DECORATION_TYPES,
     DECORATION_LABELS: DECORATION_LABELS,
+    DECORATION_MAX: DECORATION_MAX,
     TOKEN_ICONS: TOKEN_ICONS,
     ACCESSORY_ICONS: ACCESSORY_ICONS,
     DECOR_ICONS: DECOR_ICONS,
+    MAX_LEVEL: MAX_LEVEL,
+    KM_PER_LEVEL: KM_PER_LEVEL,
+    levelForKm: levelForKm,
+    kmToNextLevel: kmToNextLevel,
     buildHousePlot: buildHousePlot,
+    updateHouseLevel: updateHouseLevel,
     renderDecorLayer: renderDecorLayer,
     clamp: clamp
   };

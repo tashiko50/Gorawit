@@ -49,7 +49,7 @@
     if (!value) return;
     localStorage.setItem(PIN_KEY, value);
     hidePinModal();
-    flash("บันทึก PIN แล้ว ลองแก้ไขคะแนนได้เลย");
+    flash("บันทึก PIN แล้ว ลองแก้ไขระยะทางได้เลย");
   }
   document.getElementById("pinSubmit").addEventListener("click", submitPin);
   pinInput.addEventListener("keydown", function (e) {
@@ -130,23 +130,15 @@
 
     card.appendChild(visual.plot);
 
-    var levelRow = document.createElement("div");
-    levelRow.className = "level-row";
-    var levelMinus = document.createElement("button");
-    levelMinus.type = "button"; levelMinus.className = "step-btn"; levelMinus.textContent = "−";
-    levelMinus.setAttribute("aria-label", "ลดระดับบ้าน");
-    levelMinus.addEventListener("click", function () { postAction("adjustLevel", team.id, { delta: -1 }); });
-    var levelLabel = document.createElement("div");
-    levelLabel.className = "level-badge";
-    levelLabel.textContent = "ระดับบ้าน " + team.level;
-    var levelPlus = document.createElement("button");
-    levelPlus.type = "button"; levelPlus.className = "step-btn"; levelPlus.textContent = "+";
-    levelPlus.setAttribute("aria-label", "อัปเกรดบ้าน");
-    levelPlus.addEventListener("click", function () { postAction("adjustLevel", team.id, { delta: 1 }); });
-    levelRow.appendChild(levelMinus);
-    levelRow.appendChild(levelLabel);
-    levelRow.appendChild(levelPlus);
-    card.appendChild(levelRow);
+    var levelBadge = document.createElement("div");
+    levelBadge.className = "level-badge";
+    var level = S.levelForKm(team.km);
+    levelBadge.textContent = "ระดับบ้าน " + level + " / " + S.MAX_LEVEL;
+    card.appendChild(levelBadge);
+
+    var levelProgress = document.createElement("div");
+    levelProgress.className = "level-progress";
+    card.appendChild(levelProgress);
 
     var scoreCard = document.createElement("div");
     scoreCard.className = "score-card";
@@ -155,29 +147,29 @@
     pointsGroup.className = "points-group";
     var minusBtn = document.createElement("button");
     minusBtn.type = "button"; minusBtn.className = "step-btn"; minusBtn.textContent = "−";
-    minusBtn.setAttribute("aria-label", "ลดคะแนน");
-    minusBtn.addEventListener("click", function () { postAction("adjustPoints", team.id, { delta: -1 }); });
+    minusBtn.setAttribute("aria-label", "ลดระยะทาง");
+    minusBtn.addEventListener("click", function () { postAction("adjustKm", team.id, { delta: -1 }); });
 
-    var pointsInput = document.createElement("input");
-    pointsInput.type = "number"; pointsInput.className = "points-input"; pointsInput.value = team.points; pointsInput.inputMode = "numeric";
-    pointsInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); pointsInput.blur(); } });
-    pointsInput.addEventListener("blur", function () {
-      var n = parseInt(pointsInput.value, 10);
+    var kmInput = document.createElement("input");
+    kmInput.type = "number"; kmInput.className = "points-input"; kmInput.value = team.km; kmInput.inputMode = "numeric";
+    kmInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); kmInput.blur(); } });
+    kmInput.addEventListener("blur", function () {
+      var n = parseInt(kmInput.value, 10);
       if (isNaN(n)) n = 0;
-      if (n !== team.points) postAction("setPoints", team.id, { points: n });
-      else pointsInput.value = team.points;
+      if (n !== team.km) postAction("setKm", team.id, { km: n });
+      else kmInput.value = team.km;
     });
 
     var plusBtn = document.createElement("button");
     plusBtn.type = "button"; plusBtn.className = "step-btn"; plusBtn.textContent = "+";
-    plusBtn.setAttribute("aria-label", "เพิ่มคะแนน");
-    plusBtn.addEventListener("click", function () { postAction("adjustPoints", team.id, { delta: 1 }); });
+    plusBtn.setAttribute("aria-label", "เพิ่มระยะทาง");
+    plusBtn.addEventListener("click", function () { postAction("adjustKm", team.id, { delta: 1 }); });
 
     var ptsCol = document.createElement("div");
     ptsCol.className = "pts-col";
-    ptsCol.appendChild(pointsInput);
+    ptsCol.appendChild(kmInput);
     var ptsLabel = document.createElement("div");
-    ptsLabel.className = "pts-label"; ptsLabel.textContent = "pts";
+    ptsLabel.className = "pts-label"; ptsLabel.textContent = "กม.";
     ptsCol.appendChild(ptsLabel);
 
     pointsGroup.appendChild(minusBtn);
@@ -276,13 +268,21 @@
     card.appendChild(decorPanel);
 
     cardRefs.set(team.id, {
-      card: card, nameEl: nameEl, palette: palette, house: visual.house, decorLayer: visual.decorLayer,
-      levelLabel: levelLabel, levelMinus: levelMinus, levelPlus: levelPlus,
-      pointsInput: pointsInput, tokenIconSpan: tokenIconSpan, tokenCountInput: tokenCountInput,
+      card: card, nameEl: nameEl, palette: palette, house: visual.house, plot: visual.plot, decorLayer: visual.decorLayer,
+      levelBadge: levelBadge, levelProgress: levelProgress,
+      kmInput: kmInput, tokenIconSpan: tokenIconSpan, tokenCountInput: tokenCountInput,
       decorRefs: decorRefs
     });
 
+    updateLevelText(levelBadge, levelProgress, team);
     return card;
+  }
+
+  function updateLevelText(levelBadge, levelProgress, team) {
+    var level = S.levelForKm(team.km);
+    levelBadge.textContent = "ระดับบ้าน " + level + " / " + S.MAX_LEVEL;
+    var toNext = S.kmToNextLevel(team.km);
+    levelProgress.textContent = toNext > 0 ? "อีก " + toNext + " กม. ถึงระดับถัดไป" : "อัปเกรดสูงสุดแล้ว";
   }
 
   function buildAddCard() {
@@ -326,17 +326,14 @@
       dot.setAttribute("aria-pressed", String(dot.dataset.hex === team.color.toLowerCase()));
     });
 
-    refs.house.dataset.level = String(team.level);
-    refs.house.style.setProperty("--accent", team.color);
-    refs.levelLabel.textContent = "ระดับบ้าน " + team.level;
-    refs.levelMinus.disabled = team.level <= 1;
-    refs.levelPlus.disabled = team.level >= 3;
+    S.updateHouseLevel(refs, team);
+    updateLevelText(refs.levelBadge, refs.levelProgress, team);
 
     var accessoryEl = refs.house.querySelector(".accessory");
     if (accessoryEl) accessoryEl.innerHTML = S.ACCESSORY_ICONS[team.tokenType] || S.ACCESSORY_ICONS.star;
     S.renderDecorLayer(refs.decorLayer, team.decorations);
 
-    if (document.activeElement !== refs.pointsInput) refs.pointsInput.value = team.points;
+    if (document.activeElement !== refs.kmInput) refs.kmInput.value = team.km;
     refs.tokenIconSpan.innerHTML = S.TOKEN_ICONS[team.tokenType] || S.TOKEN_ICONS.star;
     if (document.activeElement !== refs.tokenCountInput) refs.tokenCountInput.value = team.tokenCount;
 

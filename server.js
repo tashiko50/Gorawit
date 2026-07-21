@@ -11,8 +11,10 @@ const STATE_FILE = path.join(DATA_DIR, "state.json");
 const ADMIN_PIN = process.env.ADMIN_PIN || "0000";
 const MAX_EVENTS = 60;
 const MAX_TEAMS = 12;
-const MAX_DECORATION = 20;
 const MAX_LEVEL = 3;
+const KM_PER_LEVEL = 10;
+
+const DECORATION_MAX = { trees: 20, flowers: 20, people: 30, animals: 20, teaField: 10 };
 
 const PALETTE = ["#4A90D9", "#E2934A", "#4F9A5B", "#D1587A", "#8B6FD1", "#3FA9A0"];
 const TOKEN_TYPES = ["star", "coin", "coins", "chest"];
@@ -25,15 +27,18 @@ const DECORATION_LABELS = {
   teaField: "แปลงชา"
 };
 
+function levelForKm(km) {
+  return Math.max(0, Math.min(MAX_LEVEL, Math.floor(km / KM_PER_LEVEL)));
+}
+
 function makeTeam(id, name, color, tokenType) {
   return {
     id,
     name,
     color,
-    points: 0,
+    km: 0,
     tokenType,
     tokenCount: 0,
-    level: 1,
     decorations: { trees: 0, flowers: 0, people: 0, animals: 0, teaField: 0 }
   };
 }
@@ -89,6 +94,17 @@ function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+function applyKmChange(team, nextKm) {
+  const prevLevel = levelForKm(team.km);
+  team.km = nextKm;
+  const newLevel = levelForKm(team.km);
+  if (newLevel > prevLevel) {
+    pushEvent(`\u{1F3E1}✨ ${team.name} ปลดล็อกบ้านระดับ ${newLevel} แล้ว! (ถึง ${newLevel * KM_PER_LEVEL} กม.)`);
+  } else if (newLevel < prevLevel) {
+    pushEvent(`⬇️ ${team.name} กม. ลดลง บ้านตกกลับไประดับ ${newLevel}`);
+  }
+}
+
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/state", (req, res) => {
@@ -110,7 +126,7 @@ app.post("/api/actions", requirePin, (req, res) => {
   const team = teamId ? findTeam(teamId) : null;
   let createdTeamId = null;
 
-  if (["renameTeam", "setColor", "adjustPoints", "setPoints", "setTokenType", "adjustTokenCount", "adjustLevel", "adjustDecoration", "removeTeam"].includes(type) && !team) {
+  if (["renameTeam", "setColor", "adjustKm", "setKm", "setTokenType", "adjustTokenCount", "adjustDecoration", "removeTeam"].includes(type) && !team) {
     return res.status(404).json({ error: "team_not_found" });
   }
 
@@ -151,17 +167,17 @@ app.post("/api/actions", requirePin, (req, res) => {
       }
       break;
     }
-    case "adjustPoints": {
+    case "adjustKm": {
       const delta = Math.trunc(Number(payload.delta)) || 0;
-      team.points += delta;
-      pushEvent(`${delta >= 0 ? "⭐" : "➖"} ${team.name} ${delta >= 0 ? "+" : ""}${delta} pts (รวม ${team.points})`);
+      applyKmChange(team, team.km + delta);
+      pushEvent(`\u{1F45F} ${team.name} ${delta >= 0 ? "+" : ""}${delta} กม. (รวม ${team.km} กม.)`);
       break;
     }
-    case "setPoints": {
-      const points = Math.trunc(Number(payload.points));
-      if (Number.isFinite(points)) {
-        team.points = points;
-        pushEvent(`⭐ ${team.name} ตั้งคะแนนเป็น ${points} pts`);
+    case "setKm": {
+      const km = Math.trunc(Number(payload.km));
+      if (Number.isFinite(km)) {
+        applyKmChange(team, km);
+        pushEvent(`\u{1F45F} ${team.name} ตั้งระยะทางเป็น ${km} กม.`);
       }
       break;
     }
@@ -181,20 +197,12 @@ app.post("/api/actions", requirePin, (req, res) => {
       }
       break;
     }
-    case "adjustLevel": {
-      const delta = Math.trunc(Number(payload.delta)) || 0;
-      const next = clamp(team.level + delta, 1, MAX_LEVEL);
-      if (next !== team.level) {
-        team.level = next;
-        pushEvent(`${delta > 0 ? "⬆️" : "⬇️"} ${team.name} ${delta > 0 ? "อัปเกรด" : "ลดระดับ"}บ้านเป็นระดับ ${next}`);
-      }
-      break;
-    }
     case "adjustDecoration": {
       const decoType = payload.decoType;
       if (!DECORATION_TYPES.includes(decoType)) return res.status(400).json({ error: "bad_decoration_type" });
       const delta = Math.trunc(Number(payload.delta)) || 0;
-      const next = clamp(team.decorations[decoType] + delta, 0, MAX_DECORATION);
+      const max = DECORATION_MAX[decoType] || 20;
+      const next = clamp(team.decorations[decoType] + delta, 0, max);
       if (next !== team.decorations[decoType]) {
         team.decorations[decoType] = next;
         pushEvent(`${delta >= 0 ? "\u{1F331}" : "\u{1F9F9}"} ${team.name} ${delta >= 0 ? "เพิ่ม" : "ลด"}${DECORATION_LABELS[decoType]}`);
