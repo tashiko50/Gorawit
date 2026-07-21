@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Run Mile — เส้นทางวิ่งกรุงเทพฯ→เชียงราย</title>
+<link rel="stylesheet" href="shared.css" />
+<style>
+  .run-layout { display: flex; flex-wrap: wrap; gap: clamp(20px, 3vw, 40px); justify-content: center; align-items: flex-start; width: 100%; max-width: 1100px; }
+
+  .map-panel { width: 100%; max-width: 620px; }
+  .map-frame {
+    position: relative; width: 100%; aspect-ratio: 520 / 860; border-radius: 26px; overflow: hidden;
+    box-shadow: 0 10px 30px var(--panel-shadow); border: 3px solid var(--card-border);
+  }
+  .map-frame svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .pins-layer, .runners-layer { position: absolute; inset: 0; pointer-events: none; }
+
+  .route-path { fill: none; stroke: #fff8e6; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 3 10; }
+  .route-glow { fill: none; stroke: rgba(255, 255, 255, 0.45); stroke-width: 10; stroke-linecap: round; }
+
+  /* A waypoint's dot stays glued to its true point on the road (rendered in SVG, see
+     #pinDots). Only the label pill lives here, offset sideways off the road so it never
+     fights with the dashed line or a runner marker sitting exactly on the checkpoint —
+     connected back to the dot with a thin leader line (also SVG, #pinLeaders). */
+  .way-label-pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .way-label {
+    font-size: 0.56rem; font-weight: 700; color: #2b3a4a; background: rgba(255, 255, 255, 0.88);
+    padding: 1px 5px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+  .way-label-pin.finish .way-label { background: #ffd873; color: #6b4d05; }
+  .way-km { font-size: 0.52rem; color: #5b7086; background: rgba(255, 255, 255, 0.75); border-radius: 999px; padding: 0 5px; }
+
+  /* The runner's shadow+badge are anchored exactly to (x,y) — the actual position on the
+     road. The name/km tag floats a fixed distance below that anchor instead of stacking
+     inside the same box, so a taller/shorter tag never drags the badge off its real spot. */
+  .runner { position: absolute; z-index: 5; transition: left 0.6s ease, top 0.6s ease; }
+  .runner-shadow {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+    width: 20px; height: 7px; border-radius: 50%; background: rgba(20, 30, 20, 0.3);
+  }
+  .runner-badge {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -100%);
+    width: 34px; height: 34px; border-radius: 50%; background: var(--accent, #4a90d9);
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); border: 2px solid #fff;
+  }
+  .runner-badge .run-icon { width: 20px; height: 20px; }
+  .runner-tag { position: absolute; left: 0; top: 6px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .runner-name {
+    font-size: 0.66rem; font-weight: 800; color: #fff; background: color-mix(in srgb, var(--accent, #4a90d9) 80%, black);
+    padding: 1px 8px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  .runner-km { font-size: 0.58rem; font-weight: 700; color: var(--ink); background: var(--card-bg); border-radius: 999px; padding: 0 5px; }
+
+  .runner.celebrate .runner-badge { animation: runner-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes runner-pop {
+    0% { transform: scale(1); }
+    35% { transform: scale(0.82); }
+    60% { transform: scale(1.28); filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent, #4a90d9) 80%, white)); }
+    100% { transform: scale(1); }
+  }
+  .runner-toast {
+    position: absolute; left: 0; bottom: 40px; transform: translateX(-50%);
+    background: var(--card-bg); color: var(--ink); font-size: 0.7rem; font-weight: 800;
+    padding: 5px 10px; border-radius: 999px; box-shadow: 0 6px 14px var(--panel-shadow);
+    white-space: nowrap; animation: runner-toast-pop 2.2s ease forwards; pointer-events: none;
+  }
+  @keyframes runner-toast-pop {
+    0% { opacity: 0; transform: translate(-50%, 10px) scale(0.85); }
+    15% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    85% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -10px) scale(1); }
+  }
+  .runner-sparkle-burst { position: absolute; left: 0; top: -17px; width: 0; height: 0; pointer-events: none; }
+  .runner-sparkle {
+    position: absolute; left: 0; top: 0; font-size: 13px; transform-origin: 0 0;
+    animation: runner-sparkle-fly 0.8s ease-out forwards; transform: rotate(var(--angle)) translateY(0);
+  }
+  @keyframes runner-sparkle-fly {
+    0% { opacity: 1; transform: rotate(var(--angle)) translateY(0) scale(0.4); }
+    100% { opacity: 0; transform: rotate(var(--angle)) translateY(-46px) scale(1.1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .runner { transition: none; }
+    .runner.celebrate .runner-badge { animation: none; }
+    .runner-toast, .runner-sparkle { animation: none; opacity: 0; }
+  }
+
+  .roster-panel { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 10px; }
+  .roster-card {
+    --accent-deep: color-mix(in srgb, var(--accent, #4a90d9) 70%, black);
+    background: var(--card-bg); border: 2px solid var(--card-border); border-radius: 16px; padding: 12px 16px;
+    box-shadow: 0 4px 10px var(--panel-shadow);
+  }
+  .roster-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .roster-name { font-weight: 800; color: var(--accent-deep); }
+  .roster-km { font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .roster-place { font-size: 0.78rem; color: var(--ink-soft); margin-top: 4px; }
+  .roster-bar-track { height: 8px; border-radius: 999px; background: var(--toolbar-bg); margin-top: 8px; overflow: hidden; }
+  .roster-bar-fill { height: 100%; border-radius: 999px; background: var(--accent, #4a90d9); transition: width 0.6s ease; }
+  .roster-empty { text-align: center; color: var(--ink-soft); font-size: 0.85rem; padding: 20px; }
+</style>
+</head>
+<body>
+  <div class="scene-sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud--a"></div>
+    <div class="cloud cloud--b"></div>
+    <div class="cloud cloud--c"></div>
+  </div>
+
+  <div class="page">
+    <div class="title-wrap">
+      <h1 class="board-title" id="boardTitle">Village Builders Scoreboard</h1>
+      <div class="subtitle">🏃 เส้นทางวิ่ง กรุงเทพฯ (TDFB HQ) → เชียงราย</div>
+      <div class="live-badge"><span class="live-dot"></span><span id="lastUpdated">กำลังเชื่อมต่อ…</span></div>
+      <div class="page-links"><a href="view.html">🏠 มุมมองหมู่บ้าน</a></div>
+    </div>
+
+    <div class="run-layout">
+      <div class="map-panel">
+        <div class="map-frame">
+          <svg id="routeSvg" viewBox="0 0 520 860" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <defs>
+              <linearGradient id="terrainGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#8CA3B8" />
+                <stop offset="28%" stop-color="#7FAE6F" />
+                <stop offset="60%" stop-color="#A8C96A" />
+                <stop offset="100%" stop-color="#DCDC93" />
+              </linearGradient>
+              <pattern id="paddyHatch" width="26" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(8)">
+                <line x1="0" y1="14" x2="26" y2="0" stroke="#8fae55" stroke-width="2" opacity="0.35" />
+              </pattern>
+            </defs>
+
+            <rect x="0" y="0" width="520" height="860" fill="url(#terrainGrad)" />
+            <rect x="0" y="600" width="520" height="260" fill="url(#paddyHatch)" />
+
+            <path d="M0,230 L60,140 L110,210 L170,110 L230,200 L300,130 L360,215 L520,150 L520,0 L0,0 Z" fill="#5c7a72" opacity="0.55" />
+            <path d="M0,280 L80,190 L150,260 L230,170 L320,250 L400,180 L520,240 L520,0 L0,0 Z" fill="#496359" opacity="0.35" />
+
+            <g fill="#4f8a55" opacity="0.4">
+              <circle cx="90" cy="380" r="26" />
+              <circle cx="130" cy="360" r="20" />
+              <circle cx="410" cy="420" r="24" />
+              <circle cx="440" cy="450" r="18" />
+              <circle cx="180" cy="470" r="22" />
+            </g>
+
+            <path id="routeGlow" class="route-glow" d="" />
+            <path id="routePath" class="route-path" d="" />
+            <g id="pinLeaders" stroke="#7a5230" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"></g>
+            <g id="pinDots"></g>
+          </svg>
+          <div class="pins-layer" id="pinsLayer"></div>
+          <div class="runners-layer" id="runnersLayer"></div>
+        </div>
+      </div>
+
+      <div class="roster-panel" id="roster"></div>
+    </div>
+  </div>
+
+  <div class="feed-widget" id="feedWidget">
+    <div class="feed-panel">
+      <h2>อัปเดตล่าสุด</h2>
+      <p class="feed-sub">รายการเปลี่ยนแปลงระยะทางแบบเรียลไทม์</p>
+      <ul class="feed-list" id="feedList"></ul>
+    </div>
+    <button type="button" class="feed-toggle" id="feedToggle">
+      <span>🔔 อัปเดตล่าสุด</span>
+      <span class="feed-count" id="feedCount" hidden>0</span>
+    </button>
+  </div>
+
+  <script src="shared.js"></script>
+  <script src="run-view.js"></script>
+</body>
+</html>

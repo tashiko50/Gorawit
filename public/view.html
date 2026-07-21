@@ -9,46 +9,6 @@
   .view-score { display: flex; align-items: baseline; gap: 4px; }
   .view-points { font-weight: 900; font-variant-numeric: tabular-nums; font-size: 1.5rem; color: var(--ink); }
   .view-pts-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
-
-  .live-badge {
-    display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
-    background: var(--toolbar-bg); padding: 5px 12px; border-radius: 999px; margin-top: 8px;
-  }
-  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4caf6a; box-shadow: 0 0 0 0 rgba(76,175,106,0.6); animation: pulse 2s infinite; }
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76,175,106,0.5); } 70% { box-shadow: 0 0 0 6px rgba(76,175,106,0); } 100% { box-shadow: 0 0 0 0 rgba(76,175,106,0); } }
-  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
-
-  /* Floating feed widget — fixed positioning keeps it out of normal flow entirely,
-     so it never affects the board's centering or size. */
-  .feed-widget { position: fixed; right: clamp(10px, 2vw, 24px); bottom: clamp(10px, 2vw, 24px); z-index: 15; }
-
-  .feed-toggle {
-    display: flex; align-items: center; gap: 8px; font: inherit; font-size: 0.82rem; font-weight: 700; color: var(--ink);
-    background: color-mix(in srgb, var(--card-bg) 78%, transparent); backdrop-filter: blur(8px);
-    border: 1px solid var(--card-border); border-radius: 999px; padding: 9px 16px; cursor: pointer;
-    box-shadow: 0 6px 16px var(--panel-shadow);
-  }
-  .feed-toggle:hover { color: var(--title-stroke); }
-  .feed-count { background: #e6536b; color: #fff; font-size: 0.68rem; font-weight: 800; border-radius: 999px; padding: 1px 7px; min-width: 1.4em; text-align: center; }
-
-  .feed-panel {
-    position: absolute; right: 0; bottom: calc(100% + 10px); width: min(320px, 82vw); max-height: min(60vh, 460px);
-    background: color-mix(in srgb, var(--card-bg) 80%, transparent); backdrop-filter: blur(10px);
-    border: 1px solid var(--card-border); border-radius: 18px; padding: 14px 16px 16px;
-    box-shadow: 0 12px 28px var(--panel-shadow); display: none; flex-direction: column;
-  }
-  .feed-widget.open .feed-panel { display: flex; }
-  .feed-widget.open .feed-toggle { box-shadow: 0 2px 8px var(--panel-shadow); }
-
-  .feed-panel h2 { margin: 0 0 4px; font-size: 0.92rem; color: var(--ink); }
-  .feed-sub { margin: 0 0 10px; font-size: 0.7rem; color: var(--ink-soft); }
-  .feed-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-  .feed-item { font-size: 0.83rem; color: var(--ink); line-height: 1.4; padding-bottom: 10px; border-bottom: 1px solid var(--card-border); animation: feedIn 0.35s ease; }
-  .feed-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .feed-time { display: block; font-size: 0.68rem; color: var(--ink-soft); margin-top: 2px; }
-  .feed-empty { font-size: 0.82rem; color: var(--ink-soft); }
-  @keyframes feedIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-  @media (prefers-reduced-motion: reduce) { .feed-item { animation: none; } }
 </style>
 </head>
 <body>
@@ -67,6 +27,7 @@
     <div class="title-wrap">
       <h1 class="board-title" id="boardTitle">Village Builders Scoreboard</h1>
       <div class="live-badge"><span class="live-dot"></span><span id="lastUpdated">กำลังเชื่อมต่อ…</span></div>
+      <div class="page-links"><a href="run-view.html">🗺️ ดูเส้นทางวิ่งกรุงเทพฯ→เชียงราย</a></div>
     </div>
 
     <div class="board" id="board"></div>

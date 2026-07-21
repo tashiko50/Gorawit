@@ -14,22 +14,8 @@
 
   var cardRefs = new Map();
   var lastTeamOrder = "";
-  var lastEventIds = "";
   var lastFetchTs = null;
-  var seenEventId = null;
-  var feedOpen = false;
-  var feedInitialized = false;
-
-  function relativeTime(ts) {
-    var diff = Math.max(0, Date.now() - ts);
-    var mins = Math.floor(diff / 60000);
-    if (mins < 1) return "เมื่อสักครู่";
-    if (mins < 60) return mins + " นาทีที่แล้ว";
-    var hours = Math.floor(mins / 60);
-    if (hours < 24) return hours + " ชั่วโมงที่แล้ว";
-    var days = Math.floor(hours / 24);
-    return days + " วันที่แล้ว";
-  }
+  var feed = S.createFeedWidget({ listEl: feedListEl, widgetEl: feedWidget, toggleEl: feedToggle, countEl: feedCountEl });
 
   function buildViewCard(team) {
     var visual = S.buildHousePlot(team);
@@ -113,67 +99,11 @@
     refs.lastLevel = newLevel;
   }
 
-  function renderFeed(events) {
-    var ids = events.map(function (e) { return e.id; }).join(",");
-    if (ids !== lastEventIds) {
-      lastEventIds = ids;
-      feedListEl.innerHTML = "";
-      if (!events.length) {
-        var empty = document.createElement("li");
-        empty.className = "feed-empty";
-        empty.textContent = "ยังไม่มีความเคลื่อนไหว";
-        feedListEl.appendChild(empty);
-      } else {
-        events.forEach(function (event) {
-          var li = document.createElement("li");
-          li.className = "feed-item";
-          var text = document.createElement("span");
-          text.textContent = event.text;
-          var time = document.createElement("span");
-          time.className = "feed-time";
-          time.dataset.ts = event.ts;
-          time.textContent = relativeTime(event.ts);
-          li.appendChild(text);
-          li.appendChild(time);
-          feedListEl.appendChild(li);
-        });
-      }
-    }
-
-    if (!feedInitialized) {
-      feedInitialized = true;
-      if (events.length) seenEventId = events[0].id;
-    }
-
-    var unseenCount = 0;
-    if (events.length) {
-      if (seenEventId === null) {
-        unseenCount = events.length;
-      } else {
-        var idx = events.findIndex(function (e) { return e.id === seenEventId; });
-        unseenCount = idx === -1 ? events.length : idx;
-      }
-    }
-    if (feedOpen && events.length) seenEventId = events[0].id;
-    feedCountEl.hidden = unseenCount <= 0;
-    feedCountEl.textContent = unseenCount > 9 ? "9+" : String(unseenCount);
-  }
-
-  feedToggle.addEventListener("click", function () {
-    feedOpen = !feedOpen;
-    feedWidget.classList.toggle("open", feedOpen);
-    if (feedOpen && lastEventIds) {
-      var ids = lastEventIds.split(",");
-      seenEventId = ids[0] || null;
-      feedCountEl.hidden = true;
-    }
-  });
-
   function render(state) {
     var order = state.teams.map(function (t) { return t.id; }).join(",");
     if (order !== lastTeamOrder) fullRebuild(state); else state.teams.forEach(updateCard);
     titleEl.textContent = state.title;
-    renderFeed(state.events || []);
+    feed.render(state.events || []);
     lastFetchTs = Date.now();
   }
 
@@ -190,10 +120,8 @@
   }
 
   setInterval(function () {
-    document.querySelectorAll(".feed-time").forEach(function (el) {
-      el.textContent = relativeTime(Number(el.dataset.ts));
-    });
-    if (lastFetchTs) lastUpdatedEl.textContent = "อัปเดตล่าสุด: " + relativeTime(lastFetchTs);
+    feed.tick();
+    if (lastFetchTs) lastUpdatedEl.textContent = "อัปเดตล่าสุด: " + S.relativeTime(lastFetchTs);
   }, 1000);
 
   var sceneEl = document.querySelector(".scene-sky");

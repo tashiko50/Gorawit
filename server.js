@@ -30,6 +30,37 @@ const MILESTONE_LEVELS = Object.keys(MILESTONE_NAMES).map(Number).sort((a, b) =>
 
 const PALETTE = ["#4A90D9", "#E2934A", "#4F9A5B", "#D1587A", "#8B6FD1", "#3FA9A0"];
 
+// Real road-distance waypoints along Highway 1 (Phahonyothin), Bangkok -> Chiang Rai,
+// with x/y pre-projected from each place's lat/lon onto a 520x860 map canvas (north = up).
+// Chiang Rai (830km) is the race finish line; Mae Sai extends the map for teams that
+// overrun the 1000km cap so they still have somewhere to go.
+const ROUTE = [
+  { name: "กรุงเทพฯ (TDFB HQ)", km: 0, x: 429, y: 830 },
+  { name: "ปทุมธานี", km: 40, x: 424, y: 797 },
+  { name: "พระนครศรีอยุธยา", km: 80, x: 437, y: 757 },
+  { name: "สิงห์บุรี", km: 142, x: 390, y: 692 },
+  { name: "ชัยนาท", km: 195, x: 320, y: 657 },
+  { name: "นครสวรรค์", km: 240, x: 320, y: 594 },
+  { name: "กำแพงเพชร", km: 358, x: 161, y: 499 },
+  { name: "ตาก", km: 426, x: 60, y: 452 },
+  { name: "ลำปาง", km: 599, x: 156, y: 280 },
+  { name: "พะเยา", km: 691, x: 260, y: 173 },
+  { name: "เชียงราย 🏁", km: 830, x: 242, y: 84 },
+  { name: "แม่สาย (ชายแดน)", km: 890, x: 255, y: 21 }
+];
+const ROUTE_VIEWBOX = { w: 520, h: 860 };
+const ROUTE_FINISH_KM = 830;
+
+function placeForKm(km) {
+  const k = Math.max(0, Number(km) || 0);
+  let current = ROUTE[0];
+  for (const wp of ROUTE) {
+    if (wp.km <= k) current = wp;
+    else break;
+  }
+  return current;
+}
+
 function levelForKm(km) {
   return Math.max(0, Math.floor((Number(km) || 0) / KM_PER_LEVEL));
 }
@@ -96,8 +127,14 @@ function nextTeamId() {
 
 function applyKmChange(team, nextKm) {
   const prevLevel = levelForKm(team.km);
+  const prevPlace = placeForKm(team.km).name;
   team.km = Math.max(0, nextKm);
   const newLevel = levelForKm(team.km);
+  const newPlace = placeForKm(team.km).name;
+  if (newPlace !== prevPlace) {
+    const medal = newPlace.indexOf("เชียงราย") !== -1 ? "\u{1F3C5}" : "\u{1F4CD}";
+    pushEvent(`${medal} ${team.name} วิ่งถึง${newPlace}แล้ว! (${team.km} กม.)`);
+  }
   if (newLevel > prevLevel) {
     const newName = milestoneNameForLevel(newLevel);
     const prevName = milestoneNameForLevel(prevLevel);
@@ -116,6 +153,10 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/state", (req, res) => {
   res.json(state);
+});
+
+app.get("/api/route", (req, res) => {
+  res.json({ waypoints: ROUTE, viewBox: ROUTE_VIEWBOX, finishKm: ROUTE_FINISH_KM });
 });
 
 function requirePin(req, res, next) {

@@ -333,6 +333,90 @@
     setTimeout(function () { plotEl.classList.remove("pulse-up", "celebrate-up"); }, big ? 900 : 500);
   }
 
+  function relativeTime(ts) {
+    var diff = Math.max(0, Date.now() - ts);
+    var mins = Math.floor(diff / 60000);
+    if (mins < 1) return "เมื่อสักครู่";
+    if (mins < 60) return mins + " นาทีที่แล้ว";
+    var hours = Math.floor(mins / 60);
+    if (hours < 24) return hours + " ชั่วโมงที่แล้ว";
+    var days = Math.floor(hours / 24);
+    return days + " วันที่แล้ว";
+  }
+
+  /* Shared activity-feed widget used by view.js and run-view.js — both poll the same
+     /api/state events array and render it the same floating panel + unseen-count badge. */
+  function createFeedWidget(els) {
+    var lastEventIds = "";
+    var seenEventId = null;
+    var feedOpen = false;
+    var feedInitialized = false;
+
+    function render(events) {
+      var ids = events.map(function (e) { return e.id; }).join(",");
+      if (ids !== lastEventIds) {
+        lastEventIds = ids;
+        els.listEl.innerHTML = "";
+        if (!events.length) {
+          var empty = document.createElement("li");
+          empty.className = "feed-empty";
+          empty.textContent = "ยังไม่มีความเคลื่อนไหว";
+          els.listEl.appendChild(empty);
+        } else {
+          events.forEach(function (event) {
+            var li = document.createElement("li");
+            li.className = "feed-item";
+            var text = document.createElement("span");
+            text.textContent = event.text;
+            var time = document.createElement("span");
+            time.className = "feed-time";
+            time.dataset.ts = event.ts;
+            time.textContent = relativeTime(event.ts);
+            li.appendChild(text);
+            li.appendChild(time);
+            els.listEl.appendChild(li);
+          });
+        }
+      }
+
+      if (!feedInitialized) {
+        feedInitialized = true;
+        if (events.length) seenEventId = events[0].id;
+      }
+
+      var unseenCount = 0;
+      if (events.length) {
+        if (seenEventId === null) {
+          unseenCount = events.length;
+        } else {
+          var idx = events.findIndex(function (e) { return e.id === seenEventId; });
+          unseenCount = idx === -1 ? events.length : idx;
+        }
+      }
+      if (feedOpen && events.length) seenEventId = events[0].id;
+      els.countEl.hidden = unseenCount <= 0;
+      els.countEl.textContent = unseenCount > 9 ? "9+" : String(unseenCount);
+    }
+
+    els.toggleEl.addEventListener("click", function () {
+      feedOpen = !feedOpen;
+      els.widgetEl.classList.toggle("open", feedOpen);
+      if (feedOpen && lastEventIds) {
+        var ids = lastEventIds.split(",");
+        seenEventId = ids[0] || null;
+        els.countEl.hidden = true;
+      }
+    });
+
+    function tick() {
+      els.listEl.querySelectorAll(".feed-time").forEach(function (el) {
+        el.textContent = relativeTime(Number(el.dataset.ts));
+      });
+    }
+
+    return { render: render, tick: tick };
+  }
+
   function applyWeather(sceneEl) {
     var w = weatherForNow();
     if (sceneEl.dataset.weather === w) return w;
@@ -379,6 +463,8 @@
     buildRunIcon: buildRunIcon,
     celebrateUpgrade: celebrateUpgrade,
     applyWeather: applyWeather,
-    clamp: clamp
+    clamp: clamp,
+    relativeTime: relativeTime,
+    createFeedWidget: createFeedWidget
   };
 })(window);
