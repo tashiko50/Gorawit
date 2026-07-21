@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Village Builders — Control Panel</title>
+<link rel="stylesheet" href="shared.css" />
+<style>
+  .remove-btn {
+    position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%;
+    border: none; background: var(--card-bg); color: var(--ink-soft); box-shadow: 0 2px 6px var(--panel-shadow);
+    cursor: pointer; font-size: 15px; line-height: 1; opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .team-card:hover .remove-btn, .remove-btn:focus-visible { opacity: 1; }
+  .remove-btn:hover { background: #e6536b; color: #fff; }
+
+  .palette { display: flex; gap: 5px; margin-bottom: 10px; }
+  .palette button { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--card-bg); box-shadow: 0 0 0 1px var(--card-border); cursor: pointer; padding: 0; }
+  .palette button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
+
+  .level-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+
+  .points-input, .token-count-input {
+    font: inherit; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--ink); background: transparent;
+    border: none; text-align: center; -moz-appearance: textfield;
+  }
+  .points-input { width: 54px; font-size: 1.5rem; }
+  .token-count-input { width: 30px; font-size: 0.9rem; font-weight: 800; }
+  .points-input::-webkit-outer-spin-button, .points-input::-webkit-inner-spin-button,
+  .token-count-input::-webkit-outer-spin-button, .token-count-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .points-input:hover, .points-input:focus-visible, .token-count-input:hover, .token-count-input:focus-visible {
+    outline: 2px dashed var(--accent-soft); border-radius: 6px;
+  }
+  .token-group { cursor: pointer; border-radius: 10px; padding: 4px 6px; }
+  .token-group:hover, .token-group:focus-within { outline: 2px dashed var(--accent-soft); }
+  .token-cycle { border: none; background: transparent; cursor: pointer; padding: 0; display: flex; }
+
+  .decor-toggle {
+    margin-top: 10px; width: 100%; font: inherit; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em;
+    border: none; background: transparent; color: var(--ink-soft); cursor: pointer; padding: 4px;
+  }
+  .decor-toggle:hover { color: var(--ink); }
+  .decor-panel { width: 100%; display: none; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .decor-panel.open { display: flex; }
+  .decor-row { display: flex; align-items: center; justify-content: space-between; background: var(--accent-tint); border-radius: 10px; padding: 4px 8px; }
+  .decor-row .decor-label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--ink-soft); }
+  .decor-row .decor-icon { width: 18px; height: 18px; }
+  .decor-row .decor-controls { display: flex; align-items: center; gap: 6px; }
+  .decor-count { font-weight: 800; font-variant-numeric: tabular-nums; min-width: 1.4ch; text-align: center; font-size: 0.8rem; }
+
+  .add-card {
+    width: 240px; min-height: 260px; border-radius: 22px; border: 2px dashed var(--card-border); background: transparent;
+    color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    font: inherit; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .add-card:hover, .add-card:focus-visible { border-color: var(--ink-soft); color: var(--ink); background: var(--toolbar-bg); }
+  .add-card .plus-circle { width: 40px; height: 40px; border-radius: 50%; background: var(--card-bg); box-shadow: 0 2px 8px var(--panel-shadow); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 800; }
+
+  .toolbar {
+    margin-top: clamp(20px, 3vw, 32px); display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+    background: var(--toolbar-bg); backdrop-filter: blur(6px); padding: 8px; border-radius: 14px; max-width: 92vw;
+  }
+  .toolbar button, .toolbar a {
+    font: inherit; font-weight: 700; font-size: 0.82rem; border: none; background: var(--card-bg); color: var(--ink);
+    padding: 8px 16px; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px var(--panel-shadow); text-decoration: none;
+  }
+  .toolbar button:hover, .toolbar a:hover { color: var(--title-stroke); }
+  .toolbar button:focus-visible, .toolbar a:focus-visible, .step-btn:focus-visible, .token-cycle:focus-visible,
+  .palette button:focus-visible, .remove-btn:focus-visible { outline: 2px solid var(--title-stroke); outline-offset: 2px; }
+
+  .save-flash { position: fixed; top: 14px; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 20;
+    background: var(--card-bg); color: var(--ink); padding: 8px 16px; border-radius: 10px; box-shadow: 0 4px 12px var(--panel-shadow);
+    font-size: 0.82rem; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; }
+  .save-flash.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .save-flash.error { color: #c0324a; }
+
+  .pin-overlay {
+    position: fixed; inset: 0; z-index: 30; background: rgba(20, 28, 44, 0.55); display: flex; align-items: center; justify-content: center;
+  }
+  .pin-overlay[hidden] { display: none; }
+  .pin-card { background: var(--card-bg); border-radius: 18px; padding: 24px 26px; width: min(320px, 90vw); box-shadow: 0 12px 30px var(--panel-shadow); text-align: center; }
+  .pin-card h2 { margin: 0 0 6px; font-size: 1.1rem; color: var(--ink); }
+  .pin-card p { margin: 0 0 14px; font-size: 0.82rem; color: var(--ink-soft); }
+  .pin-card input { width: 100%; font: inherit; font-size: 1.1rem; text-align: center; letter-spacing: 0.3em; padding: 10px; border-radius: 10px; border: 2px solid var(--card-border); margin-bottom: 12px; background: transparent; color: var(--ink); }
+  .pin-card button { width: 100%; font: inherit; font-weight: 700; padding: 10px; border-radius: 10px; border: none; background: var(--title-stroke); color: #fff; cursor: pointer; }
+  .pin-card .pin-error { color: #c0324a; font-size: 0.78rem; min-height: 1.2em; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="scene-sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud--a"></div>
+    <div class="cloud cloud--b"></div>
+    <div class="cloud cloud--c"></div>
+    <svg class="hills" viewBox="0 0 1440 220" preserveAspectRatio="none" style="height: clamp(120px, 20vw, 220px);">
+      <path d="M0,120 C240,60 420,170 720,110 C1000,55 1220,150 1440,90 L1440,220 L0,220 Z" fill="var(--hill-far)"></path>
+      <path d="M0,180 C260,130 500,210 760,160 C1040,105 1260,200 1440,150 L1440,220 L0,220 Z" fill="var(--hill-near)"></path>
+    </svg>
+  </div>
+
+  <div class="page">
+    <div class="title-wrap">
+      <h1 class="board-title" contenteditable="true" spellcheck="false" id="boardTitle">Village Builders Scoreboard</h1>
+      <div class="subtitle">แผงควบคุม — แก้ไขที่นี่แล้วพนักงานจะเห็นอัปเดตทันทีที่หน้า View</div>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <div class="toolbar">
+      <button id="addTeamBtn" type="button">+ เพิ่มทีม</button>
+      <button id="resetBtn" type="button">รีเซ็ตทั้งหมด</button>
+      <button id="pinBtn" type="button">🔒 ตั้งค่า PIN</button>
+      <a class="view-link" href="view.html" target="_blank" rel="noopener">↗ เปิดหน้า View (พนักงาน)</a>
+    </div>
+  </div>
+
+  <div class="save-flash" id="saveFlash"></div>
+
+  <div class="pin-overlay" id="pinOverlay" hidden>
+    <div class="pin-card">
+      <h2>กรอก Admin PIN</h2>
+      <p>ต้องใส่ PIN เพื่อแก้ไขคะแนน (ขอ PIN จากผู้ดูแลระบบ)</p>
+      <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+      <button id="pinSubmit" type="button">ยืนยัน</button>
+      <div class="pin-error" id="pinError"></div>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

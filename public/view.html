@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Village Builders Scoreboard — View</title>
+<link rel="stylesheet" href="shared.css" />
+<style>
+  .level-badge { margin-bottom: 10px; }
+  .view-score { display: flex; align-items: baseline; gap: 4px; }
+  .view-points { font-weight: 900; font-variant-numeric: tabular-nums; font-size: 1.5rem; color: var(--ink); }
+  .view-pts-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
+
+  .layout { width: 100%; max-width: 1320px; display: flex; gap: clamp(16px, 3vw, 28px); align-items: flex-start; justify-content: center; flex-wrap: wrap-reverse; }
+  .board { flex: 1 1 640px; }
+
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
+    background: var(--toolbar-bg); padding: 5px 12px; border-radius: 999px; margin-top: 8px;
+  }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4caf6a; box-shadow: 0 0 0 0 rgba(76,175,106,0.6); animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76,175,106,0.5); } 70% { box-shadow: 0 0 0 6px rgba(76,175,106,0); } 100% { box-shadow: 0 0 0 0 rgba(76,175,106,0); } }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+  .feed-panel {
+    flex: 0 1 300px; min-width: 260px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px;
+    padding: 16px 16px 18px; box-shadow: 0 6px 16px var(--panel-shadow); max-height: min(560px, 70vh); display: flex; flex-direction: column;
+  }
+  .feed-panel h2 { margin: 0 0 4px; font-size: 0.95rem; color: var(--ink); }
+  .feed-sub { margin: 0 0 12px; font-size: 0.72rem; color: var(--ink-soft); }
+  .feed-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .feed-item { font-size: 0.84rem; color: var(--ink); line-height: 1.4; padding-bottom: 10px; border-bottom: 1px solid var(--card-border); animation: feedIn 0.35s ease; }
+  .feed-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .feed-time { display: block; font-size: 0.68rem; color: var(--ink-soft); margin-top: 2px; }
+  .feed-empty { font-size: 0.82rem; color: var(--ink-soft); }
+  @keyframes feedIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .feed-item { animation: none; } }
+</style>
+</head>
+<body>
+  <div class="scene-sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud--a"></div>
+    <div class="cloud cloud--b"></div>
+    <div class="cloud cloud--c"></div>
+    <svg class="hills" viewBox="0 0 1440 220" preserveAspectRatio="none" style="height: clamp(120px, 20vw, 220px);">
+      <path d="M0,120 C240,60 420,170 720,110 C1000,55 1220,150 1440,90 L1440,220 L0,220 Z" fill="var(--hill-far)"></path>
+      <path d="M0,180 C260,130 500,210 760,160 C1040,105 1260,200 1440,150 L1440,220 L0,220 Z" fill="var(--hill-near)"></path>
+    </svg>
+  </div>
+
+  <div class="page">
+    <div class="title-wrap">
+      <h1 class="board-title" id="boardTitle">Village Builders Scoreboard</h1>
+      <div class="live-badge"><span class="live-dot"></span><span id="lastUpdated">กำลังเชื่อมต่อ…</span></div>
+    </div>
+
+    <div class="layout">
+      <div class="board" id="board"></div>
+      <aside class="feed-panel">
+        <h2>อัปเดตล่าสุด</h2>
+        <p class="feed-sub">รายการเปลี่ยนแปลงคะแนนและหมู่บ้านแบบเรียลไทม์</p>
+        <ul class="feed-list" id="feedList"></ul>
+      </aside>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script src="view.js"></script>
+</body>
+</html>
