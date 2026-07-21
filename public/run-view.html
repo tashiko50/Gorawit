@@ -22,12 +22,44 @@
   .map-frame {
     position: relative; width: 100%; aspect-ratio: 520 / 860; border-radius: 26px; overflow: hidden;
     box-shadow: 0 10px 30px var(--panel-shadow); border: 3px solid var(--card-border);
+    transition: filter 0.6s ease;
   }
   .map-frame svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .pins-layer, .runners-layer { position: absolute; inset: 0; pointer-events: none; }
 
+  /* Weather — same rotation the village view uses, applied per-card via Scoreboard.applyWeather */
+  .map-frame[data-weather="rain"] { filter: saturate(0.8) brightness(0.9); }
+  .map-frame[data-weather="snow"] { filter: saturate(0.92) brightness(1.03); }
+
+  /* Small drifting clouds — purely decorative, clipped by the frame's overflow:hidden */
+  .map-cloud {
+    position: absolute; top: 8%; left: -25%; width: 46px; height: 16px; background: rgba(255, 255, 255, 0.85);
+    border-radius: 100px; box-shadow: 0 4px 8px rgba(180, 210, 230, 0.45); animation: map-cloud-drift linear infinite;
+    z-index: 1; pointer-events: none;
+  }
+  .map-cloud::before, .map-cloud::after { content: ""; position: absolute; background: inherit; border-radius: 100px; }
+  .map-cloud::before { width: 24px; height: 24px; top: -11px; left: 4px; }
+  .map-cloud::after { width: 18px; height: 18px; top: -7px; left: 22px; }
+  .map-cloud--b { top: 18%; width: 34px; height: 13px; animation-duration: 52s; animation-delay: -18s; opacity: 0.85; }
+  .map-cloud--b::before { width: 18px; height: 18px; top: -8px; left: 3px; }
+  .map-cloud--b::after { width: 14px; height: 14px; top: -5px; left: 16px; }
+  .map-cloud { animation-duration: 68s; }
+  @keyframes map-cloud-drift { from { transform: translateX(0); } to { transform: translateX(700px); } }
+  @media (prefers-reduced-motion: reduce) { .map-cloud { animation: none; display: none; } }
+
+  /* Ambient vehicle looping the whole road continuously, independent of any team's actual
+     progress — just background life on the highway. */
+  .ambient-vehicle {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); font-size: 15px; z-index: 1;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)); transition: left 0.15s linear, top 0.15s linear;
+  }
+  @media (prefers-reduced-motion: reduce) { .ambient-vehicle { display: none; } }
+
   .route-path { fill: none; stroke: #fff8e6; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 3 10; }
   .route-glow { fill: none; stroke: rgba(255, 255, 255, 0.45); stroke-width: 10; stroke-linecap: round; }
+  /* Traveled portion of the road, filled solid in the team's own color — built from the
+     exact same interpolation as the runner marker, so it always ends right at the runner. */
+  .route-progress { fill: none; stroke: var(--accent, #4a90d9); stroke-width: 5; stroke-linecap: round; transition: d 0.6s ease; }
 
   /* A waypoint's dot stays glued to its true point on the road (rendered in SVG, see
      #pinDots). Only the label pill lives here, offset sideways off the road so it never
@@ -59,6 +91,19 @@
     from { transform: translateY(0) rotate(-6deg); }
     to { transform: translateY(-2px) rotate(6deg); }
   }
+  /* Fading dust trail behind the runner — three fixed points a little further back along
+     the road, decreasing in size/opacity, updated from the same km-based interpolation. */
+  /* Pale (not team-colored) so it actually shows up against the solid progress line,
+     which is already drawn in the team's own color underneath it. */
+  .runner-dust {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85); box-shadow: 0 0 3px rgba(0, 0, 0, 0.15);
+    transition: left 0.6s ease, top 0.6s ease; z-index: 4;
+  }
+  .runner-dust--1 { width: 8px; height: 8px; opacity: 0.55; }
+  .runner-dust--2 { width: 6px; height: 6px; opacity: 0.38; }
+  .runner-dust--3 { width: 4px; height: 4px; opacity: 0.22; }
+
   .runner-tag { position: absolute; left: 0; top: 6px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .runner-name {
     font-size: 0.66rem; font-weight: 800; color: #fff; background: color-mix(in srgb, var(--accent, #4a90d9) 80%, black);
@@ -94,15 +139,43 @@
     0% { opacity: 1; transform: rotate(var(--angle)) translateY(0) scale(0.4); }
     100% { opacity: 0; transform: rotate(var(--angle)) translateY(-46px) scale(1.1); }
   }
+  /* Bigger confetti burst across the whole card, on top of the small sparkle burst, only
+     for the Chiang Rai finish-line celebration. */
+  .confetti-piece {
+    position: absolute; top: -6%; width: 7px; height: 12px; opacity: 0.95; border-radius: 2px;
+    animation: confetti-fall linear forwards; z-index: 6; pointer-events: none;
+  }
+  @keyframes confetti-fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(760px) rotate(420deg); opacity: 0; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .runner { transition: none; }
     .runner.celebrate .runner-badge { animation: none; }
     .runner-toast, .runner-sparkle { animation: none; opacity: 0; }
     .runner-emoji { animation: none; }
+    .runner-dust { transition: none; }
+    .confetti-piece { display: none; }
   }
 
   .roster-bar-track { height: 8px; border-radius: 999px; background: var(--toolbar-bg); overflow: hidden; }
   .roster-bar-fill { height: 100%; border-radius: 999px; background: var(--accent, #4a90d9); transition: width 0.6s ease; }
+
+  /* Rank badge grouped with the team name on the left; km stays pinned to the right */
+  .team-map-title { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+  .team-map-rank { font-size: 0.85rem; font-weight: 800; color: var(--ink-soft); flex-shrink: 0; }
+
+  /* Province "passport stamp" row — fills in as each checkpoint is passed */
+  .team-map-stamps { display: flex; flex-wrap: wrap; gap: 4px; }
+  .stamp-chip {
+    width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; font-weight: 700; color: var(--ink-soft); background: var(--card-bg);
+    border: 2px solid var(--card-border); transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+  }
+  .stamp-chip.reached {
+    background: var(--accent, #4a90d9); border-color: var(--accent-deep); color: #fff; transform: scale(1.08);
+  }
 </style>
 </head>
 <body>

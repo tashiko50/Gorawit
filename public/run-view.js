@@ -18,9 +18,13 @@
   var route = null; // { waypoints, viewBox: {w,h}, finishKm }
   var routeD = "";
   var pinOffsets = []; // precomputed {ox,oy} per waypoint, shared by every card
+  var subTicks = []; // small unlabeled dots every 50km between named waypoints
   var cardRefs = new Map(); // teamId -> refs
   var lastTeamOrder = "";
   var lastFetchTs = null;
+  var currentRanks = {}; // teamId -> 1-based rank by km, recomputed every render
+  var VEHICLE_LOOP_MS = 26000;
+  var DUST_OFFSETS_KM = [12, 24, 36];
 
   function pctX(x) { return (x / route.viewBox.w * 100) + "%"; }
   function pctY(y) { return (y / route.viewBox.h * 100) + "%"; }
@@ -59,6 +63,70 @@
       var side = i % 2 === 0 ? 1 : -1;
       return { ox: wp.x + perp.x * OFFSET * side, oy: wp.y + perp.y * OFFSET * side };
     });
+  }
+
+  /* Small unlabeled dots every 50km between the named waypoints, purely so the road
+     reads with finer progress granularity than just the big province markers. */
+  function computeSubTicks() {
+    var wps = route.waypoints;
+    var ticks = [];
+    for (var i = 0; i < wps.length - 1; i++) {
+      var a = wps[i], b = wps[i + 1];
+      for (var k = Math.ceil(a.km / 50) * 50; k < b.km; k += 50) {
+        if (k <= a.km) continue;
+        var t = (k - a.km) / ((b.km - a.km) || 1);
+        ticks.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+      }
+    }
+    return ticks;
+  }
+
+  /* Traveled-so-far path, built with the exact same per-segment interpolation as
+     positionForKm — guarantees the solid line always ends precisely at the runner. */
+  function progressPathD(km) {
+    var wps = route.waypoints;
+    var k = Math.max(0, Number(km) || 0);
+    var d = "M " + wps[0].x + " " + wps[0].y;
+    for (var i = 0; i < wps.length - 1; i++) {
+      var a = wps[i], b = wps[i + 1];
+      if (k >= b.km) {
+        d += " L " + b.x + " " + b.y;
+      } else {
+        var t = (k - a.km) / ((b.km - a.km) || 1);
+        d += " L " + (a.x + (b.x - a.x) * t) + " " + (a.y + (b.y - a.y) * t);
+        break;
+      }
+    }
+    return d;
+  }
+
+  function computeRanks(teams) {
+    var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
+    var ranks = {};
+    sorted.forEach(function (t, i) { ranks[t.id] = i + 1; });
+    return ranks;
+  }
+
+  function rankBadgeText(rank) {
+    if (rank === 1) return "🥇";
+    if (rank === 2) return "🥈";
+    if (rank === 3) return "🥉";
+    return "#" + rank;
+  }
+
+  function confettiBurst(frame) {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var colors = ["#ffd873", "#e6536b", "#4a90d9", "#4f9a5b", "#8B6FD1", "#3FA9A0"];
+    for (var i = 0; i < 24; i++) {
+      var piece = document.createElement("div");
+      piece.className = "confetti-piece";
+      piece.style.left = (Math.random() * 100) + "%";
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDelay = (Math.random() * 0.4).toFixed(2) + "s";
+      piece.style.animationDuration = (1.6 + Math.random() * 0.8).toFixed(2) + "s";
+      frame.appendChild(piece);
+      (function (p) { setTimeout(function () { p.remove(); }, 2800); })(piece);
+    }
   }
 
   /* Position along the route for a given km: interpolates linearly between the two
@@ -113,14 +181,29 @@
         '<rect x="0" y="600" width="520" height="260" fill="url(#paddyHatch-' + uid + ')" />' +
         '<path d="M0,230 L60,140 L110,210 L170,110 L230,200 L300,130 L360,215 L520,150 L520,0 L0,0 Z" fill="#5c7a72" opacity="0.55" />' +
         '<path d="M0,280 L80,190 L150,260 L230,170 L320,250 L400,180 L520,240 L520,0 L0,0 Z" fill="#496359" opacity="0.35" />' +
+        '<path d="M40,780 C120,760 100,700 180,680 C260,660 235,600 320,585" fill="none" stroke="#6fb8d9" stroke-width="4" stroke-linecap="round" opacity="0.35" />' +
         '<g fill="#4f8a55" opacity="0.4">' +
           '<circle cx="90" cy="380" r="26" /><circle cx="130" cy="360" r="20" />' +
           '<circle cx="410" cy="420" r="24" /><circle cx="440" cy="450" r="18" /><circle cx="180" cy="470" r="22" />' +
+          '<circle cx="220" cy="530" r="18" /><circle cx="480" cy="610" r="20" /><circle cx="60" cy="600" r="16" /><circle cx="300" cy="700" r="18" />' +
         "</g>" +
-        '<path class="route-glow" d="" /><path class="route-path" d="" />' +
+        '<g transform="translate(478,695)" opacity="0.5">' +
+          '<polygon points="0,-34 8,-10 -8,-10" fill="#c9a24a" />' +
+          '<polygon points="-14,-10 14,-10 10,4 -10,4" fill="#b98f3d" />' +
+          '<rect x="-16" y="4" width="32" height="14" fill="#a97f36" />' +
+        "</g>" +
+        '<path class="route-glow" d="" /><path class="route-path" d="" /><path class="route-progress" d="" />' +
         '<g class="pin-leaders" stroke="#7a5230" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"></g>' +
+        '<g class="sub-ticks"></g>' +
         '<g class="pin-dots"></g>' +
       "</svg>";
+  }
+
+  function renderSubTicks(refs) {
+    refs.subTicksEl.innerHTML = "";
+    subTicks.forEach(function (tick) {
+      refs.subTicksEl.appendChild(svgEl("circle", { cx: tick.x, cy: tick.y, r: 2, fill: "#fff8e6", opacity: 0.6 }));
+    });
   }
 
   function renderPins(refs) {
@@ -161,22 +244,46 @@
 
     var header = document.createElement("div");
     header.className = "team-map-header";
+    var title = document.createElement("div");
+    title.className = "team-map-title";
+    var rankEl = document.createElement("span");
+    rankEl.className = "team-map-rank";
     var nameEl = document.createElement("span");
     nameEl.className = "team-map-name";
+    title.appendChild(rankEl);
+    title.appendChild(nameEl);
     var kmEl = document.createElement("span");
     kmEl.className = "team-map-km";
-    header.appendChild(nameEl);
+    header.appendChild(title);
     header.appendChild(kmEl);
 
     var frame = document.createElement("div");
     frame.className = "map-frame";
     frame.innerHTML = mapSvgMarkup(team.id);
+    var cloudA = document.createElement("div");
+    cloudA.className = "map-cloud";
+    var cloudB = document.createElement("div");
+    cloudB.className = "map-cloud map-cloud--b";
+    var vehicleEl = document.createElement("div");
+    vehicleEl.className = "ambient-vehicle";
+    vehicleEl.setAttribute("aria-hidden", "true");
+    vehicleEl.textContent = "\u{1F6F5}";
     var pinsLayer = document.createElement("div");
     pinsLayer.className = "pins-layer";
     var runnersLayer = document.createElement("div");
     runnersLayer.className = "runners-layer";
+    frame.appendChild(cloudA);
+    frame.appendChild(cloudB);
     frame.appendChild(pinsLayer);
     frame.appendChild(runnersLayer);
+    frame.appendChild(vehicleEl);
+
+    var dustEls = [1, 2, 3].map(function (n) {
+      var d = document.createElement("div");
+      d.className = "runner-dust runner-dust--" + n;
+      runnersLayer.appendChild(d);
+      return d;
+    });
 
     var runnerWrap = document.createElement("div");
     runnerWrap.className = "runner";
@@ -211,16 +318,31 @@
     barFill.className = "roster-bar-fill";
     barTrack.appendChild(barFill);
 
+    var stamps = document.createElement("div");
+    stamps.className = "team-map-stamps";
+    var stampChips = route ? route.waypoints.map(function (wp, i) {
+      var chip = document.createElement("span");
+      chip.className = "stamp-chip";
+      chip.title = wp.name + " (" + wp.km + " กม.)";
+      chip.textContent = String(i + 1);
+      stamps.appendChild(chip);
+      return chip;
+    }) : [];
+
     card.appendChild(header);
     card.appendChild(frame);
     card.appendChild(place);
     card.appendChild(barTrack);
+    card.appendChild(stamps);
 
     var refs = {
-      card: card, nameEl: nameEl, kmEl: kmEl, placeEl: place, barFill: barFill,
+      card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,
       routePathEl: frame.querySelector(".route-path"), routeGlowEl: frame.querySelector(".route-glow"),
+      routeProgressEl: frame.querySelector(".route-progress"),
       pinDotsEl: frame.querySelector(".pin-dots"), pinLeadersEl: frame.querySelector(".pin-leaders"),
+      subTicksEl: frame.querySelector(".sub-ticks"),
       pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm,
+      dustEls: dustEls, stampChips: stampChips, vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
       lastPlace: null
     };
 
@@ -228,7 +350,9 @@
       refs.routePathEl.setAttribute("d", routeD);
       refs.routeGlowEl.setAttribute("d", routeD);
       renderPins(refs);
+      renderSubTicks(refs);
     }
+    S.applyWeather(frame);
     return refs;
   }
 
@@ -251,6 +375,8 @@
     refs.runnerWrap.appendChild(burst);
     setTimeout(function () { burst.remove(); }, 800);
     setTimeout(function () { refs.runnerWrap.classList.remove("celebrate"); }, 700);
+
+    if (big) confettiBurst(refs.frame);
   }
 
   function showToast(refs, text) {
@@ -286,12 +412,23 @@
     refs.card.style.setProperty("--accent", team.color);
     refs.nameEl.textContent = team.name;
     refs.kmEl.textContent = team.km + " กม.";
+    refs.rankEl.textContent = rankBadgeText(currentRanks[team.id] || 1);
 
     var p = positionForKm(team.km);
     refs.runnerWrap.style.left = pctX(p.x);
     refs.runnerWrap.style.top = pctY(p.y);
     refs.runnerName.textContent = team.name;
     refs.runnerKm.textContent = team.km + " กม.";
+
+    refs.routeProgressEl.setAttribute("d", progressPathD(team.km));
+    DUST_OFFSETS_KM.forEach(function (behindKm, i) {
+      var dp = positionForKm(Math.max(0, team.km - behindKm));
+      refs.dustEls[i].style.left = pctX(dp.x);
+      refs.dustEls[i].style.top = pctY(dp.y);
+    });
+    refs.stampChips.forEach(function (chip, i) {
+      chip.classList.toggle("reached", team.km >= route.waypoints[i].km);
+    });
 
     if (refs.lastPlace !== null && p.place !== refs.lastPlace) {
       var big = p.place.indexOf("เชียงราย") !== -1;
@@ -313,10 +450,22 @@
 
   function render(state) {
     titleEl.textContent = state.title;
+    currentRanks = computeRanks(state.teams);
     var order = state.teams.map(function (t) { return t.id; }).join(",");
     if (order !== lastTeamOrder) fullRebuild(state.teams); else state.teams.forEach(updateCard);
     feed.render(state.events || []);
     lastFetchTs = Date.now();
+  }
+
+  function tickVehicles() {
+    var now = Date.now();
+    var lastKm = route ? route.waypoints[route.waypoints.length - 1].km : 0;
+    cardRefs.forEach(function (refs) {
+      var t = ((now + refs.vehiclePhase) % VEHICLE_LOOP_MS) / VEHICLE_LOOP_MS;
+      var p = positionForKm(t * lastKm);
+      refs.vehicleEl.style.left = pctX(p.x);
+      refs.vehicleEl.style.top = pctY(p.y);
+    });
   }
 
   function poll() {
@@ -338,7 +487,12 @@
 
   var sceneEl = document.querySelector(".scene-sky");
   S.applyWeather(sceneEl);
-  setInterval(function () { S.applyWeather(sceneEl); }, 30000);
+  setInterval(function () {
+    S.applyWeather(sceneEl);
+    cardRefs.forEach(function (refs) { S.applyWeather(refs.frame); });
+  }, 30000);
+
+  setInterval(tickVehicles, 150);
 
   fetch("/api/route")
     .then(function (res) { return res.json(); })
@@ -346,6 +500,7 @@
       route = data;
       routeD = smoothPathD(route.waypoints);
       pinOffsets = computePinOffsets();
+      subTicks = computeSubTicks();
       poll();
       setInterval(poll, POLL_MS);
     });
