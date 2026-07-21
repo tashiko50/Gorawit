@@ -3,15 +3,9 @@
 
   var S = window.Scoreboard;
   var POLL_MS = 3000;
-
   var SVG_NS = "http://www.w3.org/2000/svg";
-  var routePathEl = document.getElementById("routePath");
-  var routeGlowEl = document.getElementById("routeGlow");
-  var pinDotsEl = document.getElementById("pinDots");
-  var pinLeadersEl = document.getElementById("pinLeaders");
-  var pinsLayer = document.getElementById("pinsLayer");
-  var runnersLayer = document.getElementById("runnersLayer");
-  var rosterEl = document.getElementById("roster");
+
+  var gridEl = document.getElementById("teamMapsGrid");
   var titleEl = document.getElementById("boardTitle");
   var lastUpdatedEl = document.getElementById("lastUpdated");
   var feedListEl = document.getElementById("feedList");
@@ -22,9 +16,10 @@
   var feed = S.createFeedWidget({ listEl: feedListEl, widgetEl: feedWidget, toggleEl: feedToggle, countEl: feedCountEl });
 
   var route = null; // { waypoints, viewBox: {w,h}, finishKm }
-  var runnerRefs = new Map();
-  var rosterRefs = new Map();
-  var lastRosterOrder = "";
+  var routeD = "";
+  var pinOffsets = []; // precomputed {ox,oy} per waypoint, shared by every card
+  var cardRefs = new Map(); // teamId -> refs
+  var lastTeamOrder = "";
   var lastFetchTs = null;
 
   function pctX(x) { return (x / route.viewBox.w * 100) + "%"; }
@@ -45,15 +40,9 @@
     return d;
   }
 
-  function svgEl(name, attrs) {
-    var e = document.createElementNS(SVG_NS, name);
-    Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
-    return e;
-  }
-
   /* Perpendicular direction of the road at waypoint i, from the segments either side of
      it — used to push each place's label off the road instead of stacking labels on top
-     of the dashed line (and any runner standing right on the checkpoint). */
+     of the dashed line (and the runner marker, when it's sitting right on a checkpoint). */
   function perpAt(i) {
     var wps = route.waypoints;
     var prev = wps[i - 1] || wps[i];
@@ -63,28 +52,95 @@
     return { x: -dy / len, y: dx / len };
   }
 
-  function renderPins() {
-    pinsLayer.innerHTML = "";
-    pinDotsEl.innerHTML = "";
-    pinLeadersEl.innerHTML = "";
+  function computePinOffsets() {
     var OFFSET = 38;
-    route.waypoints.forEach(function (wp, i) {
-      var isFinish = wp.km === route.finishKm;
+    return route.waypoints.map(function (wp, i) {
       var perp = perpAt(i);
       var side = i % 2 === 0 ? 1 : -1;
-      var ox = wp.x + perp.x * OFFSET * side;
-      var oy = wp.y + perp.y * OFFSET * side;
+      return { ox: wp.x + perp.x * OFFSET * side, oy: wp.y + perp.y * OFFSET * side };
+    });
+  }
 
-      pinDotsEl.appendChild(svgEl("circle", {
+  /* Position along the route for a given km: interpolates linearly between the two
+     waypoints straddling it, and reports the place name / distance to the next place.
+     Past the last waypoint, the marker stays pinned there and `overshoot` reports how
+     far beyond that the team ran. */
+  function positionForKm(km) {
+    var wps = route.waypoints;
+    var k = Math.max(0, Number(km) || 0);
+    var first = wps[0], last = wps[wps.length - 1];
+    if (k <= first.km) {
+      var seg0 = wps[1] || first;
+      return { x: first.x, y: first.y, place: first.name, nextPlace: seg0.name, kmToNext: Math.max(0, seg0.km - k), overshoot: 0 };
+    }
+    for (var i = 0; i < wps.length - 1; i++) {
+      var a = wps[i], b = wps[i + 1];
+      if (k <= b.km) {
+        var t = (k - a.km) / ((b.km - a.km) || 1);
+        return {
+          x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
+          place: a.name, nextPlace: b.name, kmToNext: Math.max(0, Math.round(b.km - k)), overshoot: 0
+        };
+      }
+    }
+    return { x: last.x, y: last.y, place: last.name, nextPlace: null, kmToNext: 0, overshoot: Math.round(k - last.km) };
+  }
+
+  function svgEl(name, attrs) {
+    var e = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    return e;
+  }
+
+  /* Static terrain + road backdrop, identical for every card. Gradient/pattern ids are
+     suffixed per card since duplicate ids in one document would all resolve to the first
+     one defined. */
+  function mapSvgMarkup(uid) {
+    return "" +
+      '<svg viewBox="0 0 520 860" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
+        "<defs>" +
+          '<linearGradient id="terrainGrad-' + uid + '" x1="0" y1="0" x2="0" y2="1">' +
+            '<stop offset="0%" stop-color="#8CA3B8" />' +
+            '<stop offset="28%" stop-color="#7FAE6F" />' +
+            '<stop offset="60%" stop-color="#A8C96A" />' +
+            '<stop offset="100%" stop-color="#DCDC93" />' +
+          "</linearGradient>" +
+          '<pattern id="paddyHatch-' + uid + '" width="26" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(8)">' +
+            '<line x1="0" y1="14" x2="26" y2="0" stroke="#8fae55" stroke-width="2" opacity="0.35" />' +
+          "</pattern>" +
+        "</defs>" +
+        '<rect x="0" y="0" width="520" height="860" fill="url(#terrainGrad-' + uid + ')" />' +
+        '<rect x="0" y="600" width="520" height="260" fill="url(#paddyHatch-' + uid + ')" />' +
+        '<path d="M0,230 L60,140 L110,210 L170,110 L230,200 L300,130 L360,215 L520,150 L520,0 L0,0 Z" fill="#5c7a72" opacity="0.55" />' +
+        '<path d="M0,280 L80,190 L150,260 L230,170 L320,250 L400,180 L520,240 L520,0 L0,0 Z" fill="#496359" opacity="0.35" />' +
+        '<g fill="#4f8a55" opacity="0.4">' +
+          '<circle cx="90" cy="380" r="26" /><circle cx="130" cy="360" r="20" />' +
+          '<circle cx="410" cy="420" r="24" /><circle cx="440" cy="450" r="18" /><circle cx="180" cy="470" r="22" />' +
+        "</g>" +
+        '<path class="route-glow" d="" /><path class="route-path" d="" />' +
+        '<g class="pin-leaders" stroke="#7a5230" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"></g>' +
+        '<g class="pin-dots"></g>' +
+      "</svg>";
+  }
+
+  function renderPins(refs) {
+    refs.pinsLayer.innerHTML = "";
+    refs.pinDotsEl.innerHTML = "";
+    refs.pinLeadersEl.innerHTML = "";
+    route.waypoints.forEach(function (wp, i) {
+      var isFinish = wp.km === route.finishKm;
+      var off = pinOffsets[i];
+
+      refs.pinDotsEl.appendChild(svgEl("circle", {
         cx: wp.x, cy: wp.y, r: isFinish ? 6 : 3.5,
         fill: isFinish ? "#ffd873" : "#fff", stroke: isFinish ? "#b3860f" : "#7a5230", "stroke-width": 2
       }));
-      pinLeadersEl.appendChild(svgEl("line", { x1: wp.x, y1: wp.y, x2: ox, y2: oy }));
+      refs.pinLeadersEl.appendChild(svgEl("line", { x1: wp.x, y1: wp.y, x2: off.ox, y2: off.oy }));
 
       var pin = document.createElement("div");
       pin.className = "way-label-pin" + (isFinish ? " finish" : "");
-      pin.style.left = pctX(ox);
-      pin.style.top = pctY(oy);
+      pin.style.left = pctX(off.ox);
+      pin.style.top = pctY(off.oy);
 
       var label = document.createElement("span");
       label.className = "way-label";
@@ -95,62 +151,35 @@
 
       pin.appendChild(label);
       pin.appendChild(km);
-      pinsLayer.appendChild(pin);
+      refs.pinsLayer.appendChild(pin);
     });
   }
 
-  /* Position along the route for a given km: interpolates linearly between the two
-     waypoints straddling it, and reports the segment direction (for collision offsets)
-     plus the place name / distance to the next place. Past the last waypoint, the
-     marker stays pinned there and `overshoot` reports how far beyond that the team ran. */
-  function positionForKm(km) {
-    var wps = route.waypoints;
-    var k = Math.max(0, Number(km) || 0);
-    var first = wps[0], last = wps[wps.length - 1];
-    if (k <= first.km) {
-      var seg0 = wps[1] || first;
-      return { x: first.x, y: first.y, dirX: seg0.x - first.x, dirY: seg0.y - first.y, place: first.name, nextPlace: seg0.name, kmToNext: Math.max(0, seg0.km - k), overshoot: 0 };
-    }
-    for (var i = 0; i < wps.length - 1; i++) {
-      var a = wps[i], b = wps[i + 1];
-      if (k <= b.km) {
-        var t = (k - a.km) / ((b.km - a.km) || 1);
-        return {
-          x: a.x + (b.x - a.x) * t,
-          y: a.y + (b.y - a.y) * t,
-          dirX: b.x - a.x, dirY: b.y - a.y,
-          place: a.name, nextPlace: b.name, kmToNext: Math.max(0, Math.round(b.km - k)), overshoot: 0
-        };
-      }
-    }
-    return { x: last.x, y: last.y, dirX: 0, dirY: -1, place: last.name, nextPlace: null, kmToNext: 0, overshoot: Math.round(k - last.km) };
-  }
+  function buildTeamMapCard(team) {
+    var card = document.createElement("div");
+    card.className = "team-map-card";
 
-  /* Multiple teams can land on (nearly) the same spot on a shared route — nudge later
-     arrivals sideways, perpendicular to the road, alternating left/right in growing steps. */
-  function layoutPositions(teams) {
-    var placed = [];
-    return teams.map(function (team) {
-      var p = positionForKm(team.km);
-      var len = Math.hypot(p.dirX, p.dirY) || 1;
-      var nx = -p.dirY / len, ny = p.dirX / len;
-      var nearby = placed.filter(function (q) { return Math.hypot(q.x - p.x, q.y - p.y) < 22; });
-      if (nearby.length) {
-        var side = nearby.length % 2 === 1 ? 1 : -1;
-        var mag = Math.ceil(nearby.length / 2) * 16;
-        p.x += nx * mag * side;
-        p.y += ny * mag * side;
-      }
-      placed.push({ x: p.x, y: p.y });
-      return { team: team, p: p };
-    });
-  }
+    var header = document.createElement("div");
+    header.className = "team-map-header";
+    var nameEl = document.createElement("span");
+    nameEl.className = "team-map-name";
+    var kmEl = document.createElement("span");
+    kmEl.className = "team-map-km";
+    header.appendChild(nameEl);
+    header.appendChild(kmEl);
 
-  function ensureRunner(team) {
-    var refs = runnerRefs.get(team.id);
-    if (refs) return refs;
-    var wrap = document.createElement("div");
-    wrap.className = "runner";
+    var frame = document.createElement("div");
+    frame.className = "map-frame";
+    frame.innerHTML = mapSvgMarkup(team.id);
+    var pinsLayer = document.createElement("div");
+    pinsLayer.className = "pins-layer";
+    var runnersLayer = document.createElement("div");
+    runnersLayer.className = "runners-layer";
+    frame.appendChild(pinsLayer);
+    frame.appendChild(runnersLayer);
+
+    var runnerWrap = document.createElement("div");
+    runnerWrap.className = "runner";
     var shadow = document.createElement("div");
     shadow.className = "runner-shadow";
     var badge = document.createElement("div");
@@ -158,26 +187,52 @@
     badge.appendChild(S.buildRunIcon());
     var tag = document.createElement("div");
     tag.className = "runner-tag";
-    var name = document.createElement("div");
-    name.className = "runner-name";
-    var km = document.createElement("div");
-    km.className = "runner-km";
-    tag.appendChild(name);
-    tag.appendChild(km);
-    wrap.appendChild(shadow);
-    wrap.appendChild(badge);
-    wrap.appendChild(tag);
-    runnersLayer.appendChild(wrap);
-    refs = { wrap: wrap, name: name, kmEl: km, lastPlace: null };
-    runnerRefs.set(team.id, refs);
+    var runnerName = document.createElement("div");
+    runnerName.className = "runner-name";
+    var runnerKm = document.createElement("div");
+    runnerKm.className = "runner-km";
+    tag.appendChild(runnerName);
+    tag.appendChild(runnerKm);
+    runnerWrap.appendChild(shadow);
+    runnerWrap.appendChild(badge);
+    runnerWrap.appendChild(tag);
+    runnersLayer.appendChild(runnerWrap);
+
+    var place = document.createElement("div");
+    place.className = "team-map-place";
+
+    var barTrack = document.createElement("div");
+    barTrack.className = "roster-bar-track";
+    var barFill = document.createElement("div");
+    barFill.className = "roster-bar-fill";
+    barTrack.appendChild(barFill);
+
+    card.appendChild(header);
+    card.appendChild(frame);
+    card.appendChild(place);
+    card.appendChild(barTrack);
+
+    var refs = {
+      card: card, nameEl: nameEl, kmEl: kmEl, placeEl: place, barFill: barFill,
+      routePathEl: frame.querySelector(".route-path"), routeGlowEl: frame.querySelector(".route-glow"),
+      pinDotsEl: frame.querySelector(".pin-dots"), pinLeadersEl: frame.querySelector(".pin-leaders"),
+      pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm,
+      lastPlace: null
+    };
+
+    if (route) {
+      refs.routePathEl.setAttribute("d", routeD);
+      refs.routeGlowEl.setAttribute("d", routeD);
+      renderPins(refs);
+    }
     return refs;
   }
 
   function celebrateRunner(refs, big) {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    refs.wrap.classList.remove("celebrate");
-    void refs.wrap.offsetWidth;
-    refs.wrap.classList.add("celebrate");
+    refs.runnerWrap.classList.remove("celebrate");
+    void refs.runnerWrap.offsetWidth;
+    refs.runnerWrap.classList.add("celebrate");
 
     var burst = document.createElement("div");
     burst.className = "runner-sparkle-burst";
@@ -189,114 +244,73 @@
       s.textContent = big ? "🎉" : "✨";
       burst.appendChild(s);
     }
-    refs.wrap.appendChild(burst);
+    refs.runnerWrap.appendChild(burst);
     setTimeout(function () { burst.remove(); }, 800);
-    setTimeout(function () { refs.wrap.classList.remove("celebrate"); }, 700);
+    setTimeout(function () { refs.runnerWrap.classList.remove("celebrate"); }, 700);
   }
 
   function showToast(refs, text) {
     var toast = document.createElement("div");
     toast.className = "runner-toast";
     toast.textContent = text;
-    refs.wrap.appendChild(toast);
+    refs.runnerWrap.appendChild(toast);
     setTimeout(function () { toast.remove(); }, 2200);
   }
 
-  function renderRunners(teams) {
-    var laidOut = layoutPositions(teams);
-    var seenIds = {};
-    laidOut.forEach(function (item) {
-      var team = item.team, p = item.p;
-      seenIds[team.id] = true;
-      var refs = ensureRunner(team);
-      refs.wrap.style.setProperty("--accent", team.color);
-      refs.wrap.style.left = pctX(p.x);
-      refs.wrap.style.top = pctY(p.y);
-      refs.name.textContent = team.name;
-      refs.kmEl.textContent = team.km + " กม.";
-
-      if (refs.lastPlace !== null && p.place !== refs.lastPlace) {
-        var big = p.place.indexOf("เชียงราย") !== -1;
-        celebrateRunner(refs, big);
-        showToast(refs, big ? "\u{1F3C5} " + team.name + " ถึงเชียงรายแล้ว!" : "\u{1F4CD} ถึง" + p.place + "แล้ว!");
-      }
-      refs.lastPlace = p.place;
-    });
-    runnerRefs.forEach(function (refs, id) {
-      if (!seenIds[id]) {
-        refs.wrap.remove();
-        runnerRefs.delete(id);
-      }
-    });
+  function fullRebuild(teams) {
+    gridEl.innerHTML = "";
+    cardRefs.clear();
+    if (!teams.length) {
+      var empty = document.createElement("div");
+      empty.className = "team-maps-empty";
+      empty.textContent = "ยังไม่มีทีม";
+      gridEl.appendChild(empty);
+    } else {
+      teams.forEach(function (team) {
+        var refs = buildTeamMapCard(team);
+        gridEl.appendChild(refs.card);
+        cardRefs.set(team.id, refs);
+      });
+      teams.forEach(updateCard);
+    }
+    lastTeamOrder = teams.map(function (t) { return t.id; }).join(",");
   }
 
-  function renderRoster(teams) {
-    var order = teams.map(function (t) { return t.id; }).join(",");
-    if (order !== lastRosterOrder) {
-      rosterEl.innerHTML = "";
-      rosterRefs.clear();
-      if (!teams.length) {
-        var empty = document.createElement("div");
-        empty.className = "roster-empty";
-        empty.textContent = "ยังไม่มีทีม";
-        rosterEl.appendChild(empty);
-      } else {
-        teams.forEach(function (team) {
-          var card = document.createElement("div");
-          card.className = "roster-card";
+  function updateCard(team) {
+    var refs = cardRefs.get(team.id);
+    if (!refs) return;
+    refs.card.style.setProperty("--accent", team.color);
+    refs.nameEl.textContent = team.name;
+    refs.kmEl.textContent = team.km + " กม.";
 
-          var top = document.createElement("div");
-          top.className = "roster-top";
-          var name = document.createElement("span");
-          name.className = "roster-name";
-          var km = document.createElement("span");
-          km.className = "roster-km";
-          top.appendChild(name);
-          top.appendChild(km);
+    var p = positionForKm(team.km);
+    refs.runnerWrap.style.left = pctX(p.x);
+    refs.runnerWrap.style.top = pctY(p.y);
+    refs.runnerName.textContent = team.name;
+    refs.runnerKm.textContent = team.km + " กม.";
 
-          var place = document.createElement("div");
-          place.className = "roster-place";
-
-          var barTrack = document.createElement("div");
-          barTrack.className = "roster-bar-track";
-          var barFill = document.createElement("div");
-          barFill.className = "roster-bar-fill";
-          barTrack.appendChild(barFill);
-
-          card.appendChild(top);
-          card.appendChild(place);
-          card.appendChild(barTrack);
-          rosterEl.appendChild(card);
-
-          rosterRefs.set(team.id, { card: card, name: name, km: km, place: place, barFill: barFill });
-        });
-      }
-      lastRosterOrder = order;
+    if (refs.lastPlace !== null && p.place !== refs.lastPlace) {
+      var big = p.place.indexOf("เชียงราย") !== -1;
+      celebrateRunner(refs, big);
+      showToast(refs, big ? "\u{1F3C5} ถึงเชียงรายแล้ว!" : "\u{1F4CD} ถึง" + p.place + "แล้ว!");
     }
+    refs.lastPlace = p.place;
 
-    teams.forEach(function (team) {
-      var refs = rosterRefs.get(team.id);
-      if (!refs) return;
-      refs.card.style.setProperty("--accent", team.color);
-      refs.name.textContent = team.name;
-      refs.km.textContent = team.km + " กม.";
-      var p = positionForKm(team.km);
-      if (p.overshoot > 0) {
-        refs.place.textContent = "\u{1F389} ถึงจุดหมายแล้ว! เลย " + p.place + " ไปอีก " + p.overshoot + " กม.";
-      } else if (p.nextPlace) {
-        refs.place.textContent = "อยู่ที่ " + p.place + " · อีก " + p.kmToNext + " กม. ถึง" + p.nextPlace;
-      } else {
-        refs.place.textContent = "อยู่ที่ " + p.place;
-      }
-      var pct = S.clamp((team.km / route.finishKm) * 100, 0, 100);
-      refs.barFill.style.width = pct + "%";
-    });
+    if (p.overshoot > 0) {
+      refs.placeEl.textContent = "\u{1F389} ถึงจุดหมายแล้ว! เลย " + p.place + " ไปอีก " + p.overshoot + " กม.";
+    } else if (p.nextPlace) {
+      refs.placeEl.textContent = "อยู่ที่ " + p.place + " · อีก " + p.kmToNext + " กม. ถึง" + p.nextPlace;
+    } else {
+      refs.placeEl.textContent = "อยู่ที่ " + p.place;
+    }
+    var pct = S.clamp((team.km / route.finishKm) * 100, 0, 100);
+    refs.barFill.style.width = pct + "%";
   }
 
   function render(state) {
     titleEl.textContent = state.title;
-    renderRunners(state.teams);
-    renderRoster(state.teams);
+    var order = state.teams.map(function (t) { return t.id; }).join(",");
+    if (order !== lastTeamOrder) fullRebuild(state.teams); else state.teams.forEach(updateCard);
     feed.render(state.events || []);
     lastFetchTs = Date.now();
   }
@@ -326,10 +340,8 @@
     .then(function (res) { return res.json(); })
     .then(function (data) {
       route = data;
-      var d = smoothPathD(route.waypoints);
-      routePathEl.setAttribute("d", d);
-      routeGlowEl.setAttribute("d", d);
-      renderPins();
+      routeD = smoothPathD(route.waypoints);
+      pinOffsets = computePinOffsets();
       poll();
       setInterval(poll, POLL_MS);
     });

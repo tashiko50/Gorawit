@@ -82,10 +82,9 @@ function defaultState() {
   return {
     title: "Village Builders Scoreboard",
     teams: [
-      makeTeam("t1", "Team “spacex”", PALETTE[0]),
-      makeTeam("t2", "Team “yes-or-no”", PALETTE[1]),
-      makeTeam("t3", "Team “lerd-lerd”", PALETTE[2]),
-      makeTeam("t4", "Team “plain-flavor-stars”", PALETTE[3])
+      makeTeam("t1", "OF195", PALETTE[0]),
+      makeTeam("t2", "WH300", PALETTE[1]),
+      makeTeam("t3", "FAC16", PALETTE[2])
     ],
     events: []
   };
