@@ -54,7 +54,11 @@
     width: 34px; height: 34px; border-radius: 50%; background: var(--accent, #4a90d9);
     display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); border: 2px solid #fff;
   }
-  .runner-badge .run-icon { width: 20px; height: 20px; }
+  .runner-emoji { font-size: 18px; line-height: 1; animation: runner-emoji-bob 0.6s ease-in-out infinite alternate; }
+  @keyframes runner-emoji-bob {
+    from { transform: translateY(0) rotate(-6deg); }
+    to { transform: translateY(-2px) rotate(6deg); }
+  }
   .runner-tag { position: absolute; left: 0; top: 6px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .runner-name {
     font-size: 0.66rem; font-weight: 800; color: #fff; background: color-mix(in srgb, var(--accent, #4a90d9) 80%, black);
@@ -94,6 +98,7 @@
     .runner { transition: none; }
     .runner.celebrate .runner-badge { animation: none; }
     .runner-toast, .runner-sparkle { animation: none; opacity: 0; }
+    .runner-emoji { animation: none; }
   }
 
   .roster-bar-track { height: 8px; border-radius: 999px; background: var(--toolbar-bg); overflow: hidden; }

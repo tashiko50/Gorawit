@@ -184,7 +184,11 @@
     shadow.className = "runner-shadow";
     var badge = document.createElement("div");
     badge.className = "runner-badge";
-    badge.appendChild(S.buildRunIcon());
+    var emoji = document.createElement("span");
+    emoji.className = "runner-emoji";
+    emoji.setAttribute("aria-hidden", "true");
+    emoji.textContent = "\u{1F3C3}";
+    badge.appendChild(emoji);
     var tag = document.createElement("div");
     tag.className = "runner-tag";
     var runnerName = document.createElement("div");
