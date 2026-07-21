@@ -12,6 +12,11 @@
   var feedWidget = document.getElementById("feedWidget");
   var feedToggle = document.getElementById("feedToggle");
   var feedCountEl = document.getElementById("feedCount");
+  var rankSummaryEl = document.getElementById("rankSummary");
+  var kioskToggleBtn = document.getElementById("kioskToggle");
+  var kioskBackdrop = document.getElementById("kioskBackdrop");
+  var kioskTeamNameEl = document.getElementById("kioskTeamName");
+  var kioskExitBtn = document.getElementById("kioskExit");
 
   var feed = S.createFeedWidget({ listEl: feedListEl, widgetEl: feedWidget, toggleEl: feedToggle, countEl: feedCountEl });
 
@@ -23,8 +28,15 @@
   var lastTeamOrder = "";
   var lastFetchTs = null;
   var currentRanks = {}; // teamId -> 1-based rank by km, recomputed every render
+  var lastTeamsSnapshot = []; // latest team array, used by kiosk mode to cycle through
   var VEHICLE_LOOP_MS = 26000;
   var DUST_OFFSETS_KM = [12, 24, 36];
+
+  var kioskActive = false;
+  var kioskIndex = 0;
+  var kioskTimer = null;
+  var kioskCurrentTeamId = null;
+  var KIOSK_INTERVAL_MS = 8000;
 
   function pctX(x) { return (x / route.viewBox.w * 100) + "%"; }
   function pctY(y) { return (y / route.viewBox.h * 100) + "%"; }
@@ -98,20 +110,6 @@
       }
     }
     return d;
-  }
-
-  function computeRanks(teams) {
-    var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
-    var ranks = {};
-    sorted.forEach(function (t, i) { ranks[t.id] = i + 1; });
-    return ranks;
-  }
-
-  function rankBadgeText(rank) {
-    if (rank === 1) return "🥇";
-    if (rank === 2) return "🥈";
-    if (rank === 3) return "🥉";
-    return "#" + rank;
   }
 
   function confettiBurst(frame) {
@@ -191,6 +189,13 @@
           '<polygon points="0,-34 8,-10 -8,-10" fill="#c9a24a" />' +
           '<polygon points="-14,-10 14,-10 10,4 -10,4" fill="#b98f3d" />' +
           '<rect x="-16" y="4" width="32" height="14" fill="#a97f36" />' +
+        "</g>" +
+        '<rect class="night-overlay" x="0" y="0" width="520" height="860" />' +
+        '<g fill="#fff" class="night-stars">' +
+          '<circle class="night-star" cx="70" cy="60" r="1.6" /><circle class="night-star" cx="140" cy="30" r="1.2" />' +
+          '<circle class="night-star" cx="230" cy="70" r="1.8" /><circle class="night-star" cx="310" cy="25" r="1.3" />' +
+          '<circle class="night-star" cx="380" cy="90" r="1.5" /><circle class="night-star" cx="450" cy="40" r="1.2" />' +
+          '<circle class="night-star" cx="490" cy="110" r="1.6" /><circle class="night-star" cx="30" cy="130" r="1.3" />' +
         "</g>" +
         '<path class="route-glow" d="" /><path class="route-path" d="" /><path class="route-progress" d="" />' +
         '<g class="pin-leaders" stroke="#7a5230" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"></g>' +
@@ -302,8 +307,12 @@
     runnerName.className = "runner-name";
     var runnerKm = document.createElement("div");
     runnerKm.className = "runner-km";
+    var finalStretchTag = document.createElement("div");
+    finalStretchTag.className = "final-stretch-tag";
+    finalStretchTag.textContent = "\u{1F3C1} โค้งสุดท้าย!";
     tag.appendChild(runnerName);
     tag.appendChild(runnerKm);
+    tag.appendChild(finalStretchTag);
     runnerWrap.appendChild(shadow);
     runnerWrap.appendChild(badge);
     runnerWrap.appendChild(tag);
@@ -353,6 +362,7 @@
       renderSubTicks(refs);
     }
     S.applyWeather(frame);
+    frame.dataset.night = S.dayPhase();
     return refs;
   }
 
@@ -412,7 +422,7 @@
     refs.card.style.setProperty("--accent", team.color);
     refs.nameEl.textContent = team.name;
     refs.kmEl.textContent = team.km + " กม.";
-    refs.rankEl.textContent = rankBadgeText(currentRanks[team.id] || 1);
+    refs.rankEl.textContent = S.rankBadgeText(currentRanks[team.id] || 1);
 
     var p = positionForKm(team.km);
     refs.runnerWrap.style.left = pctX(p.x);
@@ -437,6 +447,9 @@
     }
     refs.lastPlace = p.place;
 
+    var finalStretch = team.km < route.finishKm && (route.finishKm - team.km) <= 50;
+    refs.runnerWrap.classList.toggle("final-stretch", finalStretch);
+
     if (p.overshoot > 0) {
       refs.placeEl.textContent = "\u{1F389} ถึงจุดหมายแล้ว! เลย " + p.place + " ไปอีก " + p.overshoot + " กม.";
     } else if (p.nextPlace) {
@@ -448,11 +461,59 @@
     refs.barFill.style.width = pct + "%";
   }
 
+  /* One mini track per team, ranked — the whole race at a glance without opening every
+     card. Small enough team count that a full rebuild each poll is simplest and cheap. */
+  function renderRankSummary(teams) {
+    rankSummaryEl.innerHTML = "";
+    if (!teams.length) return;
+    var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
+    sorted.forEach(function (team, i) {
+      var row = document.createElement("div");
+      row.className = "rank-row";
+      var medal = document.createElement("span");
+      medal.className = "rank-medal";
+      medal.textContent = S.rankBadgeText(i + 1);
+      var name = document.createElement("span");
+      name.className = "rank-name";
+      name.textContent = team.name;
+      var track = document.createElement("div");
+      track.className = "rank-track";
+      var fill = document.createElement("div");
+      fill.className = "rank-track-fill";
+      fill.style.background = team.color;
+      fill.style.width = S.clamp((team.km / route.finishKm) * 100, 0, 100) + "%";
+      track.appendChild(fill);
+      var km = document.createElement("span");
+      km.className = "rank-km";
+      km.textContent = team.km + " กม.";
+      row.appendChild(medal);
+      row.appendChild(name);
+      row.appendChild(track);
+      row.appendChild(km);
+      rankSummaryEl.appendChild(row);
+    });
+
+    var closestGap = Infinity, leader = null, chaser = null;
+    for (var i = 0; i < sorted.length - 1; i++) {
+      var gap = sorted[i].km - sorted[i + 1].km;
+      if (gap < closestGap) { closestGap = gap; leader = sorted[i]; chaser = sorted[i + 1]; }
+    }
+    var banner = document.createElement("div");
+    banner.className = "close-race-banner";
+    if (leader && closestGap <= 20) {
+      banner.classList.add("show");
+      banner.textContent = "\u{1F525} " + leader.name + " กับ " + chaser.name + " สูสีกันมาก! ห่างกันแค่ " + closestGap + " กม.";
+    }
+    rankSummaryEl.appendChild(banner);
+  }
+
   function render(state) {
     titleEl.textContent = state.title;
-    currentRanks = computeRanks(state.teams);
+    currentRanks = S.computeRanks(state.teams);
+    lastTeamsSnapshot = state.teams;
     var order = state.teams.map(function (t) { return t.id; }).join(",");
     if (order !== lastTeamOrder) fullRebuild(state.teams); else state.teams.forEach(updateCard);
+    renderRankSummary(state.teams);
     feed.render(state.events || []);
     lastFetchTs = Date.now();
   }
@@ -467,6 +528,57 @@
       refs.vehicleEl.style.top = pctY(p.y);
     });
   }
+
+  function tickDayNight() {
+    var phase = S.dayPhase();
+    cardRefs.forEach(function (refs) { refs.frame.dataset.night = phase; });
+  }
+
+  /* Kiosk/TV mode blows up one team's actual card in place (a class toggle, not a
+     reparent) and cycles to the next team on a timer — meant for an office TV display. */
+  function showKioskTeam(i) {
+    var team = lastTeamsSnapshot[i];
+    if (!team) return;
+    if (kioskCurrentTeamId) {
+      var prevRefs = cardRefs.get(kioskCurrentTeamId);
+      if (prevRefs) prevRefs.card.classList.remove("kiosk-active");
+    }
+    var refs = cardRefs.get(team.id);
+    if (refs) refs.card.classList.add("kiosk-active");
+    kioskCurrentTeamId = team.id;
+    kioskTeamNameEl.textContent = team.name;
+  }
+
+  function startKiosk() {
+    if (!lastTeamsSnapshot.length) return;
+    kioskActive = true;
+    kioskBackdrop.classList.add("active");
+    kioskIndex = 0;
+    showKioskTeam(kioskIndex);
+    kioskTimer = setInterval(function () {
+      kioskIndex = (kioskIndex + 1) % lastTeamsSnapshot.length;
+      showKioskTeam(kioskIndex);
+    }, KIOSK_INTERVAL_MS);
+  }
+
+  function stopKiosk() {
+    kioskActive = false;
+    clearInterval(kioskTimer);
+    kioskBackdrop.classList.remove("active");
+    if (kioskCurrentTeamId) {
+      var refs = cardRefs.get(kioskCurrentTeamId);
+      if (refs) refs.card.classList.remove("kiosk-active");
+    }
+    kioskCurrentTeamId = null;
+  }
+
+  kioskToggleBtn.addEventListener("click", function () {
+    if (kioskActive) stopKiosk(); else startKiosk();
+  });
+  kioskExitBtn.addEventListener("click", stopKiosk);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && kioskActive) stopKiosk();
+  });
 
   function poll() {
     fetch("/api/state")
@@ -493,6 +605,7 @@
   }, 30000);
 
   setInterval(tickVehicles, 150);
+  setInterval(tickDayNight, 60000);
 
   fetch("/api/route")
     .then(function (res) { return res.json(); })

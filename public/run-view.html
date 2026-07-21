@@ -176,6 +176,78 @@
   .stamp-chip.reached {
     background: var(--accent, #4a90d9); border-color: var(--accent-deep); color: #fff; transform: scale(1.08);
   }
+
+  .page-links-btn {
+    font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--ink); text-decoration: none; cursor: pointer;
+    background: var(--toolbar-bg); backdrop-filter: blur(6px); padding: 6px 14px; border-radius: 999px;
+    box-shadow: 0 2px 6px var(--panel-shadow); border: none;
+  }
+  .page-links-btn:hover { color: var(--title-stroke); }
+
+  /* Combined rank bar — every team on one mini track, so who's ahead reads at a glance
+     without opening each card. */
+  .rank-summary {
+    width: 100%; max-width: 1600px; background: var(--card-bg); border: 2px solid var(--card-border);
+    border-radius: 16px; padding: 12px 18px; box-shadow: 0 4px 10px var(--panel-shadow);
+    display: flex; flex-direction: column; gap: 8px; margin-bottom: clamp(6px, 1vw, 12px);
+  }
+  .rank-summary-empty { display: none; }
+  .rank-row { display: flex; align-items: center; gap: 10px; }
+  .rank-medal { font-weight: 800; width: 26px; text-align: center; flex-shrink: 0; font-size: 0.95rem; }
+  .rank-name { font-weight: 800; width: 92px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank-track { flex: 1 1 auto; height: 10px; border-radius: 999px; background: var(--toolbar-bg); overflow: hidden; }
+  .rank-track-fill { height: 100%; border-radius: 999px; background: var(--accent, #4a90d9); transition: width 0.6s ease; }
+  .rank-km { width: 74px; text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .close-race-banner {
+    display: none; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; color: #b23a1f;
+    background: color-mix(in srgb, #ff8a5c 18%, var(--card-bg)); border-radius: 10px; padding: 6px 12px;
+  }
+  .close-race-banner.show { display: flex; animation: close-race-pulse 1.6s ease-in-out infinite; }
+  @keyframes close-race-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+  @media (prefers-reduced-motion: reduce) { .close-race-banner.show { animation: none; } }
+
+  /* Kiosk/TV mode — blows up one team's actual card (in place, via fixed positioning),
+     cycling through teams automatically. No reparenting: just a class toggle. */
+  .kiosk-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(10, 14, 24, 0.78); z-index: 55;
+    backdrop-filter: blur(2px);
+  }
+  .kiosk-backdrop.active { display: block; }
+  .kiosk-header {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 61;
+    display: flex; align-items: center; gap: 14px; background: var(--card-bg); padding: 8px 10px 8px 18px;
+    border-radius: 999px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  }
+  #kioskTeamName { font-weight: 800; color: var(--ink); }
+  .kiosk-exit-btn {
+    font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--ink); background: var(--toolbar-bg);
+    border: none; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  }
+  .team-map-card.kiosk-active {
+    position: fixed; top: 9vh; left: 50%; transform: translateX(-50%); width: min(94vw, 640px);
+    max-height: 86vh; overflow-y: auto; z-index: 60; background: var(--card-bg); border-radius: 24px;
+    padding: 18px 22px 22px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Final stretch — last 50km before Chiang Rai gets a golden glow + a small callout */
+  .runner.final-stretch .runner-badge { animation: final-stretch-glow 1.2s ease-in-out infinite; }
+  @keyframes final-stretch-glow {
+    0%, 100% { box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3), 0 0 0 rgba(255, 215, 115, 0); }
+    50% { box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3), 0 0 18px 6px rgba(255, 215, 115, 0.85); }
+  }
+  .final-stretch-tag {
+    display: none; font-size: 0.6rem; font-weight: 800; color: #6b4d05; background: #ffd873;
+    padding: 1px 6px; border-radius: 999px; margin-top: 2px; white-space: nowrap;
+  }
+  .runner.final-stretch .final-stretch-tag { display: inline-block; }
+  @media (prefers-reduced-motion: reduce) { .runner.final-stretch .runner-badge { animation: none; } }
+
+  /* Real local-time day/night tint on the map (separate from the random weather rotation) */
+  .night-overlay { fill: #0b1734; opacity: 0; transition: opacity 4s ease; pointer-events: none; }
+  .map-frame[data-night="night"] .night-overlay { opacity: 0.42; }
+  .map-frame[data-night="dusk"] .night-overlay { opacity: 0.2; }
+  .night-star { fill: #fff; opacity: 0; transition: opacity 4s ease; }
+  .map-frame[data-night="night"] .night-star { opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -191,10 +263,22 @@
       <h1 class="board-title" id="boardTitle">Village Builders Scoreboard</h1>
       <div class="subtitle">🏃 เส้นทางวิ่ง กรุงเทพฯ (TDFB HQ) → เชียงราย</div>
       <div class="live-badge"><span class="live-dot"></span><span id="lastUpdated">กำลังเชื่อมต่อ…</span></div>
-      <div class="page-links"><a href="view.html">🏠 มุมมองหมู่บ้าน</a></div>
+      <div class="page-links">
+        <a href="view.html">🏠 มุมมองหมู่บ้าน</a>
+        <button type="button" class="page-links-btn" id="kioskToggle">🖥️ โหมดจอทีวี</button>
+      </div>
     </div>
 
+    <div class="rank-summary" id="rankSummary"></div>
+
     <div class="team-maps-grid" id="teamMapsGrid"></div>
+  </div>
+
+  <div class="kiosk-backdrop" id="kioskBackdrop">
+    <div class="kiosk-header">
+      <span id="kioskTeamName"></span>
+      <button type="button" class="kiosk-exit-btn" id="kioskExit">✕ ออกจากโหมดจอทีวี</button>
+    </div>
   </div>
 
   <div class="feed-widget" id="feedWidget">

@@ -65,6 +65,38 @@
     return NOTABLE_LEVELS.indexOf(level) !== -1 || (level > LAST_MILESTONE_LEVEL && level % 25 === 0);
   }
 
+  /* Milestone names already reached at this level, in order — the "hall of fame" shelf
+     on the village view is just this list rendered as a row of pills. */
+  function milestonesReached(level) {
+    return MILESTONE_LEVELS.filter(function (lvl) { return lvl <= level; }).map(function (lvl) {
+      return { level: lvl, name: MILESTONE_NAMES[lvl] };
+    });
+  }
+
+  /* Shared by view/admin/run-view so "who's in the lead" reads identically everywhere. */
+  function computeRanks(teams) {
+    var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
+    var ranks = {};
+    sorted.forEach(function (t, i) { ranks[t.id] = i + 1; });
+    return ranks;
+  }
+
+  function rankBadgeText(rank) {
+    if (rank === 1) return "🥇";
+    if (rank === 2) return "🥈";
+    if (rank === 3) return "🥉";
+    return "#" + rank;
+  }
+
+  /* Real local-time day/night phase (not the random weather rotation) — used to dim
+     scenes and light up windows/stars in the evening, independent of team progress. */
+  function dayPhase() {
+    var hour = new Date().getHours();
+    if (hour < 5 || hour >= 19) return "night";
+    if (hour < 7 || hour >= 17) return "dusk";
+    return "day";
+  }
+
   function celebrationTextForLevel(level, milestoneChanged) {
     if (milestoneChanged) return "🎉 อัปเกรดเป็น " + milestoneNameForLevel(level) + " แล้ว!";
     return FEATURE_LABELS[level] || null;
@@ -401,6 +433,59 @@
     return { render: render, tick: tick };
   }
 
+  /* Real local-time day/night overlay on a .scene-sky element — separate concept from
+     the random weather rotation above. Also stamps document.body so house windows
+     (which live inside each team card, not this shared sky) can light up via a plain
+     CSS descendant selector instead of updating every house individually. */
+  function applyDayNight(sceneEl) {
+    var phase = dayPhase();
+    if (sceneEl.dataset.night === phase) return phase;
+    sceneEl.dataset.night = phase;
+    document.body.dataset.night = phase;
+    sceneEl.querySelectorAll(".firefly").forEach(function (el) { el.remove(); });
+    if (phase === "night") {
+      for (var i = 0; i < 14; i++) {
+        var f = document.createElement("div");
+        f.className = "firefly";
+        f.style.left = Math.random() * 100 + "%";
+        f.style.top = (35 + Math.random() * 55) + "%";
+        f.style.animationDelay = (Math.random() * 4).toFixed(2) + "s";
+        f.style.animationDuration = (2.5 + Math.random() * 2).toFixed(2) + "s";
+        sceneEl.appendChild(f);
+      }
+    }
+    return phase;
+  }
+
+  /* Occasional shooting star at night — small random chance per call, meant to be
+     called every few seconds so it doesn't fire on every single check. */
+  function maybeSpawnShootingStar(sceneEl) {
+    if (sceneEl.dataset.night !== "night") return;
+    if (Math.random() > 0.18) return;
+    var star = document.createElement("div");
+    star.className = "shooting-star";
+    star.style.top = (5 + Math.random() * 25) + "%";
+    star.style.left = (40 + Math.random() * 50) + "%";
+    sceneEl.appendChild(star);
+    setTimeout(function () { star.remove(); }, 1200);
+  }
+
+  var RAINBOW_COLORS = ["#ff6b6b", "#ffb26b", "#ffe66d", "#8fe08f", "#7fc4f0", "#a78bfa"];
+  function showRainbow(sceneEl) {
+    if (sceneEl.querySelector(".rainbow-arc")) return;
+    var svg = '<svg viewBox="0 0 300 150" width="300" height="150">';
+    RAINBOW_COLORS.forEach(function (c, i) {
+      var r = 130 - i * 18;
+      svg += '<path d="M ' + (150 - r) + ' 150 A ' + r + ' ' + r + ' 0 0 1 ' + (150 + r) + ' 150" fill="none" stroke="' + c + '" stroke-width="14" opacity="0.85"/>';
+    });
+    svg += "</svg>";
+    var wrap = document.createElement("div");
+    wrap.className = "rainbow-arc";
+    wrap.innerHTML = svg;
+    sceneEl.appendChild(wrap);
+    setTimeout(function () { wrap.remove(); }, 6000);
+  }
+
   function applyWeather(sceneEl) {
     var w = weatherForNow();
     if (sceneEl.dataset.weather === w) return w;
@@ -437,6 +522,10 @@
     levelForKm: levelForKm,
     kmToNextLevel: kmToNextLevel,
     milestoneNameForLevel: milestoneNameForLevel,
+    milestonesReached: milestonesReached,
+    computeRanks: computeRanks,
+    rankBadgeText: rankBadgeText,
+    dayPhase: dayPhase,
     isNotableLevel: isNotableLevel,
     celebrationTextForLevel: celebrationTextForLevel,
     featuresForLevel: featuresForLevel,
@@ -447,6 +536,9 @@
     buildRunIcon: buildRunIcon,
     celebrateUpgrade: celebrateUpgrade,
     applyWeather: applyWeather,
+    applyDayNight: applyDayNight,
+    maybeSpawnShootingStar: maybeSpawnShootingStar,
+    showRainbow: showRainbow,
     clamp: clamp,
     relativeTime: relativeTime,
     createFeedWidget: createFeedWidget
