@@ -2,7 +2,7 @@
   "use strict";
 
   var PALETTE = ["#4A90D9", "#E2934A", "#4F9A5B", "#D1587A", "#8B6FD1", "#3FA9A0"];
-  var DECORATION_TYPES = ["trees", "flowers", "people", "animals", "teaField"];
+  var DECORATION_TYPES = ["trees", "flowers", "people", "animals"];
 
   var KM_PER_LEVEL = 20;
 
@@ -32,7 +32,7 @@
     5: "\u{1FA9F} ติดหน้าต่างแล้ว!",
     6: "\u{1F6AA} ต่อเติมระเบียงหน้าบ้าน!",
     12: "\u{1F697} ปลดล็อกโรงรถ + รถคันใหม่!",
-    25: "⛲ ปลดล็อกน้ำพุกลางสวน!",
+    25: "⛲\u{1F6F8} ปลดล็อกน้ำพุกลางสวน + UFO ลึกลับมาเยือน!",
     35: "\u{1F3CA} ปลดล็อกสระว่ายน้ำ!",
     45: "\u{1F3D7}️ เริ่มสร้างอาคารหลังที่ 2!"
   };
@@ -83,18 +83,16 @@
       door: level >= 4,
       window: level >= 5,
       porchrail: level >= 6,
-      fence: level >= 10,
       secondfloor: level >= 15,
       chimney: level >= 20,
       thirdfloor: level >= 30,
       castledetail: level >= 40,
       outbuilding: level >= 45,
-      ufo: level >= 100,
+      ufo: level >= 25,
       garageCar: level >= 12,
       fountain: level >= 25,
       pool: level >= 35,
-      statue: level >= 40,
-      teaField: level >= 15
+      statue: level >= 40
     };
   }
 
@@ -142,7 +140,6 @@
 
     var plot = document.createElement("div");
     plot.className = "house-plot";
-    plot.dataset.fence = String(f.fence);
 
     var groundShadow = document.createElement("div");
     groundShadow.className = "ground-shadow";
@@ -151,10 +148,6 @@
     var grassTufts = document.createElement("div");
     grassTufts.className = "grass-tufts";
     plot.appendChild(grassTufts);
-
-    var teaField = document.createElement("div");
-    teaField.className = "tea-field";
-    plot.appendChild(teaField);
 
     var house = document.createElement("div");
     house.className = "house";
@@ -197,11 +190,6 @@
       "</div>";
     plot.appendChild(ufo);
 
-    var fence = document.createElement("div");
-    fence.className = "fence";
-    fence.innerHTML = '<div class="fence-side fence-side--left"></div><div class="fence-side fence-side--right"></div>';
-    plot.appendChild(fence);
-
     var yardLayer = document.createElement("div");
     yardLayer.className = "yard-layer";
     yardLayer.innerHTML =
@@ -225,8 +213,6 @@
     Object.keys(f).forEach(function (key) {
       house.dataset[key] = String(f[key]);
     });
-    plot.dataset.fence = String(f.fence);
-    plot.dataset.teaField = String(f.teaField);
     plot.dataset.outbuilding = String(f.outbuilding);
     plot.dataset.ufo = String(f.ufo);
     plot.dataset.garageCar = String(f.garageCar);
@@ -240,8 +226,7 @@
       trees: level,
       flowers: Math.floor(level * 1.5),
       people: level * 2 + (level >= 4 ? 2 : 0),
-      animals: Math.floor(level / 2),
-      teaField: level >= 15 ? clamp(1 + Math.floor((level - 15) / 8), 1, 4) : 0
+      animals: Math.floor(level / 2)
     };
   }
 
@@ -251,7 +236,6 @@
     refs.house.dataset.size = sizeClassForLevel(level);
     refs.house.style.setProperty("--accent", team.color);
     applyFeatureAttributes(refs.plot, f);
-    if (f.teaField) refs.plot.querySelector(".tea-field").style.setProperty("--rows", decorationsForLevel(level).teaField);
     renderDecorLayer(refs.decorLayer, decorationsForLevel(level));
     return level;
   }

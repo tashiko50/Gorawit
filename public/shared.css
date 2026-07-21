@@ -144,6 +144,15 @@ h1.board-title {
 }
 .team-card:hover { transform: translateY(-3px); }
 
+/* The house is built from many fixed-px absolutely-positioned parts (pillars, roof
+   border-widths, windows...), so it can't just be given a percentage width — `zoom`
+   scales the whole card's rendering (and its layout footprint) together instead,
+   which keeps every part's proportions/position correct at any size. */
+@media (max-width: 480px) { .team-card, .add-card { zoom: 0.92; } }
+@media (max-width: 400px) { .team-card, .add-card { zoom: 0.84; } }
+@media (max-width: 360px) { .team-card, .add-card { zoom: 0.74; } }
+@media (max-width: 330px) { .team-card, .add-card { zoom: 0.64; } }
+
 .team-name { font-weight: 800; font-size: 1.02rem; color: var(--accent-deep); text-align: center; padding: 2px 8px; border-radius: 8px; margin-bottom: 4px; max-width: 100%; overflow-wrap: break-word; }
 .team-name[contenteditable="true"] { outline: none; cursor: text; }
 .team-name[contenteditable="true"]:hover, .team-name[contenteditable="true"]:focus-visible { outline: 2px dashed var(--accent-soft); }
@@ -171,19 +180,6 @@ h1.board-title {
     radial-gradient(circle at 14px 14px, transparent 5px, var(--hill-near) 5px 6px, transparent 7px);
   background-size: 18px 14px; background-repeat: repeat-x; opacity: 0.55;
 }
-
-/* tea field is deliberately BEHIND the house (lower in DOM/paint order, and the house
-   sits on top of its middle) so it never competes with the front-yard decorations */
-.tea-field {
-  display: none; position: absolute; left: 12%; right: 12%; bottom: 118px;
-  height: calc(7px * var(--rows, 1) + 5px);
-  background-image: repeating-linear-gradient(90deg, #6fae4e 0 9px, #5c9a42 9px 18px);
-  border-radius: 6px; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25);
-  background-size: 200% 100%; animation: tea-ripple 6s linear infinite;
-}
-.house-plot[data-tea-field="true"] .tea-field { display: block; }
-@media (prefers-reduced-motion: reduce) { .tea-field { animation: none; } }
-@keyframes tea-ripple { from { background-position: 0 0; } to { background-position: -36px 0; } }
 
 .house {
   position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 2;
@@ -326,17 +322,6 @@ h1.board-title {
   border: 2px solid color-mix(in srgb, var(--accent-deep) 70%, black);
 }
 .outbuilding-door { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 14px; height: 20px; background: color-mix(in srgb, var(--accent-deep) 70%, black); border-radius: 3px 3px 0 0; }
-
-.fence { display: none; position: absolute; left: 6%; right: 6%; bottom: 24px; height: 16px; z-index: 1; }
-.house-plot[data-fence="true"] .fence { display: block; }
-.fence::before { content: ""; position: absolute; inset: 0; top: 6px; height: 4px; background: color-mix(in srgb, var(--accent, #4a90d9) 55%, #8a5a3b); }
-.fence::after {
-  content: ""; position: absolute; inset: 0;
-  background-image: repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent, #4a90d9) 45%, #a9784f) 0 4px, transparent 4px 16px);
-}
-.fence-side { position: absolute; bottom: 6px; width: 46px; height: 4px; background: color-mix(in srgb, var(--accent, #4a90d9) 45%, #a9784f); }
-.fence-side--left { left: -18px; transform: rotate(76deg); transform-origin: left center; }
-.fence-side--right { right: -18px; transform: rotate(-76deg); transform-origin: right center; }
 
 .ufo-wrap { display: none; position: absolute; left: 50%; top: -34px; transform: translateX(-50%); width: 100px; z-index: 3; }
 .house-plot[data-ufo="true"] .ufo-wrap { display: block; }
