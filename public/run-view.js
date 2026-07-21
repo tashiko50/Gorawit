@@ -493,16 +493,14 @@
       rankSummaryEl.appendChild(row);
     });
 
-    var closestGap = Infinity, leader = null, chaser = null;
-    for (var i = 0; i < sorted.length - 1; i++) {
-      var gap = sorted[i].km - sorted[i + 1].km;
-      if (gap < closestGap) { closestGap = gap; leader = sorted[i]; chaser = sorted[i + 1]; }
-    }
     var banner = document.createElement("div");
     banner.className = "close-race-banner";
-    if (leader && closestGap <= 20) {
-      banner.classList.add("show");
-      banner.textContent = "\u{1F525} " + leader.name + " กับ " + chaser.name + " สูสีกันมาก! ห่างกันแค่ " + closestGap + " กม.";
+    if (sorted.length >= 2) {
+      var gap = sorted[0].km - sorted[1].km;
+      if (gap <= 20) {
+        banner.classList.add("show");
+        banner.textContent = "\u{1F525} " + sorted[0].name + " กับ " + sorted[1].name + " สูสีกันมาก! ห่างกันแค่ " + gap + " กม.";
+      }
     }
     rankSummaryEl.appendChild(banner);
   }
