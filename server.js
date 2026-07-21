@@ -12,10 +12,21 @@ const ADMIN_PIN = process.env.ADMIN_PIN || "0000";
 const MAX_EVENTS = 60;
 const MAX_TEAMS = 12;
 const KM_PER_LEVEL = 20;
-const STRUCTURAL_STAGES = 4;
-const LEVELS_PER_STAGE = 5;
 
-const STAGE_NAMES = ["แคมป์เล็กๆ", "กระท่อมน่าอยู่", "บ้านไร่ชา", "คฤหาสน์หมู่บ้าน"];
+const MILESTONE_NAMES = {
+  0: "แคมป์เริ่มต้น",
+  10: "รังนกน้อย",
+  20: "ไร่ชายามเช้า",
+  30: "คฤหาสน์ใบชา",
+  40: "ปราสาทสายลม",
+  50: "อาณาจักรนักวิ่ง",
+  60: "นักวิ่งไร้พรมแดน",
+  70: "ตำนานที่ยังไม่จบ",
+  80: "เหนือจินตนาการ",
+  90: "ประตูสู่จักรวาล",
+  100: "ทูตจากดวงดาว"
+};
+const MILESTONE_LEVELS = Object.keys(MILESTONE_NAMES).map(Number).sort((a, b) => a - b);
 
 const PALETTE = ["#4A90D9", "#E2934A", "#4F9A5B", "#D1587A", "#8B6FD1", "#3FA9A0"];
 
@@ -23,8 +34,13 @@ function levelForKm(km) {
   return Math.max(0, Math.floor((Number(km) || 0) / KM_PER_LEVEL));
 }
 
-function stageForLevel(level) {
-  return Math.min(STRUCTURAL_STAGES - 1, Math.floor(level / LEVELS_PER_STAGE));
+function milestoneNameForLevel(level) {
+  let name = MILESTONE_NAMES[0];
+  for (const lvl of MILESTONE_LEVELS) {
+    if (lvl <= level) name = MILESTONE_NAMES[lvl];
+    else break;
+  }
+  return name;
 }
 
 function makeTeam(id, name, color) {
@@ -80,14 +96,17 @@ function nextTeamId() {
 
 function applyKmChange(team, nextKm) {
   const prevLevel = levelForKm(team.km);
-  const prevStage = stageForLevel(prevLevel);
   team.km = Math.max(0, nextKm);
   const newLevel = levelForKm(team.km);
-  const newStage = stageForLevel(newLevel);
-  if (newStage > prevStage) {
-    pushEvent(`\u{1F3D8}✨ ${team.name} อัปเกรดหมู่บ้านเป็น "${STAGE_NAMES[newStage]}" แล้ว! (${newLevel * KM_PER_LEVEL} กม.)`);
-  } else if (newLevel > prevLevel) {
-    pushEvent(`\u{1F331} ${team.name} หมู่บ้านคึกคักขึ้น! (ถึง ${newLevel * KM_PER_LEVEL} กม.)`);
+  if (newLevel > prevLevel) {
+    const newName = milestoneNameForLevel(newLevel);
+    const prevName = milestoneNameForLevel(prevLevel);
+    if (newName !== prevName) {
+      const icon = newLevel >= 100 ? "\u{1F6F8}" : "\u{1F3D8}✨";
+      pushEvent(`${icon} ${team.name} อัปเกรดหมู่บ้านเป็น "${newName}" แล้ว! (${newLevel * KM_PER_LEVEL} กม.)`);
+    } else {
+      pushEvent(`\u{1F331} ${team.name} หมู่บ้านคึกคักขึ้น! (ถึง ${newLevel * KM_PER_LEVEL} กม.)`);
+    }
   } else if (newLevel < prevLevel) {
     pushEvent(`⬇️ ${team.name} กม. ลดลง หมู่บ้านเล็กลงเล็กน้อย`);
   }

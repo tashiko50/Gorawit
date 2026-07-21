@@ -181,7 +181,7 @@
     cardRefs.set(team.id, {
       card: card, nameEl: nameEl, palette: palette, house: visual.house, plot: visual.plot, decorLayer: visual.decorLayer,
       levelBadge: levelBadge, levelProgress: levelProgress, kmInput: kmInput,
-      lastStage: S.stageForLevel(S.levelForKm(team.km)), lastLevel: S.levelForKm(team.km)
+      lastLevel: S.levelForKm(team.km), lastMilestoneName: S.milestoneNameForLevel(S.levelForKm(team.km))
     });
 
     updateLevelText(levelBadge, levelProgress, team);
@@ -190,7 +190,7 @@
 
   function updateLevelText(levelBadge, levelProgress, team) {
     var level = S.levelForKm(team.km);
-    levelBadge.textContent = "ระดับ " + level + " · " + S.stageNameForLevel(level);
+    levelBadge.textContent = "ระดับ " + level + " · " + S.milestoneNameForLevel(level);
     var toNext = S.kmToNextLevel(team.km);
     levelProgress.textContent = "อีก " + toNext + " กม. ถึงระดับถัดไป";
   }
@@ -237,15 +237,18 @@
     });
 
     var newLevel = S.levelForKm(team.km);
-    var newStage = S.updateHouseVisual(refs, team);
+    S.updateHouseVisual(refs, team);
     updateLevelText(refs.levelBadge, refs.levelProgress, team);
     if (document.activeElement !== refs.kmInput) refs.kmInput.value = team.km;
 
     if (newLevel > refs.lastLevel) {
-      S.celebrateUpgrade(refs.plot, newStage > refs.lastStage, newStage > refs.lastStage ? "🎉 อัปเกรดเป็น " + S.stageNameForLevel(newLevel) + " แล้ว!" : null);
+      var newMilestoneName = S.milestoneNameForLevel(newLevel);
+      var milestoneChanged = newMilestoneName !== refs.lastMilestoneName;
+      var big = milestoneChanged || S.isNotableLevel(newLevel);
+      S.celebrateUpgrade(refs.plot, big, big ? S.celebrationTextForLevel(newLevel, milestoneChanged) : null);
+      refs.lastMilestoneName = newMilestoneName;
     }
     refs.lastLevel = newLevel;
-    refs.lastStage = newStage;
   }
 
   function render(state) {
@@ -277,6 +280,10 @@
   function poll() {
     fetch("/api/state").then(function (res) { return res.json(); }).then(render).catch(function () {});
   }
+
+  var sceneEl = document.querySelector(".scene-sky");
+  S.applyWeather(sceneEl);
+  setInterval(function () { S.applyWeather(sceneEl); }, 30000);
 
   poll();
   setInterval(poll, POLL_MS);

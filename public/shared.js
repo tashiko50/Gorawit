@@ -5,9 +5,38 @@
   var DECORATION_TYPES = ["trees", "flowers", "people", "animals", "teaField"];
 
   var KM_PER_LEVEL = 20;
-  var STRUCTURAL_STAGES = 4;
-  var LEVELS_PER_STAGE = 5;
-  var STAGE_NAMES = ["แคมป์เล็กๆ", "กระท่อมน่าอยู่", "บ้านไร่ชา", "คฤหาสน์หมู่บ้าน"];
+
+  var MILESTONE_NAMES = {
+    0: "แคมป์เริ่มต้น",
+    10: "รังนกน้อย",
+    20: "ไร่ชายามเช้า",
+    30: "คฤหาสน์ใบชา",
+    40: "ปราสาทสายลม",
+    50: "อาณาจักรนักวิ่ง",
+    60: "นักวิ่งไร้พรมแดน",
+    70: "ตำนานที่ยังไม่จบ",
+    80: "เหนือจินตนาการ",
+    90: "ประตูสู่จักรวาล",
+    100: "ทูตจากดวงดาว"
+  };
+  var MILESTONE_LEVELS = Object.keys(MILESTONE_NAMES).map(Number).sort(function (a, b) { return a - b; });
+  var LAST_MILESTONE_LEVEL = MILESTONE_LEVELS[MILESTONE_LEVELS.length - 1];
+
+  /* Levels where something structurally new appears (or a milestone name is revealed) —
+     these get the big celebrate-up treatment; every other level-up gets a light pulse. */
+  var FEATURE_LABELS = {
+    1: "\u{1F528} เริ่มตอกเสาเข็มหลังแรก!",
+    2: "\u{1F528} โครงหลังคากันแดดขึ้นแล้ว!",
+    3: "\u{1F9F1} ผนังเริ่มเป็นรูปเป็นร่าง!",
+    4: "\u{1F3E0} กระท่อมหลังแรกเสร็จสมบูรณ์!",
+    5: "\u{1FA9F} ติดหน้าต่างแล้ว!",
+    6: "\u{1F6AA} ต่อเติมระเบียงหน้าบ้าน!",
+    12: "\u{1F697} ปลดล็อกโรงรถ + รถคันใหม่!",
+    25: "⛲ ปลดล็อกน้ำพุกลางสวน!",
+    35: "\u{1F3CA} ปลดล็อกสระว่ายน้ำ!",
+    45: "\u{1F3D7}️ เริ่มสร้างอาคารหลังที่ 2!"
+  };
+  var NOTABLE_LEVELS = Object.keys(FEATURE_LABELS).map(Number).concat([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
 
   var RUN_ICON_A = '<svg viewBox="0 0 24 24"><circle cx="13" cy="4.3" r="2.3" fill="#8a5a3b"/><path d="M11 7 8 12l3 2-1 6h2.4l1-5.6L16 16l1.6 5h2.3l-2-7.4-2.6-2.3 1.2-4.6 3 2.4 1.3-1.7-4.4-3.6-3-.4-2.4 3.6z" fill="var(--accent, #4a90d9)"/></svg>';
   var RUN_ICON_B = '<svg viewBox="0 0 24 24"><circle cx="11" cy="4.3" r="2.3" fill="#8a5a3b"/><path d="M13 7 17 10.8l-1.2 4.6L19 18l-1.4 1.7-3.8-3.6-1.1-4.3-2 2 .6 6.2H9l-.7-7.4 2.4-3.4-3-1.6-2 3.4-2-1.2 3-5.2 3-1.4z" fill="var(--accent, #4a90d9)"/></svg>';
@@ -18,28 +47,68 @@
     return Math.max(0, Math.floor((Number(km) || 0) / KM_PER_LEVEL));
   }
 
-  function stageForLevel(level) {
-    return Math.min(STRUCTURAL_STAGES - 1, Math.floor(level / LEVELS_PER_STAGE));
-  }
-
   function kmToNextLevel(km) {
     var level = levelForKm(km);
     return (level + 1) * KM_PER_LEVEL - Number(km || 0);
   }
 
-  function stageNameForLevel(level) {
-    return STAGE_NAMES[stageForLevel(level)];
+  function milestoneNameForLevel(level) {
+    var name = MILESTONE_NAMES[0];
+    for (var i = 0; i < MILESTONE_LEVELS.length; i++) {
+      if (MILESTONE_LEVELS[i] <= level) name = MILESTONE_NAMES[MILESTONE_LEVELS[i]];
+      else break;
+    }
+    return name;
   }
 
-  function decorationsForLevel(level) {
-    var stage = stageForLevel(level);
+  function isNotableLevel(level) {
+    return NOTABLE_LEVELS.indexOf(level) !== -1 || (level > LAST_MILESTONE_LEVEL && level % 25 === 0);
+  }
+
+  function celebrationTextForLevel(level, milestoneChanged) {
+    if (milestoneChanged) return "🎉 อัปเกรดเป็น " + milestoneNameForLevel(level) + " แล้ว!";
+    return FEATURE_LABELS[level] || null;
+  }
+
+  /* One continuous build-out, from bare pillars to a full estate compound with a UFO overhead.
+     Every threshold here is a deliberate design choice — see README for the full level table. */
+  function featuresForLevel(level) {
     return {
-      trees: level,
-      flowers: Math.floor(level * 1.5),
-      people: level * 2 + (stage >= 1 ? 2 : 0),
-      animals: Math.floor(level / 2),
-      teaField: stage >= 2 ? Math.min(4, stage + 1) : 0
+      pillar1: level >= 1,
+      pillar2: level >= 2,
+      leanto: level >= 2 && level < 4,
+      wallframing: level === 3,
+      wallsolid: level >= 4,
+      roof: level >= 4,
+      door: level >= 4,
+      window: level >= 5,
+      porchrail: level >= 6,
+      fence: level >= 10,
+      secondfloor: level >= 15,
+      chimney: level >= 20,
+      thirdfloor: level >= 30,
+      castledetail: level >= 40,
+      outbuilding: level >= 45,
+      ufo: level >= 100,
+      garageCar: level >= 12,
+      fountain: level >= 25,
+      pool: level >= 35,
+      statue: level >= 40,
+      teaField: level >= 15
     };
+  }
+
+  function sizeClassForLevel(level) {
+    if (level < 15) return "small";
+    if (level < 30) return "medium";
+    return "large";
+  }
+
+  var WEATHER_CYCLE_MS = 12 * 60 * 1000;
+  var WEATHER_SEQUENCE = ["sun", "sun", "rain", "sun", "sun", "rain", "sun", "snow", "sun", "rain"];
+  function weatherForNow() {
+    var bucket = Math.floor(Date.now() / WEATHER_CYCLE_MS);
+    return WEATHER_SEQUENCE[bucket % WEATHER_SEQUENCE.length];
   }
 
   var DECOR_ICONS = {
@@ -49,30 +118,31 @@
     animals: '<svg viewBox="0 0 24 24"><path d="M5 13c-1.2 0-2-.9-2-2s.8-2 2-2" fill="none" stroke="#c98a4b" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="11" cy="14.5" rx="6.4" ry="4.6" fill="#e9c095" stroke="#c98a4b" stroke-width="1"/><path d="M5.5 10.5 4 6.5l3 2.2z" fill="#e9c095" stroke="#c98a4b" stroke-width="1" stroke-linejoin="round"/><path d="M8 9.5 6.8 5.2l3 2.6z" fill="#e9c095" stroke="#c98a4b" stroke-width="1" stroke-linejoin="round"/><circle cx="6.6" cy="11.6" r="0.7" fill="#5c3d22"/><rect x="7" y="18" width="2" height="3.4" rx="1" fill="#c98a4b"/><rect x="13.5" y="18" width="2" height="3.4" rx="1" fill="#c98a4b"/><path d="M17.2 12.5c1.4.3 2 1.6 1.4 2.8" fill="none" stroke="#c98a4b" stroke-width="1.3" stroke-linecap="round"/></svg>'
   };
 
-  /* All slots (and their overflow badges) stay outside the house footprint:
-     trees/flowers hug the side margins, people/animals stay in the yard strip
-     below the house's fixed bottom edge (see shared.css .house { bottom: 54px }). */
+  /* Trees/flowers hug the side margins (well outside the widest house span, including
+     the outbuilding on the right); people/animals + the yard features (garage, statue,
+     fountain, pool) each get a fixed non-overlapping x-band across the front yard strip. */
   var DECOR_SLOTS = {
-    trees: [[4, 38], [2, 53], [9, 66]],
-    flowers: [[94, 40], [98, 55], [92, 68]],
-    people: [[22, 86], [72, 94], [48, 90]],
-    animals: [[12, 89], [86, 95]]
+    trees: [[3, 40], [2, 58], [6, 74]],
+    flowers: [[97, 38], [99, 54], [99, 70]],
+    people: [[31, 92], [69, 92]],
+    animals: [[4, 88], [96, 88]]
   };
   var DECOR_BADGE_POS = {
-    trees: [6, 78],
-    flowers: [95, 78],
+    trees: [5, 84],
+    flowers: [97, 84],
     people: [50, 97],
-    animals: [70, 97]
+    animals: [50, 90]
   };
   var SWAY_DELAYS = ["0s", "-0.6s", "-1.2s", "-0.3s"];
 
   function buildHousePlot(team) {
     var level = levelForKm(team.km);
-    var stage = stageForLevel(level);
+    var f = featuresForLevel(level);
+    var size = sizeClassForLevel(level);
 
     var plot = document.createElement("div");
     plot.className = "house-plot";
-    plot.dataset.fence = String(stage >= 3);
+    plot.dataset.fence = String(f.fence);
 
     var groundShadow = document.createElement("div");
     groundShadow.className = "ground-shadow";
@@ -82,44 +152,108 @@
     grassTufts.className = "grass-tufts";
     plot.appendChild(grassTufts);
 
+    var teaField = document.createElement("div");
+    teaField.className = "tea-field";
+    plot.appendChild(teaField);
+
     var house = document.createElement("div");
     house.className = "house";
-    house.dataset.stage = String(stage);
+    house.dataset.size = size;
     house.style.setProperty("--accent", team.color);
     house.innerHTML =
+      '<div class="turret"><div class="turret-roof"></div></div>' +
+      '<div class="crenellation"></div>' +
       '<div class="roof"><div class="roof-shine"></div></div>' +
       '<div class="roof-side"></div>' +
       '<div class="chimney"><div class="smoke smoke--a"></div><div class="smoke smoke--b"></div></div>' +
+      '<div class="lean-to"></div>' +
       '<div class="wall">' +
-      '<div class="window"></div>' +
+      '<div class="window--top"></div>' +
       '<div class="window--upper"></div>' +
-      '<div class="pillar pillar--left"></div>' +
-      '<div class="pillar pillar--right"></div>' +
+      '<div class="window"></div>' +
       '<div class="door"></div>' +
       "</div>" +
-      '<div class="wall-side"></div>';
+      '<div class="wall-side"></div>' +
+      '<div class="porch-rail"></div>' +
+      '<div class="pillar pillar--left"></div>' +
+      '<div class="pillar pillar--right"></div>' +
+      '<div class="start-flag"></div>';
     plot.appendChild(house);
+
+    var outbuilding = document.createElement("div");
+    outbuilding.className = "outbuilding";
+    outbuilding.innerHTML = '<div class="outbuilding-roof"></div><div class="outbuilding-wall"><div class="outbuilding-door"></div></div>';
+    plot.appendChild(outbuilding);
+
+    var ufo = document.createElement("div");
+    ufo.className = "ufo-wrap";
+    ufo.innerHTML =
+      '<div class="ufo-beam"></div>' +
+      '<div class="ufo">' +
+      '<svg viewBox="0 0 60 30"><ellipse cx="30" cy="12" rx="26" ry="8" fill="#9fb8c8" stroke="#5c7080" stroke-width="1.5"/>' +
+      '<ellipse cx="30" cy="7" rx="13" ry="7" fill="#cfe8ee" stroke="#5c7080" stroke-width="1.3"/>' +
+      '<circle cx="12" cy="14" r="2.2" fill="#ffe37a"/><circle cx="24" cy="17" r="2.2" fill="#ff8fa3"/>' +
+      '<circle cx="36" cy="17" r="2.2" fill="#8fe3ff"/><circle cx="48" cy="14" r="2.2" fill="#c6ff8f"/></svg>' +
+      "</div>";
+    plot.appendChild(ufo);
 
     var fence = document.createElement("div");
     fence.className = "fence";
+    fence.innerHTML = '<div class="fence-side fence-side--left"></div><div class="fence-side fence-side--right"></div>';
     plot.appendChild(fence);
+
+    var yardLayer = document.createElement("div");
+    yardLayer.className = "yard-layer";
+    yardLayer.innerHTML =
+      '<div class="garage"><div class="garage-roof"></div><div class="garage-body"><div class="car"></div></div></div>' +
+      '<div class="fountain"><div class="fountain-basin"></div><div class="fountain-spray"></div></div>' +
+      '<div class="pool"><div class="pool-shimmer"></div></div>' +
+      '<div class="statue"><div class="statue-figure"></div><div class="statue-base"></div></div>';
+    plot.appendChild(yardLayer);
 
     var decorLayer = document.createElement("div");
     decorLayer.className = "decor-layer";
     renderDecorLayer(decorLayer, decorationsForLevel(level));
     plot.appendChild(decorLayer);
 
+    applyFeatureAttributes(plot, f);
     return { plot: plot, house: house, decorLayer: decorLayer };
+  }
+
+  function applyFeatureAttributes(plot, f) {
+    var house = plot.querySelector(".house");
+    Object.keys(f).forEach(function (key) {
+      house.dataset[key] = String(f[key]);
+    });
+    plot.dataset.fence = String(f.fence);
+    plot.dataset.teaField = String(f.teaField);
+    plot.dataset.outbuilding = String(f.outbuilding);
+    plot.dataset.ufo = String(f.ufo);
+    plot.dataset.garageCar = String(f.garageCar);
+    plot.dataset.fountain = String(f.fountain);
+    plot.dataset.pool = String(f.pool);
+    plot.dataset.statue = String(f.statue);
+  }
+
+  function decorationsForLevel(level) {
+    return {
+      trees: level,
+      flowers: Math.floor(level * 1.5),
+      people: level * 2 + (level >= 4 ? 2 : 0),
+      animals: Math.floor(level / 2),
+      teaField: level >= 15 ? clamp(1 + Math.floor((level - 15) / 8), 1, 4) : 0
+    };
   }
 
   function updateHouseVisual(refs, team) {
     var level = levelForKm(team.km);
-    var stage = stageForLevel(level);
-    refs.house.dataset.stage = String(stage);
+    var f = featuresForLevel(level);
+    refs.house.dataset.size = sizeClassForLevel(level);
     refs.house.style.setProperty("--accent", team.color);
-    refs.plot.dataset.fence = String(stage >= 3);
+    applyFeatureAttributes(refs.plot, f);
+    if (f.teaField) refs.plot.querySelector(".tea-field").style.setProperty("--rows", decorationsForLevel(level).teaField);
     renderDecorLayer(refs.decorLayer, decorationsForLevel(level));
-    return stage;
+    return level;
   }
 
   function renderDecorLayer(layer, decorations) {
@@ -147,13 +281,6 @@
         layer.appendChild(badge);
       }
     });
-    var teaField = decorations.teaField || 0;
-    if (teaField > 0) {
-      var field = document.createElement("div");
-      field.className = "tea-field";
-      field.style.setProperty("--rows", teaField);
-      layer.appendChild(field);
-    }
   }
 
   function buildRunIcon() {
@@ -172,7 +299,7 @@
   }
 
   /* Sparkle burst + scale pop so an upgrade reads as an obvious event, not a silent
-     CSS attribute swap. `big` (structural stage change) gets a stronger burst + toast. */
+     CSS attribute swap. `big` (notable level) gets a stronger burst + toast. */
   function celebrateUpgrade(plotEl, big, toastText) {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     plotEl.classList.remove("pulse-up", "celebrate-up");
@@ -199,29 +326,59 @@
         toast.className = "upgrade-toast";
         toast.textContent = toastText;
         plotEl.appendChild(toast);
-        setTimeout(function () { toast.remove(); }, 2000);
+        setTimeout(function () { toast.remove(); }, 2200);
       }
     }
 
     setTimeout(function () { plotEl.classList.remove("pulse-up", "celebrate-up"); }, big ? 900 : 500);
   }
 
+  function applyWeather(sceneEl) {
+    var w = weatherForNow();
+    if (sceneEl.dataset.weather === w) return w;
+    sceneEl.dataset.weather = w;
+    sceneEl.querySelectorAll(".raindrop, .snowflake").forEach(function (el) { el.remove(); });
+    if (w === "rain") {
+      for (var i = 0; i < 40; i++) {
+        var drop = document.createElement("div");
+        drop.className = "raindrop";
+        drop.style.left = Math.random() * 100 + "%";
+        drop.style.animationDelay = (Math.random() * 1.2).toFixed(2) + "s";
+        drop.style.animationDuration = (0.5 + Math.random() * 0.4).toFixed(2) + "s";
+        sceneEl.appendChild(drop);
+      }
+    } else if (w === "snow") {
+      for (var j = 0; j < 34; j++) {
+        var flake = document.createElement("div");
+        flake.className = "snowflake";
+        flake.textContent = "❄";
+        flake.style.left = Math.random() * 100 + "%";
+        flake.style.animationDelay = (Math.random() * 6).toFixed(2) + "s";
+        flake.style.animationDuration = (5 + Math.random() * 4).toFixed(2) + "s";
+        flake.style.fontSize = (8 + Math.random() * 8).toFixed(0) + "px";
+        sceneEl.appendChild(flake);
+      }
+    }
+    return w;
+  }
+
   global.Scoreboard = {
     PALETTE: PALETTE,
     DECORATION_TYPES: DECORATION_TYPES,
     KM_PER_LEVEL: KM_PER_LEVEL,
-    STRUCTURAL_STAGES: STRUCTURAL_STAGES,
-    LEVELS_PER_STAGE: LEVELS_PER_STAGE,
     levelForKm: levelForKm,
-    stageForLevel: stageForLevel,
     kmToNextLevel: kmToNextLevel,
-    stageNameForLevel: stageNameForLevel,
+    milestoneNameForLevel: milestoneNameForLevel,
+    isNotableLevel: isNotableLevel,
+    celebrationTextForLevel: celebrationTextForLevel,
+    featuresForLevel: featuresForLevel,
     decorationsForLevel: decorationsForLevel,
     buildHousePlot: buildHousePlot,
     updateHouseVisual: updateHouseVisual,
     renderDecorLayer: renderDecorLayer,
     buildRunIcon: buildRunIcon,
     celebrateUpgrade: celebrateUpgrade,
+    applyWeather: applyWeather,
     clamp: clamp
   };
 })(window);

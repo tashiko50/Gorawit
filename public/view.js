@@ -73,14 +73,14 @@
     cardRefs.set(team.id, {
       card: card, nameEl: nameEl, levelBadge: levelBadge, levelProgress: levelProgress,
       house: visual.house, plot: visual.plot, decorLayer: visual.decorLayer, kmEl: kmEl,
-      lastStage: S.stageForLevel(S.levelForKm(team.km)), lastLevel: S.levelForKm(team.km)
+      lastLevel: S.levelForKm(team.km), lastMilestoneName: S.milestoneNameForLevel(S.levelForKm(team.km))
     });
     return card;
   }
 
   function setLevelText(levelBadge, levelProgress, team) {
     var level = S.levelForKm(team.km);
-    levelBadge.textContent = "ระดับ " + level + " · " + S.stageNameForLevel(level);
+    levelBadge.textContent = "ระดับ " + level + " · " + S.milestoneNameForLevel(level);
     var toNext = S.kmToNextLevel(team.km);
     levelProgress.textContent = "อีก " + toNext + " กม. ถึงระดับถัดไป";
   }
@@ -100,14 +100,17 @@
     setLevelText(refs.levelBadge, refs.levelProgress, team);
 
     var newLevel = S.levelForKm(team.km);
-    var newStage = S.updateHouseVisual(refs, team);
+    S.updateHouseVisual(refs, team);
     refs.kmEl.textContent = team.km;
 
     if (newLevel > refs.lastLevel) {
-      S.celebrateUpgrade(refs.plot, newStage > refs.lastStage, newStage > refs.lastStage ? "🎉 อัปเกรดเป็น " + S.stageNameForLevel(newLevel) + " แล้ว!" : null);
+      var newMilestoneName = S.milestoneNameForLevel(newLevel);
+      var milestoneChanged = newMilestoneName !== refs.lastMilestoneName;
+      var big = milestoneChanged || S.isNotableLevel(newLevel);
+      S.celebrateUpgrade(refs.plot, big, big ? S.celebrationTextForLevel(newLevel, milestoneChanged) : null);
+      refs.lastMilestoneName = newMilestoneName;
     }
     refs.lastLevel = newLevel;
-    refs.lastStage = newStage;
   }
 
   function renderFeed(events) {
@@ -192,6 +195,10 @@
     });
     if (lastFetchTs) lastUpdatedEl.textContent = "อัปเดตล่าสุด: " + relativeTime(lastFetchTs);
   }, 1000);
+
+  var sceneEl = document.querySelector(".scene-sky");
+  S.applyWeather(sceneEl);
+  setInterval(function () { S.applyWeather(sceneEl); }, 30000);
 
   poll();
   setInterval(poll, POLL_MS);
