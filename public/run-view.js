@@ -18,6 +18,8 @@
   var kioskHeader = document.getElementById("kioskHeader");
   var kioskTeamNameEl = document.getElementById("kioskTeamName");
   var kioskExitBtn = document.getElementById("kioskExit");
+  var clockTimeEl = document.getElementById("clockTime");
+  var clockDateEl = document.getElementById("clockDate");
 
   var feed = S.createFeedWidget({ listEl: feedListEl, widgetEl: feedWidget, toggleEl: feedToggle, countEl: feedCountEl });
 
@@ -607,6 +609,23 @@
 
   setInterval(tickVehicles, 150);
   setInterval(tickDayNight, 60000);
+
+  function updateClock() {
+    if (!clockTimeEl || !clockDateEl) return;
+    var parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour12: false
+    }).formatToParts(new Date());
+    var v = {};
+    parts.forEach(function (p) { v[p.type] = p.value; });
+    var hour = v.hour === "24" ? "00" : v.hour;
+    clockTimeEl.textContent = hour + ":" + v.minute + ":" + v.second + " น.";
+    clockDateEl.textContent = v.day + "/" + v.month + "/" + (parseInt(v.year, 10) + 543);
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
 
   fetch("/api/route")
     .then(function (res) { return res.json(); })

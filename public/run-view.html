@@ -184,6 +184,14 @@
   }
   .page-links-btn:hover { color: var(--title-stroke); }
 
+  /* Live local clock (GMT+7) + Thai Buddhist-era date, next to the live-update badge */
+  .clock-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700;
+    color: var(--ink-soft); background: var(--toolbar-bg); padding: 5px 12px; border-radius: 999px;
+    margin-top: 8px; margin-left: 6px; font-variant-numeric: tabular-nums;
+  }
+  .clock-sep { opacity: 0.5; }
+
   /* Combined rank bar — every team on one mini track, so who's ahead reads at a glance
      without opening each card. */
   .rank-summary {
@@ -282,6 +290,11 @@
       <h1 class="board-title" id="boardTitle">Village Builders Scoreboard</h1>
       <div class="subtitle">🏃 เส้นทางวิ่ง กรุงเทพฯ (TDFB HQ) → เชียงราย</div>
       <div class="live-badge"><span class="live-dot"></span><span id="lastUpdated">กำลังเชื่อมต่อ…</span></div>
+      <div class="clock-badge" id="clockBadge">
+        <span class="clock-time" id="clockTime">--:--:--</span>
+        <span class="clock-sep">·</span>
+        <span class="clock-date" id="clockDate">--/--/----</span>
+      </div>
       <div class="page-links">
         <a href="view.html">🏠 มุมมองหมู่บ้าน</a>
         <button type="button" class="page-links-btn" id="kioskToggle">🖥️ โหมดจอทีวี</button>
