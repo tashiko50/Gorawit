@@ -46,7 +46,7 @@
   var TRIVIA_FACTS = {
     "กรุงเทพฯ (TDFB HQ)": "กรุงเทพฯ มีชื่อเต็มยาวที่สุดในโลกตามบันทึกกินเนสส์ ยาวถึง 168 ตัวอักษร",
     "ปทุมธานี": "ปทุมธานีเป็นแหล่งปลูกกล้วยไม้ส่งออกอันดับต้นๆ ของไทย",
-    "พระนครศรีอยุธยา": "อยุธยาเคยเป็นราชธานีไทยนานถึง 417 ปี และเป็นเมืองมรดกโลกของ UNESCO",
+    "อยุธยา": "อยุธยาเคยเป็นราชธานีไทยนานถึง 417 ปี และเป็นเมืองมรดกโลกของ UNESCO",
     "สิงห์บุรี": "สิงห์บุรีขึ้นชื่อเรื่องปลาช่อนแม่ลา ของฝากที่โด่งดังที่สุดของจังหวัด",
     "ชัยนาท": "ชัยนาทมีเขื่อนเจ้าพระยา ประตูน้ำที่ควบคุมการไหลของแม่น้ำเจ้าพระยาทั้งสาย",
     "นครสวรรค์": "นครสวรรค์เป็นจุดบรรจบของ 4 แม่น้ำ (ปิง วัง ยม น่าน) กลายเป็นแม่น้ำเจ้าพระยา เลยมีชื่อเล่นว่า “ปากน้ำโพ”",
@@ -135,12 +135,18 @@
     return { x: -dy / len, y: dx / len };
   }
 
+  // กรุงเทพฯ sits only ~40km (and visually just ~85 canvas units) from ปทุมธานี — the
+  // standard offset isn't enough to keep the two place-name pins apart, so it gets pushed
+  // further out specifically.
+  var PIN_OFFSET_OVERRIDES = { "กรุงเทพฯ (TDFB HQ)": 78 };
+
   function computePinOffsets() {
     var OFFSET = 38;
     return route.waypoints.map(function (wp, i) {
       var perp = perpAt(i);
       var side = i % 2 === 0 ? 1 : -1;
-      return { ox: wp.x + perp.x * OFFSET * side, oy: wp.y + perp.y * OFFSET * side };
+      var dist = PIN_OFFSET_OVERRIDES[wp.name] || OFFSET;
+      return { ox: wp.x + perp.x * dist * side, oy: wp.y + perp.y * dist * side };
     });
   }
 
@@ -311,7 +317,18 @@
 
       var label = document.createElement("span");
       label.className = "way-label";
-      label.appendChild(document.createTextNode(wp.name + " "));
+      // A few names carry a parenthetical ("กรุงเทพฯ (TDFB HQ)", "แม่สาย (ชายแดน)") long
+      // enough to make the pill unusually wide — break onto a second line at that point
+      // instead of forcing every other (mostly short) label to allow wrapping too.
+      var parenIdx = wp.name.indexOf(" (");
+      if (parenIdx !== -1) {
+        label.appendChild(document.createTextNode(wp.name.slice(0, parenIdx)));
+        label.appendChild(document.createElement("br"));
+        label.appendChild(document.createTextNode(wp.name.slice(parenIdx + 1)));
+      } else {
+        label.appendChild(document.createTextNode(wp.name));
+      }
+      label.appendChild(document.createTextNode(" "));
       var weatherEl = document.createElement("span");
       weatherEl.className = "way-weather";
       label.appendChild(weatherEl);
