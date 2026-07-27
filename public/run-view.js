@@ -233,6 +233,17 @@
       pin.style.left = pctX(off.ox);
       pin.style.top = pctY(off.oy);
 
+      /* This pin is centered on both axes by default, but several waypoints (start/finish
+         especially) sit close enough to a frame corner that centering pushes the label past
+         the clipped border on both sides at once — anchor toward the inside instead whenever
+         the offset point is near an edge. Static per-waypoint offsets, so this only needs
+         computing once here, not on every km update. */
+      var hFrac = off.ox / route.viewBox.w;
+      var vFrac = off.oy / route.viewBox.h;
+      var tx = hFrac < 0.1 ? "-8%" : hFrac > 0.85 ? "-92%" : "-50%";
+      var ty = vFrac < 0.12 ? "-8%" : vFrac > 0.85 ? "-92%" : "-50%";
+      pin.style.transform = "translate(" + tx + ", " + ty + ")";
+
       var label = document.createElement("span");
       label.className = "way-label";
       label.textContent = wp.name;
