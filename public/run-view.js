@@ -282,6 +282,7 @@
     refs.pinsLayer.innerHTML = "";
     refs.pinDotsEl.innerHTML = "";
     refs.pinLeadersEl.innerHTML = "";
+    refs.pinWeatherEls = [];
     route.waypoints.forEach(function (wp, i) {
       var isFinish = wp.km === route.finishKm;
       var off = pinOffsets[i];
@@ -310,15 +311,48 @@
 
       var label = document.createElement("span");
       label.className = "way-label";
-      label.textContent = wp.name;
+      label.appendChild(document.createTextNode(wp.name + " "));
+      var weatherEl = document.createElement("span");
+      weatherEl.className = "way-weather";
+      label.appendChild(weatherEl);
       var km = document.createElement("span");
       km.className = "way-km";
       km.textContent = wp.km + " กม.";
 
+      pin.title = wp.name;
       pin.appendChild(label);
       pin.appendChild(km);
       refs.pinsLayer.appendChild(pin);
+      refs.pinWeatherEls.push({ name: wp.name, emojiEl: weatherEl, pinEl: pin });
     });
+  }
+
+  /* Real current weather per waypoint (same for every card — the route is shared), fetched
+     separately from team km on its own slower interval. Only a single emoji is ever shown
+     inline; full condition + temperature stay in the pin's title tooltip (hover/tap), same
+     low-clutter pattern the stamp chips already use, so 12 waypoints x 3 cards never gets
+     visually noisy. */
+  var weatherByPlace = {};
+
+  function applyWeatherToPins() {
+    cardRefs.forEach(function (refs) {
+      if (!refs.pinWeatherEls) return;
+      refs.pinWeatherEls.forEach(function (entry) {
+        var w = weatherByPlace[entry.name];
+        entry.emojiEl.textContent = w ? w.emoji : "";
+        entry.pinEl.title = w ? (entry.name + " · " + w.label + " · " + w.temp + "°C") : entry.name;
+      });
+    });
+  }
+
+  function refreshWeatherClient() {
+    fetch("/api/weather")
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        weatherByPlace = data || {};
+        applyWeatherToPins();
+      })
+      .catch(function () {});
   }
 
   function buildTeamMapCard(team) {
@@ -618,7 +652,7 @@
     currentRanks = S.computeRanks(state.teams);
     lastTeamsSnapshot = state.teams;
     var order = state.teams.map(function (t) { return t.id; }).join(",");
-    if (order !== lastTeamOrder) fullRebuild(state.teams); else state.teams.forEach(updateCard);
+    if (order !== lastTeamOrder) { fullRebuild(state.teams); applyWeatherToPins(); } else state.teams.forEach(updateCard);
     renderRankSummary(state.teams);
     feed.render(state.events || []);
     lastFetchTs = Date.now();
@@ -805,5 +839,7 @@
       subTicks = computeSubTicks();
       poll();
       setInterval(poll, POLL_MS);
+      refreshWeatherClient();
+      setInterval(refreshWeatherClient, 5 * 60 * 1000);
     });
 })();

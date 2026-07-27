@@ -72,6 +72,9 @@
   }
   .way-label-pin.finish .way-label { background: #ffd873; color: #6b4d05; }
   .way-km { font-size: 0.52rem; color: #5b7086; background: rgba(255, 255, 255, 0.75); border-radius: 999px; padding: 0 5px; }
+  /* Real weather per waypoint: a single emoji inline, full condition + temperature only
+     via the pin's title tooltip on hover/tap (kept minimal so 12 pins x 3 cards never gets noisy). */
+  .way-weather { font-size: 0.9em; }
 
   /* The runner's shadow+badge are anchored exactly to (x,y) — the actual position on the
      road. The name/km tag floats a fixed distance below that anchor instead of stacking

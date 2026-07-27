@@ -14,6 +14,42 @@ const SHEET_CSV_URL = process.env.SHEET_CSV_URL ||
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8wr9dyMr-UW5dX5_Wz1M0htcG_Ks8Sezeidtxr-TL2VHoXngf4sPddgGHW0xeSDEUL_v8zII6pbG3/pub?gid=475941001&single=true&output=csv";
 const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 90 * 1000;
 
+// Open-Meteo — free, no API key needed, supports current weather for many lat/lon pairs
+// in a single request. Weather doesn't need to track km changes, so this polls on its
+// own, much slower interval.
+const WEATHER_POLL_MS = Number(process.env.WEATHER_POLL_MS) || 20 * 60 * 1000;
+const WEATHER_API_BASE = process.env.WEATHER_API_BASE || "https://api.open-meteo.com/v1/forecast";
+const WEATHER_CODE_MAP = {
+  0: { emoji: "☀️", label: "ฟ้าใส" },
+  1: { emoji: "🌤️", label: "แดดจัด มีเมฆบาง" },
+  2: { emoji: "⛅", label: "มีเมฆเป็นบางส่วน" },
+  3: { emoji: "☁️", label: "เมฆมาก" },
+  45: { emoji: "🌫️", label: "หมอกลง" },
+  48: { emoji: "🌫️", label: "หมอกน้ำแข็ง" },
+  51: { emoji: "🌦️", label: "ฝนปรอยเบา" },
+  53: { emoji: "🌦️", label: "ฝนปรอย" },
+  55: { emoji: "🌦️", label: "ฝนปรอยหนัก" },
+  56: { emoji: "🌦️", label: "ฝนปรอยเยือกแข็ง" },
+  57: { emoji: "🌦️", label: "ฝนปรอยเยือกแข็งหนัก" },
+  61: { emoji: "🌧️", label: "ฝนตกเบา" },
+  63: { emoji: "🌧️", label: "ฝนตกปานกลาง" },
+  65: { emoji: "🌧️", label: "ฝนตกหนัก" },
+  66: { emoji: "🌧️", label: "ฝนเยือกแข็งเบา" },
+  67: { emoji: "🌧️", label: "ฝนเยือกแข็งหนัก" },
+  71: { emoji: "❄️", label: "หิมะตกเบา" },
+  73: { emoji: "❄️", label: "หิมะตกปานกลาง" },
+  75: { emoji: "❄️", label: "หิมะตกหนัก" },
+  77: { emoji: "❄️", label: "เกล็ดหิมะ" },
+  80: { emoji: "🌦️", label: "ฝนซู่เบา" },
+  81: { emoji: "🌧️", label: "ฝนซู่ปานกลาง" },
+  82: { emoji: "🌧️", label: "ฝนซู่หนักมาก" },
+  85: { emoji: "🌨️", label: "หิมะซู่เบา" },
+  86: { emoji: "🌨️", label: "หิมะซู่หนัก" },
+  95: { emoji: "⛈️", label: "พายุฝนฟ้าคะนอง" },
+  96: { emoji: "⛈️", label: "พายุฝนฟ้าคะนอง มีลูกเห็บ" },
+  99: { emoji: "⛈️", label: "พายุฝนฟ้าคะนองรุนแรง มีลูกเห็บ" }
+};
+
 const MILESTONE_NAMES = {
   0: "แคมป์เริ่มต้น",
   10: "รังนกน้อย",
@@ -36,18 +72,18 @@ const PALETTE = ["#4A90D9", "#E2934A", "#4F9A5B", "#D1587A", "#8B6FD1", "#3FA9A0
 // Chiang Rai (830km) is the race finish line; Mae Sai extends the map for teams that
 // overrun the 1000km cap so they still have somewhere to go.
 const ROUTE = [
-  { name: "กรุงเทพฯ (TDFB HQ)", km: 0, x: 429, y: 830 },
-  { name: "ปทุมธานี", km: 40, x: 424, y: 797 },
-  { name: "พระนครศรีอยุธยา", km: 80, x: 437, y: 757 },
-  { name: "สิงห์บุรี", km: 142, x: 390, y: 692 },
-  { name: "ชัยนาท", km: 195, x: 320, y: 657 },
-  { name: "นครสวรรค์", km: 240, x: 320, y: 594 },
-  { name: "กำแพงเพชร", km: 358, x: 161, y: 499 },
-  { name: "ตาก", km: 426, x: 60, y: 452 },
-  { name: "ลำปาง", km: 599, x: 156, y: 280 },
-  { name: "พะเยา", km: 691, x: 260, y: 173 },
-  { name: "เชียงราย 🏁", km: 830, x: 242, y: 84 },
-  { name: "แม่สาย (ชายแดน)", km: 890, x: 255, y: 21 }
+  { name: "กรุงเทพฯ (TDFB HQ)", km: 0, x: 429, y: 830, lat: 13.7563, lon: 100.5018 },
+  { name: "ปทุมธานี", km: 40, x: 424, y: 797, lat: 14.0208, lon: 100.5250 },
+  { name: "พระนครศรีอยุธยา", km: 80, x: 437, y: 757, lat: 14.3532, lon: 100.5648 },
+  { name: "สิงห์บุรี", km: 142, x: 390, y: 692, lat: 14.8907, lon: 100.3970 },
+  { name: "ชัยนาท", km: 195, x: 320, y: 657, lat: 15.1851, lon: 100.1251 },
+  { name: "นครสวรรค์", km: 240, x: 320, y: 594, lat: 15.7047, lon: 100.1372 },
+  { name: "กำแพงเพชร", km: 358, x: 161, y: 499, lat: 16.4827, lon: 99.5226 },
+  { name: "ตาก", km: 426, x: 60, y: 452, lat: 16.8840, lon: 99.1258 },
+  { name: "ลำปาง", km: 599, x: 156, y: 280, lat: 18.2855, lon: 99.5128 },
+  { name: "พะเยา", km: 691, x: 260, y: 173, lat: 19.1664, lon: 99.9018 },
+  { name: "เชียงราย 🏁", km: 830, x: 242, y: 84, lat: 19.9105, lon: 99.8406 },
+  { name: "แม่สาย (ชายแดน)", km: 890, x: 255, y: 21, lat: 20.4258, lon: 99.8756 }
 ];
 const ROUTE_VIEWBOX = { w: 520, h: 860 };
 const ROUTE_FINISH_KM = 830;
@@ -206,6 +242,30 @@ async function refreshFromSheet() {
   }
 }
 
+let weatherByPlace = {};
+
+async function refreshWeather() {
+  try {
+    const lats = ROUTE.map((wp) => wp.lat).join(",");
+    const lons = ROUTE.map((wp) => wp.lon).join(",");
+    const url = `${WEATHER_API_BASE}?latitude=${lats}&longitude=${lons}&current=temperature_2m,weather_code&timezone=Asia%2FBangkok`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const results = Array.isArray(data) ? data : [data];
+    const next = {};
+    ROUTE.forEach((wp, i) => {
+      const current = results[i] && results[i].current;
+      if (!current) return;
+      const code = WEATHER_CODE_MAP[current.weather_code] || { emoji: "🌡️", label: "ไม่ทราบสภาพอากาศ" };
+      next[wp.name] = { emoji: code.emoji, label: code.label, temp: Math.round(current.temperature_2m) };
+    });
+    weatherByPlace = next;
+  } catch (e) {
+    console.error("Run Mile: failed to refresh weather —", e.message);
+  }
+}
+
 app.get("/", (req, res) => {
   res.redirect("/run-view.html");
 });
@@ -224,9 +284,15 @@ app.get("/api/sheet-sync", (req, res) => {
   res.json({ ok: sheetSyncOk, lastSyncAt: sheetSyncAt });
 });
 
+app.get("/api/weather", (req, res) => {
+  res.json(weatherByPlace);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Run Mile listening on :${PORT}`);
   refreshFromSheet();
   setInterval(refreshFromSheet, SHEET_POLL_MS);
+  refreshWeather();
+  setInterval(refreshWeather, WEATHER_POLL_MS);
 });
