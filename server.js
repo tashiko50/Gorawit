@@ -206,6 +206,10 @@ async function refreshFromSheet() {
   }
 }
 
+app.get("/", (req, res) => {
+  res.redirect("/run-view.html");
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/state", (req, res) => {
