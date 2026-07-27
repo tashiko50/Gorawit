@@ -2,7 +2,7 @@
   "name": "village-builders-scoreboard",
   "version": "1.0.0",
   "private": true,
-  "description": "Live village-builder team scoreboard with an admin control panel and a read-only view for teammates.",
+  "description": "Live Run Mile scoreboard for TDFB — reads verified team totals from a published Google Sheet and shows them on read-only village/route views.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

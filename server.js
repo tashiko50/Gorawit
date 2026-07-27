@@ -1,17 +1,18 @@
 const express = require("express");
 const path = require("path");
-const fs = require("fs");
 const crypto = require("crypto");
 
 const app = express();
-app.use(express.json());
 
-const DATA_DIR = path.join(__dirname, "data");
-const STATE_FILE = path.join(DATA_DIR, "state.json");
-const ADMIN_PIN = process.env.ADMIN_PIN || "0000";
 const MAX_EVENTS = 60;
-const MAX_TEAMS = 12;
 const KM_PER_LEVEL = 20;
+
+// Google Sheet: File > Share > Publish to web, published from the "🌐 สรุปคะแนน" tab only,
+// format CSV. Can be overridden via env var without touching code (e.g. if the sheet is
+// ever recreated and gets a new published link).
+const SHEET_CSV_URL = process.env.SHEET_CSV_URL ||
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8wr9dyMr-UW5dX5_Wz1M0htcG_Ks8Sezeidtxr-TL2VHoXngf4sPddgGHW0xeSDEUL_v8zII6pbG3/pub?gid=475941001&single=true&output=csv";
+const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 90 * 1000;
 
 const MILESTONE_NAMES = {
   0: "แคมป์เริ่มต้น",
@@ -75,7 +76,7 @@ function milestoneNameForLevel(level) {
 }
 
 function makeTeam(id, name, color) {
-  return { id, name, color, km: 0 };
+  return { id, name, color, km: 0, lastVerified: "ยังไม่ตรวจ" };
 }
 
 function defaultState() {
@@ -90,38 +91,11 @@ function defaultState() {
   };
 }
 
-function loadState() {
-  try {
-    const raw = fs.readFileSync(STATE_FILE, "utf8");
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.teams)) throw new Error("malformed state file");
-    return parsed;
-  } catch (e) {
-    return defaultState();
-  }
-}
-
-function saveState() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-}
-
-let state = loadState();
+const state = defaultState();
 
 function pushEvent(text) {
   state.events.unshift({ id: crypto.randomUUID(), ts: Date.now(), text });
   if (state.events.length > MAX_EVENTS) state.events.length = MAX_EVENTS;
-}
-
-function findTeam(id) {
-  return state.teams.find((t) => t.id === id) || null;
-}
-
-function nextTeamId() {
-  const ids = new Set(state.teams.map((t) => t.id));
-  let n = 1;
-  while (ids.has("t" + n)) n++;
-  return "t" + n;
 }
 
 function applyKmChange(team, nextKm) {
@@ -148,6 +122,90 @@ function applyKmChange(team, nextKm) {
   }
 }
 
+// Minimal RFC4180-ish CSV parser — handles quoted fields with embedded commas/newlines,
+// which is all we need since the published tab is just 3 plain columns.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
+      } else {
+        field += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field);
+      field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += c;
+    }
+  }
+  if (field.length || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((cell) => cell.trim() !== ""));
+}
+
+function findColumn(headers, substring) {
+  return headers.findIndex((h) => h.indexOf(substring) !== -1);
+}
+
+let sheetSyncOk = false;
+let sheetSyncAt = null;
+let firstSyncDone = false;
+
+async function refreshFromSheet() {
+  try {
+    const res = await fetch(SHEET_CSV_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = parseCsv(await res.text());
+    if (rows.length < 2) throw new Error("sheet returned no data rows");
+
+    const headers = rows[0];
+    const nameCol = findColumn(headers, "สถานที่");
+    const kmCol = findColumn(headers, "Total");
+    const verifiedCol = findColumn(headers, "ตรวจล่าสุด");
+    if (nameCol === -1 || kmCol === -1) throw new Error("sheet headers not recognized — check the published tab's column names");
+
+    for (let i = 1; i < rows.length; i++) {
+      const cells = rows[i];
+      const teamName = (cells[nameCol] || "").trim();
+      if (!teamName) continue;
+      const team = state.teams.find((t) => t.name === teamName);
+      if (!team) {
+        console.warn(`Run Mile: sheet has unrecognized team "${teamName}", skipping`);
+        continue;
+      }
+      const km = Number(String(cells[kmCol] || "0").replace(/,/g, "").trim());
+      if (Number.isFinite(km)) {
+        if (!firstSyncDone) team.km = Math.max(0, km); // adopt silently on startup, no event burst
+        else if (km !== team.km) applyKmChange(team, km);
+      }
+      if (verifiedCol !== -1) team.lastVerified = (cells[verifiedCol] || "").trim() || "ยังไม่ตรวจ";
+    }
+
+    firstSyncDone = true;
+    sheetSyncOk = true;
+    sheetSyncAt = Date.now();
+  } catch (e) {
+    sheetSyncOk = false;
+    console.error("Run Mile: failed to refresh from sheet —", e.message);
+  }
+}
+
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/state", (req, res) => {
@@ -158,92 +216,13 @@ app.get("/api/route", (req, res) => {
   res.json({ waypoints: ROUTE, viewBox: ROUTE_VIEWBOX, finishKm: ROUTE_FINISH_KM });
 });
 
-function requirePin(req, res, next) {
-  if ((req.get("x-admin-pin") || "") !== ADMIN_PIN) {
-    return res.status(401).json({ error: "invalid_pin" });
-  }
-  next();
-}
-
-app.post("/api/actions", requirePin, (req, res) => {
-  const body = req.body || {};
-  const type = body.type;
-  const teamId = body.teamId;
-  const payload = body.payload || {};
-  const team = teamId ? findTeam(teamId) : null;
-  let createdTeamId = null;
-
-  if (["renameTeam", "setColor", "adjustKm", "setKm", "removeTeam"].includes(type) && !team) {
-    return res.status(404).json({ error: "team_not_found" });
-  }
-
-  switch (type) {
-    case "renameBoard": {
-      state.title = String(payload.title || "").trim().slice(0, 80) || "Run Mile";
-      pushEvent(`✏️ เปลี่ยนชื่อบอร์ดเป็น “${state.title}”`);
-      break;
-    }
-    case "addTeam": {
-      if (state.teams.length >= MAX_TEAMS) return res.status(400).json({ error: "max_teams" });
-      const id = nextTeamId();
-      const color = PALETTE[state.teams.length % PALETTE.length];
-      const created = makeTeam(id, "New Team", color);
-      state.teams.push(created);
-      createdTeamId = id;
-      pushEvent(`\u{1F3D8}️ เพิ่มทีมใหม่: ${created.name}`);
-      break;
-    }
-    case "removeTeam": {
-      state.teams = state.teams.filter((t) => t.id !== teamId);
-      pushEvent(`❌ ลบทีม ${team.name}`);
-      break;
-    }
-    case "renameTeam": {
-      const oldName = team.name;
-      team.name = String(payload.name || "").trim().slice(0, 60) || "New Team";
-      if (team.name !== oldName) {
-        pushEvent(`✏️ เปลี่ยนชื่อทีม “${oldName}” เป็น “${team.name}”`);
-      }
-      break;
-    }
-    case "setColor": {
-      if (/^#[0-9a-fA-F]{6}$/.test(payload.color)) {
-        team.color = payload.color;
-        pushEvent(`\u{1F3A8} ${team.name} เปลี่ยนสีบ้าน`);
-      }
-      break;
-    }
-    case "adjustKm": {
-      const delta = Math.trunc(Number(payload.delta)) || 0;
-      applyKmChange(team, team.km + delta);
-      pushEvent(`\u{1F3C3} ${team.name} ${delta >= 0 ? "+" : ""}${delta} กม. (รวม ${team.km} กม.)`);
-      break;
-    }
-    case "setKm": {
-      const km = Math.trunc(Number(payload.km));
-      if (Number.isFinite(km)) {
-        applyKmChange(team, km);
-        pushEvent(`\u{1F3C3} ${team.name} ตั้งระยะทางเป็น ${km} กม.`);
-      }
-      break;
-    }
-    case "resetAll": {
-      state = defaultState();
-      pushEvent("\u{1F504} รีเซ็ตสกอร์บอร์ดทั้งหมด");
-      break;
-    }
-    default:
-      return res.status(400).json({ error: "unknown_action" });
-  }
-
-  saveState();
-  res.json(createdTeamId ? { ...state, createdTeamId } : state);
+app.get("/api/sheet-sync", (req, res) => {
+  res.json({ ok: sheetSyncOk, lastSyncAt: sheetSyncAt });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Run Mile listening on :${PORT}`);
-  if (!process.env.ADMIN_PIN) {
-    console.log("ADMIN_PIN not set — using default \"0000\". Set ADMIN_PIN before deploying.");
-  }
+  refreshFromSheet();
+  setInterval(refreshFromSheet, SHEET_POLL_MS);
 });
