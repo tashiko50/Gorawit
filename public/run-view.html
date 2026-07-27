@@ -105,6 +105,10 @@
   .runner-dust--3 { width: 4px; height: 4px; opacity: 0.22; }
 
   .runner-tag { position: absolute; left: 0; top: 6px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  /* Near the map's left/right edge, centering the tag on the runner pushes it past the
+     frame's clipped border — flip the anchor so it stays fully inside instead. */
+  .runner-tag--edge-start { transform: translateX(-8%); align-items: flex-start; }
+  .runner-tag--edge-end { transform: translateX(-92%); align-items: flex-end; }
   .runner-name {
     font-size: 0.66rem; font-weight: 800; color: #fff; background: color-mix(in srgb, var(--accent, #4a90d9) 80%, black);
     padding: 1px 8px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -296,7 +300,6 @@
         <span class="clock-date" id="clockDate">--/--/----</span>
       </div>
       <div class="page-links">
-        <a href="view.html">🏠 มุมมองหมู่บ้าน</a>
         <button type="button" class="page-links-btn" id="kioskToggle">🖥️ โหมดจอทีวี</button>
       </div>
     </div>

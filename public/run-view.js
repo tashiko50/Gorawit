@@ -353,7 +353,7 @@
       routeProgressEl: frame.querySelector(".route-progress"),
       pinDotsEl: frame.querySelector(".pin-dots"), pinLeadersEl: frame.querySelector(".pin-leaders"),
       subTicksEl: frame.querySelector(".sub-ticks"),
-      pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm,
+      pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
       dustEls: dustEls, stampChips: stampChips, vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
       lastPlace: null
     };
@@ -432,6 +432,13 @@
     refs.runnerWrap.style.top = pctY(p.y);
     refs.runnerName.textContent = team.name;
     refs.runnerKm.textContent = team.km + " กม.";
+
+    /* The name+km tag is centered on the runner by default, but near the map's left/right
+       edges (e.g. right at the start point) that centering pushes it past the frame's
+       clipped border — flip its anchor near either edge so it always stays fully visible. */
+    var edgeFrac = p.x / route.viewBox.w;
+    refs.tagEl.classList.toggle("runner-tag--edge-start", edgeFrac < 0.2);
+    refs.tagEl.classList.toggle("runner-tag--edge-end", edgeFrac > 0.8);
 
     refs.routeProgressEl.setAttribute("d", progressPathD(team.km));
     DUST_OFFSETS_KM.forEach(function (behindKm, i) {
