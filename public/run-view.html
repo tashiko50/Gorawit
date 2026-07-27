@@ -65,12 +65,7 @@
      #pinDots). Only the label pill lives here, offset sideways off the road so it never
      fights with the dashed line or a runner marker sitting exactly on the checkpoint —
      connected back to the dot with a thin leader line (also SVG, #pinLeaders). */
-  .way-label-pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; transition: opacity 0.3s ease; }
-  /* Fades out just the text pill when the runner is standing right on top of this
-     waypoint (real geography puts several stops only ~30-40 units apart) — the small dot
-     marker on the SVG layer stays put either way, so the road itself never looks broken. */
-  .way-label-pin--near-runner:not(.finish) { opacity: 0; pointer-events: none; }
-  @media (prefers-reduced-motion: reduce) { .way-label-pin { transition: none; } }
+  .way-label-pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; }
   .way-label {
     font-size: 0.56rem; font-weight: 700; color: #2b3a4a; background: rgba(255, 255, 255, 0.88);
     padding: 1px 5px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
@@ -124,11 +119,11 @@
      frame's clipped border — flip the anchor so it stays fully inside instead. */
   .runner-tag--edge-start { transform: translateX(-8%); align-items: flex-start; }
   .runner-tag--edge-end { transform: translateX(-92%); align-items: flex-end; }
-  .runner-name {
-    font-size: 0.66rem; font-weight: 800; color: #fff; background: color-mix(in srgb, var(--accent, #4a90d9) 80%, black);
-    padding: 1px 8px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-  .runner-km { font-size: 0.58rem; font-weight: 700; color: var(--ink); background: var(--card-bg); border-radius: 999px; padding: 0 5px; }
+  /* Team name + km used to float here too, but the card header above already shows both
+     unambiguously, and it was the thing colliding with nearby waypoint pins on the crowded
+     part of the route — dropped as redundant. The final-stretch banner is the only thing
+     left in .runner-tag now. */
+  .runner-name, .runner-km { display: none; }
 
   .runner.celebrate .runner-badge { animation: runner-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
   @keyframes runner-pop {
