@@ -202,7 +202,7 @@
   .rank-summary-empty { display: none; }
   .rank-row { display: flex; align-items: center; gap: 10px; }
   .rank-medal { font-weight: 800; width: 26px; text-align: center; flex-shrink: 0; font-size: 0.95rem; }
-  .rank-name { font-weight: 800; width: 92px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank-name { font-weight: 800; width: clamp(92px, 16vw, 150px); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rank-track { flex: 1 1 auto; height: 10px; border-radius: 999px; background: var(--toolbar-bg); overflow: hidden; }
   .rank-track-fill { height: 100%; border-radius: 999px; background: var(--accent, #4a90d9); transition: width 0.6s ease; }
   .rank-km { width: 74px; text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
@@ -287,7 +287,7 @@
 
   <div class="page">
     <div class="title-wrap">
-      <h1 class="board-title" id="boardTitle">Village Builders Scoreboard</h1>
+      <h1 class="board-title" id="boardTitle">Run Mile</h1>
       <div class="subtitle">🏃 เส้นทางวิ่ง กรุงเทพฯ (TDFB HQ) → เชียงราย</div>
       <div class="live-badge"><span class="live-dot"></span><span id="lastUpdated">กำลังเชื่อมต่อ…</span></div>
       <div class="clock-badge" id="clockBadge">

@@ -80,11 +80,11 @@ function makeTeam(id, name, color) {
 
 function defaultState() {
   return {
-    title: "Village Builders Scoreboard",
+    title: "Run Mile",
     teams: [
-      makeTeam("t1", "OF195", PALETTE[0]),
-      makeTeam("t2", "WH300", PALETTE[1]),
-      makeTeam("t3", "FAC16", PALETTE[2])
+      makeTeam("t1", "ออฟฟิศสามย่าน", PALETTE[0]),
+      makeTeam("t2", "คลังสินค้า", PALETTE[1]),
+      makeTeam("t3", "โรงงาน", PALETTE[2])
     ],
     events: []
   };
@@ -179,7 +179,7 @@ app.post("/api/actions", requirePin, (req, res) => {
 
   switch (type) {
     case "renameBoard": {
-      state.title = String(payload.title || "").trim().slice(0, 80) || "Village Builders Scoreboard";
+      state.title = String(payload.title || "").trim().slice(0, 80) || "Run Mile";
       pushEvent(`✏️ เปลี่ยนชื่อบอร์ดเป็น “${state.title}”`);
       break;
     }
@@ -242,7 +242,7 @@ app.post("/api/actions", requirePin, (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Village Builders Scoreboard listening on :${PORT}`);
+  console.log(`Run Mile listening on :${PORT}`);
   if (!process.env.ADMIN_PIN) {
     console.log("ADMIN_PIN not set — using default \"0000\". Set ADMIN_PIN before deploying.");
   }
