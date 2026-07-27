@@ -65,7 +65,12 @@
      #pinDots). Only the label pill lives here, offset sideways off the road so it never
      fights with the dashed line or a runner marker sitting exactly on the checkpoint —
      connected back to the dot with a thin leader line (also SVG, #pinLeaders). */
-  .way-label-pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .way-label-pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; transition: opacity 0.3s ease; }
+  /* Fades out just the text pill when the runner is standing right on top of this
+     waypoint (real geography puts several stops only ~30-40 units apart) — the small dot
+     marker on the SVG layer stays put either way, so the road itself never looks broken. */
+  .way-label-pin--near-runner:not(.finish) { opacity: 0; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { .way-label-pin { transition: none; } }
   .way-label {
     font-size: 0.56rem; font-weight: 700; color: #2b3a4a; background: rgba(255, 255, 255, 0.88);
     padding: 1px 5px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
@@ -74,7 +79,14 @@
   .way-km { font-size: 0.52rem; color: #5b7086; background: rgba(255, 255, 255, 0.75); border-radius: 999px; padding: 0 5px; }
   /* Real weather per waypoint: a single emoji inline, full condition + temperature only
      via the pin's title tooltip on hover/tap (kept minimal so 12 pins x 3 cards never gets noisy). */
-  .way-weather { font-size: 0.9em; }
+  /* Some weather emoji (pale cloud/fog glyphs especially) render low-contrast at small
+     inline sizes on many system emoji fonts — a small colored badge behind it means the
+     condition still reads at a glance from color alone even when the glyph itself doesn't. */
+  .way-weather {
+    display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+    width: 15px; height: 15px; border-radius: 50%; font-size: 0.62rem; line-height: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  }
 
   /* The runner's shadow+badge are anchored exactly to (x,y) — the actual position on the
      road. The name/km tag floats a fixed distance below that anchor instead of stacking

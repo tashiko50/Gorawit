@@ -19,35 +19,39 @@ const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 90 * 1000;
 // own, much slower interval.
 const WEATHER_POLL_MS = Number(process.env.WEATHER_POLL_MS) || 20 * 60 * 1000;
 const WEATHER_API_BASE = process.env.WEATHER_API_BASE || "https://api.open-meteo.com/v1/forecast";
+// Some emoji glyphs (pale cloud/fog symbols especially) render as low-contrast, hard-to-read
+// shapes at small inline sizes across different OS emoji fonts. `color` gives each condition
+// a small colored badge behind the emoji so the category reads at a glance from color alone,
+// even if the glyph itself is hard to make out.
 const WEATHER_CODE_MAP = {
-  0: { emoji: "☀️", label: "ฟ้าใส" },
-  1: { emoji: "🌤️", label: "แดดจัด มีเมฆบาง" },
-  2: { emoji: "⛅", label: "มีเมฆเป็นบางส่วน" },
-  3: { emoji: "☁️", label: "เมฆมาก" },
-  45: { emoji: "🌫️", label: "หมอกลง" },
-  48: { emoji: "🌫️", label: "หมอกน้ำแข็ง" },
-  51: { emoji: "🌦️", label: "ฝนปรอยเบา" },
-  53: { emoji: "🌦️", label: "ฝนปรอย" },
-  55: { emoji: "🌦️", label: "ฝนปรอยหนัก" },
-  56: { emoji: "🌦️", label: "ฝนปรอยเยือกแข็ง" },
-  57: { emoji: "🌦️", label: "ฝนปรอยเยือกแข็งหนัก" },
-  61: { emoji: "🌧️", label: "ฝนตกเบา" },
-  63: { emoji: "🌧️", label: "ฝนตกปานกลาง" },
-  65: { emoji: "🌧️", label: "ฝนตกหนัก" },
-  66: { emoji: "🌧️", label: "ฝนเยือกแข็งเบา" },
-  67: { emoji: "🌧️", label: "ฝนเยือกแข็งหนัก" },
-  71: { emoji: "❄️", label: "หิมะตกเบา" },
-  73: { emoji: "❄️", label: "หิมะตกปานกลาง" },
-  75: { emoji: "❄️", label: "หิมะตกหนัก" },
-  77: { emoji: "❄️", label: "เกล็ดหิมะ" },
-  80: { emoji: "🌦️", label: "ฝนซู่เบา" },
-  81: { emoji: "🌧️", label: "ฝนซู่ปานกลาง" },
-  82: { emoji: "🌧️", label: "ฝนซู่หนักมาก" },
-  85: { emoji: "🌨️", label: "หิมะซู่เบา" },
-  86: { emoji: "🌨️", label: "หิมะซู่หนัก" },
-  95: { emoji: "⛈️", label: "พายุฝนฟ้าคะนอง" },
-  96: { emoji: "⛈️", label: "พายุฝนฟ้าคะนอง มีลูกเห็บ" },
-  99: { emoji: "⛈️", label: "พายุฝนฟ้าคะนองรุนแรง มีลูกเห็บ" }
+  0: { emoji: "☀️", label: "ฟ้าใส", color: "#ffb74d" },
+  1: { emoji: "🌤️", label: "แดดจัด มีเมฆบาง", color: "#ffc266" },
+  2: { emoji: "⛅", label: "มีเมฆเป็นบางส่วน", color: "#9fb0c0" },
+  3: { emoji: "☁️", label: "เมฆมาก", color: "#7c8ea0" },
+  45: { emoji: "🌫️", label: "หมอกลง", color: "#c3ccd4" },
+  48: { emoji: "🌫️", label: "หมอกน้ำแข็ง", color: "#c3ccd4" },
+  51: { emoji: "🌦️", label: "ฝนปรอยเบา", color: "#6fa8dc" },
+  53: { emoji: "🌦️", label: "ฝนปรอย", color: "#6fa8dc" },
+  55: { emoji: "🌦️", label: "ฝนปรอยหนัก", color: "#5b93cc" },
+  56: { emoji: "🌦️", label: "ฝนปรอยเยือกแข็ง", color: "#5b93cc" },
+  57: { emoji: "🌦️", label: "ฝนปรอยเยือกแข็งหนัก", color: "#5b93cc" },
+  61: { emoji: "🌧️", label: "ฝนตกเบา", color: "#4a7fc0" },
+  63: { emoji: "🌧️", label: "ฝนตกปานกลาง", color: "#3f6fb0" },
+  65: { emoji: "🌧️", label: "ฝนตกหนัก", color: "#33609e" },
+  66: { emoji: "🌧️", label: "ฝนเยือกแข็งเบา", color: "#4a7fc0" },
+  67: { emoji: "🌧️", label: "ฝนเยือกแข็งหนัก", color: "#33609e" },
+  71: { emoji: "❄️", label: "หิมะตกเบา", color: "#bfe3f5" },
+  73: { emoji: "❄️", label: "หิมะตกปานกลาง", color: "#a9d8ef" },
+  75: { emoji: "❄️", label: "หิมะตกหนัก", color: "#93cdea" },
+  77: { emoji: "❄️", label: "เกล็ดหิมะ", color: "#bfe3f5" },
+  80: { emoji: "🌦️", label: "ฝนซู่เบา", color: "#6fa8dc" },
+  81: { emoji: "🌧️", label: "ฝนซู่ปานกลาง", color: "#4a7fc0" },
+  82: { emoji: "🌧️", label: "ฝนซู่หนักมาก", color: "#33609e" },
+  85: { emoji: "🌨️", label: "หิมะซู่เบา", color: "#a9d8ef" },
+  86: { emoji: "🌨️", label: "หิมะซู่หนัก", color: "#93cdea" },
+  95: { emoji: "⛈️", label: "พายุฝนฟ้าคะนอง", color: "#5c4a8f" },
+  96: { emoji: "⛈️", label: "พายุฝนฟ้าคะนอง มีลูกเห็บ", color: "#4e3d7a" },
+  99: { emoji: "⛈️", label: "พายุฝนฟ้าคะนองรุนแรง มีลูกเห็บ", color: "#3e2f66" }
 };
 
 const MILESTONE_NAMES = {
@@ -257,8 +261,8 @@ async function refreshWeather() {
     ROUTE.forEach((wp, i) => {
       const current = results[i] && results[i].current;
       if (!current) return;
-      const code = WEATHER_CODE_MAP[current.weather_code] || { emoji: "🌡️", label: "ไม่ทราบสภาพอากาศ" };
-      next[wp.name] = { emoji: code.emoji, label: code.label, temp: Math.round(current.temperature_2m) };
+      const code = WEATHER_CODE_MAP[current.weather_code] || { emoji: "🌡️", label: "ไม่ทราบสภาพอากาศ", color: "#8a97a6" };
+      next[wp.name] = { emoji: code.emoji, label: code.label, color: code.color, temp: Math.round(current.temperature_2m) };
     });
     weatherByPlace = next;
   } catch (e) {

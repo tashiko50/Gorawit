@@ -340,6 +340,7 @@
       refs.pinWeatherEls.forEach(function (entry) {
         var w = weatherByPlace[entry.name];
         entry.emojiEl.textContent = w ? w.emoji : "";
+        entry.emojiEl.style.background = w ? w.color : "transparent";
         entry.pinEl.title = w ? (entry.name + " · " + w.label + " · " + w.temp + "°C") : entry.name;
       });
     });
@@ -570,6 +571,18 @@
     var edgeFrac = p.x / route.viewBox.w;
     refs.tagEl.classList.toggle("runner-tag--edge-start", edgeFrac < 0.2);
     refs.tagEl.classList.toggle("runner-tag--edge-end", edgeFrac > 0.8);
+
+    /* Some real waypoints (e.g. กรุงเทพฯ -> ปทุมธานี) sit only ~30-40 canvas units apart,
+       so whenever the runner is near one of those clusters its own name+km tag collides
+       with the waypoint's place-name pin right on top of it. Fade out any pin label the
+       runner is currently standing close to — the dot marker stays, just not the text. */
+    route.waypoints.forEach(function (wp, i) {
+      var entry = refs.pinWeatherEls && refs.pinWeatherEls[i];
+      if (!entry) return;
+      var dx = p.x - wp.x, dy = p.y - wp.y;
+      var near = Math.sqrt(dx * dx + dy * dy) < 50;
+      entry.pinEl.classList.toggle("way-label-pin--near-runner", near);
+    });
 
     refs.routeProgressEl.setAttribute("d", progressPathD(team.km));
     DUST_OFFSETS_KM.forEach(function (behindKm, i) {
