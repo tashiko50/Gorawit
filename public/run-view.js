@@ -20,6 +20,8 @@
   var kioskExitBtn = document.getElementById("kioskExit");
   var clockTimeEl = document.getElementById("clockTime");
   var clockDateEl = document.getElementById("clockDate");
+  var bgmEl = document.getElementById("bgm");
+  var bgmToggleBtn = document.getElementById("bgmToggle");
 
   var feed = S.createFeedWidget({ listEl: feedListEl, widgetEl: feedWidget, toggleEl: feedToggle, countEl: feedCountEl });
 
@@ -644,6 +646,64 @@
   }
   updateClock();
   setInterval(updateClock, 1000);
+
+  /* Background music: browsers block autoplay-with-sound entirely, so we start muted
+     (always allowed) and unmute + fade the volume in on the very first click/tap/keypress
+     anywhere on the page — in practice that's within a second of load for most visitors.
+     Kiosk/TV screens with nobody touching them will stay silent until someone taps the
+     toggle button once; after that it keeps looping on its own. */
+  if (bgmEl && bgmToggleBtn) {
+    var BGM_TARGET_VOLUME = 0.18;
+    var BGM_FADE_MS = 4000;
+    var bgmUserPaused = false;
+    var bgmReduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var setToggleLabel = function (playing) {
+      bgmToggleBtn.textContent = playing ? "🔈 เพลง" : "🔇 เพลง";
+    };
+
+    var fadeIn = function () {
+      if (bgmReduceMotion) { bgmEl.volume = BGM_TARGET_VOLUME; return; }
+      var start = performance.now();
+      function step(now) {
+        var t = Math.min(1, (now - start) / BGM_FADE_MS);
+        bgmEl.volume = BGM_TARGET_VOLUME * t;
+        if (t < 1 && !bgmEl.paused) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    };
+
+    var startPlaying = function () {
+      if (bgmUserPaused) return;
+      bgmEl.muted = false;
+      bgmEl.play().then(fadeIn).catch(function () {});
+      setToggleLabel(true);
+    };
+
+    bgmEl.volume = 0;
+    bgmEl.muted = true;
+    bgmEl.play().catch(function () {});
+
+    ["click", "touchstart", "keydown"].forEach(function (evt) {
+      document.addEventListener(evt, function firstInteraction() {
+        startPlaying();
+        ["click", "touchstart", "keydown"].forEach(function (e2) {
+          document.removeEventListener(e2, firstInteraction);
+        });
+      }, { once: true });
+    });
+
+    bgmToggleBtn.addEventListener("click", function () {
+      if (bgmEl.paused || bgmEl.muted) {
+        bgmUserPaused = false;
+        startPlaying();
+      } else {
+        bgmUserPaused = true;
+        bgmEl.pause();
+        setToggleLabel(false);
+      }
+    });
+  }
 
   fetch("/api/route")
     .then(function (res) { return res.json(); })
