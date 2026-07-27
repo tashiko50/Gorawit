@@ -22,10 +22,6 @@
   var clockDateEl = document.getElementById("clockDate");
   var bgmEl = document.getElementById("bgm");
   var bgmToggleBtn = document.getElementById("bgmToggle");
-  var triviaWidget = document.getElementById("triviaWidget");
-  var triviaToggleBtn = document.getElementById("triviaToggle");
-  var triviaListEl = document.getElementById("triviaList");
-  var triviaCountEl = document.getElementById("triviaCount");
 
   var feed = S.createFeedWidget({ listEl: feedListEl, widgetEl: feedWidget, toggleEl: feedToggle, countEl: feedCountEl });
 
@@ -40,24 +36,6 @@
   var currentRanks = {}; // teamId -> 1-based rank by km, recomputed every render
   var lastTeamsSnapshot = []; // latest team array, used by kiosk mode to cycle through
   var VEHICLE_LOOP_MS = 26000;
-
-  /* Keyed exactly by the waypoint names the server sends via /api/route (including the
-     flag emoji / parenthetical bits) — one real fact per stop along the route. */
-  var TRIVIA_FACTS = {
-    "กรุงเทพฯ (TDFB HQ)": "กรุงเทพฯ มีชื่อเต็มยาวที่สุดในโลกตามบันทึกกินเนสส์ ยาวถึง 168 ตัวอักษร",
-    "ปทุมธานี": "ปทุมธานีเป็นแหล่งปลูกกล้วยไม้ส่งออกอันดับต้นๆ ของไทย",
-    "อยุธยา": "อยุธยาเคยเป็นราชธานีไทยนานถึง 417 ปี และเป็นเมืองมรดกโลกของ UNESCO",
-    "สิงห์บุรี": "สิงห์บุรีขึ้นชื่อเรื่องปลาช่อนแม่ลา ของฝากที่โด่งดังที่สุดของจังหวัด",
-    "ชัยนาท": "ชัยนาทมีเขื่อนเจ้าพระยา ประตูน้ำที่ควบคุมการไหลของแม่น้ำเจ้าพระยาทั้งสาย",
-    "นครสวรรค์": "นครสวรรค์เป็นจุดบรรจบของ 4 แม่น้ำ (ปิง วัง ยม น่าน) กลายเป็นแม่น้ำเจ้าพระยา เลยมีชื่อเล่นว่า “ปากน้ำโพ”",
-    "กำแพงเพชร": "กำแพงเพชรมีอุทยานประวัติศาสตร์ที่เป็นมรดกโลกคู่กับอยุธยาและสุโขทัย",
-    "ตาก": "ตากมีสะพานแขวนข้ามแม่น้ำปิงที่ยาวที่สุดแห่งหนึ่งในประเทศไทย",
-    "ลำปาง": "ลำปางเป็นจังหวัดเดียวในไทยที่ยังใช้รถม้าเป็นพาหนะประจำเมืองจนถึงปัจจุบัน",
-    "พะเยา": "พะเยามีกว๊านพะเยา ทะเลสาบน้ำจืดขนาดใหญ่ที่สุดในภาคเหนือ",
-    "เชียงราย 🏁": "เชียงรายเป็นจังหวัดเหนือสุดของไทย และเป็นที่ตั้งของวัดร่องขุ่นอันโด่งดัง",
-    "แม่สาย (ชายแดน)": "แม่สายคือจุดผ่านแดนไทย-เมียนมาที่พลุกพล่านที่สุดแห่งหนึ่งทางภาคเหนือ"
-  };
-  var triviaSeenPlaces = {};
   var DUST_OFFSETS_KM = [12, 24, 36];
 
   var kioskActive = false;
@@ -527,28 +505,6 @@
     setTimeout(function () { toast.remove(); }, 2200);
   }
 
-  /* Adds one fact per waypoint, the first time any team reaches it (company-wide, not
-     per-team) — queued to run after the celebration toast finishes so the two never
-     overlap on top of the runner. */
-  function addTriviaFact(placeName) {
-    if (!TRIVIA_FACTS[placeName] || triviaSeenPlaces[placeName]) return;
-    triviaSeenPlaces[placeName] = true;
-    var empty = triviaListEl.querySelector(".trivia-empty");
-    if (empty) empty.remove();
-    var li = document.createElement("li");
-    li.className = "trivia-item";
-    var b = document.createElement("b");
-    b.textContent = placeName;
-    li.appendChild(b);
-    li.appendChild(document.createTextNode(" — " + TRIVIA_FACTS[placeName]));
-    triviaListEl.appendChild(li);
-    triviaCountEl.textContent = String(triviaListEl.querySelectorAll(".trivia-item").length);
-    triviaCountEl.hidden = false;
-    triviaCountEl.classList.remove("trivia-count-pulse");
-    void triviaCountEl.offsetWidth;
-    triviaCountEl.classList.add("trivia-count-pulse");
-  }
-
   function fullRebuild(teams) {
     gridEl.innerHTML = "";
     cardRefs.clear();
@@ -603,7 +559,6 @@
       var big = p.place.indexOf("เชียงราย") !== -1;
       celebrateRunner(refs, big);
       showToast(refs, big ? "\u{1F3C5} ถึงเชียงรายแล้ว!" : "\u{1F4CD} ถึง" + p.place + "แล้ว!");
-      setTimeout(function () { addTriviaFact(p.place); }, 2400);
     }
     refs.lastPlace = p.place;
 
@@ -838,12 +793,6 @@
         bgmEl.pause();
         setToggleLabel(false);
       }
-    });
-  }
-
-  if (triviaWidget && triviaToggleBtn) {
-    triviaToggleBtn.addEventListener("click", function () {
-      triviaWidget.classList.toggle("open");
     });
   }
 
