@@ -27,6 +27,7 @@
 
   var route = null; // { waypoints, viewBox: {w,h}, finishKm }
   var routeD = "";
+  var routeSegments = [];
   var pinOffsets = []; // precomputed {ox,oy} per waypoint, shared by every card
   var subTicks = []; // small unlabeled dots every 50km between named waypoints
   var cardRefs = new Map(); // teamId -> refs
@@ -59,6 +60,45 @@
     var last = points[points.length - 1];
     d += " L " + last.x + " " + last.y;
     return d;
+  }
+
+  /* Same curve as smoothPathD, but as a list of evaluable segments instead of a path
+     string — used to walk the ambient decorative vehicle exactly along the visible road
+     (it used to reuse positionForKm's straight waypoint-to-waypoint lines, which cut
+     corners badly wherever the smoothed curve bends away from that, e.g. around ตาก). */
+  function buildRouteSegments(points) {
+    var segs = [];
+    if (!points.length) return segs;
+    var prevEnd = { x: points[0].x, y: points[0].y };
+    for (var i = 1; i < points.length - 1; i++) {
+      var mid = { x: (points[i].x + points[i + 1].x) / 2, y: (points[i].y + points[i + 1].y) / 2 };
+      segs.push({ type: "Q", p0: prevEnd, c: points[i], p1: mid });
+      prevEnd = mid;
+    }
+    var lastPt = points[points.length - 1];
+    segs.push({ type: "L", p0: prevEnd, p1: { x: lastPt.x, y: lastPt.y } });
+    return segs;
+  }
+
+  function pointOnSegment(seg, t) {
+    if (seg.type === "L") {
+      return { x: seg.p0.x + (seg.p1.x - seg.p0.x) * t, y: seg.p0.y + (seg.p1.y - seg.p0.y) * t };
+    }
+    var mt = 1 - t;
+    return {
+      x: mt * mt * seg.p0.x + 2 * mt * t * seg.c.x + t * t * seg.p1.x,
+      y: mt * mt * seg.p0.y + 2 * mt * t * seg.c.y + t * t * seg.p1.y
+    };
+  }
+
+  /* Position for a loop fraction (0-1) spread evenly across every segment of the visible
+     curve — purely decorative, so equal time per segment (rather than true arc-length or
+     km-accurate pacing) is plenty smooth and always exactly on the road. */
+  function positionOnRouteCurve(t) {
+    if (!routeSegments.length) return { x: 0, y: 0 };
+    var scaled = ((t % 1) + 1) % 1 * routeSegments.length;
+    var idx = Math.min(routeSegments.length - 1, Math.floor(scaled));
+    return pointOnSegment(routeSegments[idx], scaled - idx);
   }
 
   /* Perpendicular direction of the road at waypoint i, from the segments either side of
@@ -541,10 +581,9 @@
 
   function tickVehicles() {
     var now = Date.now();
-    var lastKm = route ? route.waypoints[route.waypoints.length - 1].km : 0;
     cardRefs.forEach(function (refs) {
       var t = ((now + refs.vehiclePhase) % VEHICLE_LOOP_MS) / VEHICLE_LOOP_MS;
-      var p = positionForKm(t * lastKm);
+      var p = positionOnRouteCurve(t);
       refs.vehicleEl.style.left = pctX(p.x);
       refs.vehicleEl.style.top = pctY(p.y);
     });
@@ -710,6 +749,7 @@
     .then(function (data) {
       route = data;
       routeD = smoothPathD(route.waypoints);
+      routeSegments = buildRouteSegments(route.waypoints);
       pinOffsets = computePinOffsets();
       subTicks = computeSubTicks();
       poll();
