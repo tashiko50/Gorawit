@@ -2,6 +2,9 @@
 // It is never written to localStorage/sessionStorage/cookies/any backend store —
 // a refresh or navigating away wipes it completely, by design.
 let conversation = [];
+// Tracks which resource-notice keys (e.g. "domestic_violence") have already been shown
+// this conversation, so a repeat classification doesn't spam the same notice every turn.
+const shownTopics = new Set();
 
 const messagesEl = document.getElementById("messages");
 const formEl = document.getElementById("chatForm");
@@ -71,7 +74,11 @@ async function sendText(text) {
       renderNotice("crisis", data.crisisNotice);
     }
     if (Array.isArray(data.topicNotices)) {
-      data.topicNotices.forEach((notice) => renderNotice("resource", notice));
+      data.topicNotices.forEach(({ key, text }) => {
+        if (shownTopics.has(key)) return;
+        shownTopics.add(key);
+        renderNotice("resource", text);
+      });
     }
   } catch (err) {
     hideTyping();
@@ -82,6 +89,13 @@ async function sendText(text) {
     topicChipsEl.style.display = "none"; // one-time starters, hide once the chat has begun
   }
 }
+
+inputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    formEl.requestSubmit();
+  }
+});
 
 formEl.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -98,6 +112,7 @@ topicChipsEl.querySelectorAll(".chip").forEach((chip) => {
 
 clearBtn.addEventListener("click", () => {
   conversation = [];
+  shownTopics.clear();
   messagesEl.innerHTML = "";
   topicChipsEl.style.display = "flex";
 });
