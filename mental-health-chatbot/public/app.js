@@ -27,6 +27,20 @@ function renderNotice(className, text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+function showTyping() {
+  const div = document.createElement("div");
+  div.className = "typing-indicator";
+  div.id = "typingIndicator";
+  div.innerHTML = "<span></span><span></span><span></span>";
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function hideTyping() {
+  const el = document.getElementById("typingIndicator");
+  if (el) el.remove();
+}
+
 async function sendText(text) {
   if (!text.trim()) return;
 
@@ -34,6 +48,7 @@ async function sendText(text) {
   renderMessage("user", text);
   sendBtn.disabled = true;
   topicChipsEl.querySelectorAll(".chip").forEach((c) => (c.disabled = true));
+  showTyping();
 
   try {
     const res = await fetch("/api/chat", {
@@ -42,6 +57,7 @@ async function sendText(text) {
       body: JSON.stringify({ messages: conversation })
     });
     const data = await res.json();
+    hideTyping();
 
     if (!res.ok) {
       renderMessage("model", "ขอโทษด้วย เกิดข้อผิดพลาด ลองใหม่อีกครั้งนะ");
@@ -58,6 +74,7 @@ async function sendText(text) {
       data.topicNotices.forEach((notice) => renderNotice("resource", notice));
     }
   } catch (err) {
+    hideTyping();
     renderMessage("model", "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้งนะ");
   } finally {
     sendBtn.disabled = false;
