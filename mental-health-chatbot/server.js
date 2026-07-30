@@ -5,9 +5,9 @@ const app = express();
 app.use(express.json({ limit: "64kb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 const MAX_TURNS = 30; // keep each request bounded even though nothing is stored server-side
 
@@ -37,8 +37,8 @@ function detectCrisis(text) {
 }
 
 app.post("/api/chat", async (req, res) => {
-  if (!GEMINI_API_KEY) {
-    return res.status(500).json({ error: "server missing GEMINI_API_KEY" });
+  if (!GROQ_API_KEY) {
+    return res.status(500).json({ error: "server missing GROQ_API_KEY" });
   }
 
   const messages = Array.isArray(req.body && req.body.messages) ? req.body.messages : [];
@@ -50,29 +50,36 @@ app.post("/api/chat", async (req, res) => {
   const lastUserMessage = [...trimmed].reverse().find((m) => m.role === "user");
   const crisis = lastUserMessage ? detectCrisis(String(lastUserMessage.text || "")) : false;
 
-  const contents = trimmed
-    .filter((m) => m && typeof m.text === "string" && m.text.trim() && (m.role === "user" || m.role === "model"))
-    .map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
+  const chatMessages = [
+    { role: "system", content: SYSTEM_INSTRUCTION },
+    ...trimmed
+      .filter((m) => m && typeof m.text === "string" && m.text.trim() && (m.role === "user" || m.role === "model"))
+      .map((m) => ({ role: m.role === "model" ? "assistant" : "user", content: m.text }))
+  ];
 
   try {
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+    const groqRes = await fetch(GROQ_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`
+      },
       body: JSON.stringify({
-        contents,
-        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
+        model: GROQ_MODEL,
+        messages: chatMessages,
+        temperature: 0.7,
+        max_tokens: 500
       })
     });
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error(`Gemini API error ${geminiRes.status}: ${errText}`);
+    if (!groqRes.ok) {
+      const errText = await groqRes.text();
+      console.error(`Groq API error ${groqRes.status}: ${errText}`);
       return res.status(502).json({ error: "AI provider error" });
     }
 
-    const data = await geminiRes.json();
-    const reply = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ||
+    const data = await groqRes.json();
+    const reply = data?.choices?.[0]?.message?.content ||
       "ขอโทษด้วย ตอนนี้ระบบตอบไม่ได้ ลองพิมพ์อีกครั้งได้ไหม";
 
     res.json({
@@ -93,7 +100,7 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Mental health chatbot listening on :${PORT}`);
-  if (!GEMINI_API_KEY) {
-    console.warn("Warning: GEMINI_API_KEY is not set — /api/chat will fail until it is.");
+  if (!GROQ_API_KEY) {
+    console.warn("Warning: GROQ_API_KEY is not set — /api/chat will fail until it is.");
   }
 });
