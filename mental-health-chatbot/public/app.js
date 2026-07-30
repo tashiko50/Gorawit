@@ -67,4 +67,4 @@ clearBtn.addEventListener("click", () => {
   messagesEl.innerHTML = "";
 });
 
-renderMessage("model", "สวัสดีค่ะ/ครับ อยากเล่าอะไรให้ฟังบ้างวันนี้?");
+renderMessage("model", "สวัสดีนะ อยากเล่าอะไรให้ฟังบ้างวันนี้?");
