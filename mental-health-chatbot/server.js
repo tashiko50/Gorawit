@@ -83,6 +83,40 @@ const RISK_TOPIC_INSTRUCTION = `คุณคือระบบผู้ช่ว
 - "lgbtq": พูดถึงอัตลักษณ์ทางเพศ รสนิยมทางเพศ หรือปัญหาที่เกี่ยวข้องกับการเป็น LGBTQ+
 - "professional_counseling": ผู้ใช้แสดงว่าอยากได้ความช่วยเหลือเชิงลึกกว่าคุยเล่นๆ หรือสถานการณ์ดูหนักพอที่ควรพบผู้เชี่ยวชาญจริง`;
 
+// Hidden "think before answering" pass: a separate, cheap Groq call reads the conversation
+// and drafts a short private analysis (real feeling, what they likely need right now, any
+// caution points) that never reaches the user. The final reply call then gets this analysis
+// folded in as extra context, so the visible answer is grounded in that read rather than a
+// single blind pass. Failure here just means the final call proceeds without it.
+const ANALYSIS_INSTRUCTION = `คุณทำงานเบื้องหลัง ไม่ได้คุยกับผู้ใช้โดยตรง และสิ่งที่คุณเขียนจะไม่ถูกแสดงให้ผู้ใช้เห็นเลย
+หน้าที่คือช่วยวิเคราะห์บทสนทนาสั้นๆ ก่อนที่ผู้ช่วยอีกตัวจะตอบผู้ใช้จริง เขียนสรุปไม่เกิน 3-4 บรรทัด ไม่ต้องมีหัวข้อทางการ ไม่ต้องทักทาย:
+- ผู้ใช้กำลังรู้สึกอะไรอยู่จริงๆ (มองลึกกว่าคำพูดผิวเผิน)
+- ตอนนี้เขาน่าจะต้องการอะไรจากบทสนทนา (แค่การรับฟัง, คำแนะนำ, หรือแค่ระบาย)
+- มีจุดไหนที่ควรระวังเป็นพิเศษมั้ย (เรื่องอ่อนไหว, สิ่งที่เคยเล่ามาก่อนหน้านี้)`;
+
+async function draftAnalysis(chatMessages) {
+  try {
+    return await callGroq(
+      [
+        { role: "system", content: ANALYSIS_INSTRUCTION },
+        ...chatMessages.filter((m) => m.role !== "system")
+      ],
+      { temperature: 0.3, maxTokens: 150 }
+    );
+  } catch (e) {
+    console.error("Analysis step failed (proceeding without it):", e.message);
+    return "";
+  }
+}
+
+async function generateThoughtfulReply(chatMessages) {
+  const analysis = await draftAnalysis(chatMessages);
+  const messages = analysis
+    ? [...chatMessages, { role: "system", content: `บันทึกภายในก่อนตอบ (ห้ามพูดถึงบันทึกนี้กับผู้ใช้ตรงๆ): ${analysis}` }]
+    : chatMessages;
+  return callGroq(messages, { temperature: 0.7, maxTokens: 500 });
+}
+
 function detectCrisis(text) {
   return CRISIS_PATTERNS.some((re) => re.test(text));
 }
@@ -168,7 +202,7 @@ app.post("/api/chat", async (req, res) => {
 
   try {
     const [reply, assessment] = await Promise.all([
-      callGroq(chatMessages, { temperature: 0.7, maxTokens: 500 }),
+      generateThoughtfulReply(chatMessages),
       assessRiskAndTopics(trimmed)
     ]);
 
