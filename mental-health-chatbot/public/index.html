@@ -7,11 +7,18 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="moodLayer" class="mood-layer" aria-hidden="true"></div>
   <div class="app">
     <div class="chat-card">
       <header class="app-header">
         <h1>🌿 ที่ปรึกษาใจ</h1>
         <div class="header-actions">
+          <div class="font-size-group">
+            <button id="fontDecBtn" class="header-btn font-size-btn" title="ลดขนาดตัวอักษร" aria-label="ลดขนาดตัวอักษร">A−</button>
+            <button id="fontIncBtn" class="header-btn font-size-btn" title="เพิ่มขนาดตัวอักษร" aria-label="เพิ่มขนาดตัวอักษร">A+</button>
+          </div>
+          <button id="ttsBtn" class="header-btn" title="อ่านคำตอบออกเสียง" hidden>🔊 อ่านออกเสียง</button>
+          <button id="breatheBtn" class="header-btn" title="ฝึกหายใจผ่อนคลายสักครู่">🫁 ฝึกหายใจ</button>
           <button id="downloadBtn" class="header-btn" title="ดาวน์โหลดบทสนทนานี้เป็นไฟล์">ดาวน์โหลดบทสนทนา</button>
           <button id="clearBtn" class="header-btn" title="ล้างบทสนทนานี้">ล้างบทสนทนา</button>
         </div>
@@ -35,8 +42,28 @@
 
       <form id="chatForm" class="chat-form">
         <textarea id="chatInput" placeholder="พิมพ์สิ่งที่อยากเล่า..." rows="2" required></textarea>
+        <button type="button" id="micBtn" class="mic-btn" title="พูดแทนพิมพ์" hidden>🎤</button>
         <button type="submit" id="sendBtn">ส่ง</button>
       </form>
+    </div>
+  </div>
+
+  <button id="helpFab" class="help-fab" title="สายด่วนช่วยเหลือด่วน" aria-label="สายด่วนช่วยเหลือด่วน">🆘</button>
+  <div id="helpPanel" class="help-panel" hidden role="dialog" aria-label="สายด่วนช่วยเหลือ">
+    <button id="helpPanelClose" class="help-panel-close" aria-label="ปิด">✕</button>
+    <h2>สายด่วนช่วยเหลือ</h2>
+    <ul>
+      <li><a href="tel:1323">📞 สายด่วนสุขภาพจิต 1323</a><span>ฟรี ตลอด 24 ชม.</span></li>
+      <li><a href="tel:1669">📞 เหตุฉุกเฉินทางการแพทย์ 1669</a></li>
+      <li><a href="tel:1300">📞 ศูนย์ช่วยเหลือสังคม (OSCC) 1300</a><span>ความรุนแรงในครอบครัว/ความสัมพันธ์</span></li>
+    </ul>
+  </div>
+
+  <div id="breatheOverlay" class="breathe-overlay" hidden role="dialog" aria-label="แบบฝึกหายใจ">
+    <div class="breathe-box">
+      <div id="breatheCircle" class="breathe-circle"></div>
+      <p id="breatheLabel" class="breathe-label">หายใจเข้า...</p>
+      <button id="breatheCloseBtn" class="header-btn">ปิด</button>
     </div>
   </div>
 

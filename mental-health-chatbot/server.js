@@ -71,12 +71,12 @@ const RESOURCE_NOTICES = {
     "suicidethai.com/sabaijai หรือโทรคุยกับเจ้าหน้าที่โดยตรงที่สายด่วน 1323"
 };
 
-const RISK_TOPIC_INSTRUCTION = `คุณคือระบบผู้ช่วยประเมินบทสนทนาเพื่อความปลอดภัย ไม่ใช่ผู้ให้คำปรึกษา และห้ามทักทายหรือใส่ข้อความอื่นใดนอกจาก JSON
+const RISK_TOPIC_INSTRUCTION = `คุณคือระบบผู้ช่วยประเมินบทสนทนาเพื่อความปลอดภัยและบรรยากาศ ไม่ใช่ผู้ให้คำปรึกษา และห้ามทักทายหรือใส่ข้อความอื่นใดนอกจาก JSON
 
 อ่านข้อความล่าสุดของผู้ใช้ (พร้อมบริบทก่อนหน้า) แล้วตอบกลับเป็น JSON รูปแบบนี้เท่านั้น ไม่มีคำอธิบายอื่น ไม่มี markdown:
-{"risk": true หรือ false, "topics": []}
+{"risk": true หรือ false, "topics": [], "mood": "calm"}
 
-**ประเมินอย่างเข้มงวด ค่าเริ่มต้นคือ false และ [] เสมอ** ให้ flag ก็ต่อเมื่อมีสัญญาณชัดเจนจริงๆ เท่านั้น — การ flag ผิดบ่อยๆ (false positive) ทำให้ผู้ใช้เบื่อและเลิกเชื่อถือระบบ ซึ่งอันตรายกว่าการพลาดเคสที่ไม่ชัดเจนเสียอีก
+**ประเมินอย่างเข้มงวด ค่าเริ่มต้นคือ false, [], "calm" เสมอ** ให้ flag ก็ต่อเมื่อมีสัญญาณชัดเจนจริงๆ เท่านั้น — การ flag ผิดบ่อยๆ (false positive) ทำให้ผู้ใช้เบื่อและเลิกเชื่อถือระบบ ซึ่งอันตรายกว่าการพลาดเคสที่ไม่ชัดเจนเสียอีก
 
 เกณฑ์ "risk": true — ต้องมีสัญญาณค่อนข้างชัดเจนว่าผู้ใช้กำลังคิดทำร้ายตัวเอง ฆ่าตัวตาย หรืออยากจบชีวิต/หายไปจากโลกจริงๆ เช่น "เหนื่อยกับทุกอย่างมาก อยากจบมันซะที", "ไม่อยากอยู่ต่อแล้ว"
 **ไม่นับเป็น risk** (ตอบ false): ความเศร้า ความไม่มั่นใจ ความสับสนในความสัมพันธ์ ความเครียดจากงาน หรือคำถามขอคำปรึกษาทั่วไป แม้ฟังดูหนักใจก็ตาม เช่น "ควรทำยังไงกับความสัมพันธ์นี้ดี", "รู้สึกไม่มั่นคงในความสัมพันธ์เลย", "เหนื่อยกับงานมาก" — พวกนี้เป็นเรื่องปกติของชีวิต ไม่ใช่ risk
@@ -84,7 +84,12 @@ const RISK_TOPIC_INSTRUCTION = `คุณคือระบบผู้ช่ว
 "topics" ใส่ได้เฉพาะค่าจากลิสต์นี้ และต้องมีสัญญาณชัดเจนตรงเกณฑ์เท่านั้น ไม่ใช่แค่ใกล้เคียงหัวข้อ:
 - "domestic_violence": ต้องมีการพูดถึงถูกทำร้ายร่างกาย/จิตใจ/ข่มขู่ จากคนในครอบครัวหรือคู่รักจริงๆ — แค่พูดถึงคำว่า "ความสัมพันธ์" หรือ "ปัญหาความสัมพันธ์" เฉยๆ **ไม่นับ**
 - "lgbtq": ต้องมีการพูดถึงอัตลักษณ์ทางเพศ/รสนิยมทางเพศของตัวเองอย่างชัดเจน — แค่พูดถึงความสัมพันธ์ทั่วไป **ไม่นับ**
-- "professional_counseling": ต้องเป็นกรณีที่ผู้ใช้ขอความช่วยเหลือเชิงลึกอย่างชัดเจน หรือแสดงความทุกข์รุนแรงต่อเนื่องหลายข้อความ — คำถามทั่วไปเกี่ยวกับสุขภาพจิตหรือความสัมพันธ์แค่ครั้งเดียว **ไม่นับ**`;
+- "professional_counseling": ต้องเป็นกรณีที่ผู้ใช้ขอความช่วยเหลือเชิงลึกอย่างชัดเจน หรือแสดงความทุกข์รุนแรงต่อเนื่องหลายข้อความ — คำถามทั่วไปเกี่ยวกับสุขภาพจิตหรือความสัมพันธ์แค่ครั้งเดียว **ไม่นับ**
+
+"mood" คือบรรยากาศโดยรวมของข้อความล่าสุด เลือกได้ค่าเดียวจาก 3 ค่านี้เท่านั้น:
+- "heavy": น้ำเสียงหนักใจ เศร้า เครียด ท้อแท้ กังวล เหนื่อยล้าทางใจ
+- "warm": น้ำเสียงดีขึ้น โล่งใจ ขอบคุณ มีความหวัง หรือแก้ปัญหาได้แล้ว
+- "calm": ปกติ เป็นกลาง พูดคุยทั่วไป หรือไม่ชัดเจนพอจะจัดเป็นแบบใดแบบหนึ่ง — ใช้เป็นค่าเริ่มต้นเมื่อไม่แน่ใจ`;
 
 // Hidden "think before answering" pass: a separate, cheap Groq call reads the conversation
 // and drafts a short private analysis (real feeling, what they likely need right now, any
@@ -216,6 +221,8 @@ async function streamGroq(messages, { temperature, maxTokens }, onToken) {
 // we can surface more targeted resources than the generic crisis line. Any failure here
 // (bad JSON, network error) just means we fall back to regex-only — it never blocks the
 // main reply.
+const VALID_MOODS = ["calm", "heavy", "warm"];
+
 async function assessRiskAndTopics(trimmed) {
   try {
     const recentUserText = trimmed
@@ -223,7 +230,7 @@ async function assessRiskAndTopics(trimmed) {
       .slice(-4)
       .map((m) => m.text)
       .join("\n");
-    if (!recentUserText.trim()) return { risk: false, topics: [] };
+    if (!recentUserText.trim()) return { risk: false, topics: [], mood: "calm" };
 
     const raw = await callGroq(
       [
@@ -238,10 +245,11 @@ async function assessRiskAndTopics(trimmed) {
     const topics = Array.isArray(parsed.topics)
       ? parsed.topics.filter((t) => Object.prototype.hasOwnProperty.call(RESOURCE_NOTICES, t))
       : [];
-    return { risk: Boolean(parsed.risk), topics };
+    const mood = VALID_MOODS.includes(parsed.mood) ? parsed.mood : "calm";
+    return { risk: Boolean(parsed.risk), topics, mood };
   } catch (e) {
     console.error("Risk/topic classifier failed (falling back to regex only):", e.message);
-    return { risk: false, topics: [] };
+    return { risk: false, topics: [], mood: "calm" };
   }
 }
 
@@ -290,7 +298,8 @@ app.post("/api/chat", async (req, res) => {
       reply: fullReply || "ขอโทษด้วย ตอนนี้ระบบตอบไม่ได้ ลองพิมพ์อีกครั้งได้ไหม",
       crisis,
       crisisNotice: crisis ? CRISIS_NOTICE_TH : null,
-      topicNotices
+      topicNotices,
+      mood: assessment.mood
     }) + "\n");
     res.end();
   } catch (e) {

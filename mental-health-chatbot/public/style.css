@@ -71,6 +71,8 @@ body {
 }
 
 .app {
+  position: relative;
+  z-index: 1;
   max-width: 720px;
   margin: 0 auto;
   min-height: 100vh;
@@ -78,6 +80,29 @@ body {
   flex-direction: column;
   padding: 24px 16px;
 }
+
+/* Mood-adaptive ambient background — a stack of full-viewport tint layers, one per mood,
+   crossfaded via opacity (not by animating gradients directly, which browsers won't
+   interpolate smoothly). Sits above the base body gradient, below .app's content. */
+.mood-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.mood-layer > div {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.8s ease;
+}
+.mood-layer .mood-heavy {
+  background: radial-gradient(circle at 50% 30%, rgba(90, 110, 140, 0.35), transparent 65%);
+}
+.mood-layer .mood-warm {
+  background: radial-gradient(circle at 50% 30%, rgba(240, 190, 120, 0.3), transparent 65%);
+}
+.mood-layer > div.active { opacity: 1; }
 
 .chat-card {
   flex: 1;
@@ -126,6 +151,16 @@ body {
   transition: background 0.2s ease, transform 0.15s ease;
 }
 .header-btn:hover { background: rgba(61, 138, 114, 0.12); transform: translateY(-1px); }
+.header-btn.active { background: rgba(61, 138, 114, 0.18); border-color: var(--accent); color: var(--accent-strong); }
+
+.font-size-group {
+  display: flex;
+  gap: 2px;
+}
+.font-size-btn {
+  padding: 6px 10px;
+  font-weight: 700;
+}
 
 .topic-chips {
   display: flex;
@@ -307,3 +342,137 @@ body {
 }
 .chat-form button:hover:not(:disabled) { background: var(--accent-strong); transform: translateY(-1px); }
 .chat-form button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.mic-btn {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--accent-strong);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.mic-btn:hover { background: rgba(61, 138, 114, 0.14); transform: translateY(-1px); }
+.mic-btn.recording {
+  background: #e0554a;
+  color: #fff;
+  border-color: #e0554a;
+  animation: micPulse 1.2s ease-in-out infinite;
+}
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(224, 85, 74, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(224, 85, 74, 0); }
+}
+
+/* Floating emergency-help button — always reachable, not gated behind AI detection */
+.help-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--crisis-bg);
+  border: 1px solid var(--crisis-border);
+  color: var(--crisis-text);
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  z-index: 40;
+  transition: transform 0.15s ease;
+}
+.help-fab:hover { transform: scale(1.06); }
+
+.help-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 80px;
+  width: min(300px, calc(100vw - 36px));
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 18px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  z-index: 41;
+  animation: msgIn 0.2s ease;
+}
+.help-panel h2 { font-size: 1rem; margin: 0 0 10px; color: var(--crisis-text); }
+.help-panel ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.help-panel li { display: flex; flex-direction: column; }
+.help-panel a { color: var(--accent-strong); font-weight: 600; text-decoration: none; font-size: 0.95rem; }
+.help-panel a:hover { text-decoration: underline; }
+.help-panel li span { font-size: 0.78rem; color: var(--text-soft); }
+.help-panel-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* Breathing exercise overlay */
+.breathe-overlay[hidden] { display: none; }
+.breathe-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 18, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: msgIn 0.2s ease;
+}
+.breathe-box {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 24px;
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.breathe-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--accent), var(--accent-strong));
+  box-shadow: 0 0 40px rgba(61, 138, 114, 0.4);
+  animation: breathe 8s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(0.7); }
+  50% { transform: scale(1.15); }
+}
+.breathe-label {
+  font-size: 1.05rem;
+  color: var(--text);
+  font-weight: 600;
+  min-height: 1.4em;
+}
+
+@keyframes dissolveAway {
+  to { opacity: 0; transform: translateY(-14px) scale(0.96); filter: blur(6px); }
+}
+.msg.dissolving {
+  animation: dissolveAway 0.7s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg, .typing-indicator, .cursor, .help-panel, .breathe-overlay { animation: none !important; }
+  .breathe-circle { animation: none !important; transform: scale(0.9); }
+  .mic-btn.recording { animation: none !important; }
+  .msg.dissolving { animation: none !important; opacity: 0 !important; }
+}
