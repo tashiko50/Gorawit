@@ -8,6 +8,8 @@ const formEl = document.getElementById("chatForm");
 const inputEl = document.getElementById("chatInput");
 const sendBtn = document.getElementById("sendBtn");
 const clearBtn = document.getElementById("clearBtn");
+const downloadBtn = document.getElementById("downloadBtn");
+const topicChipsEl = document.getElementById("topicChips");
 
 function renderMessage(role, text) {
   const div = document.createElement("div");
@@ -17,23 +19,21 @@ function renderMessage(role, text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function renderCrisisNotice(text) {
+function renderNotice(className, text) {
   const div = document.createElement("div");
-  div.className = "msg crisis";
+  div.className = `msg ${className}`;
   div.textContent = text;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-formEl.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const text = inputEl.value.trim();
-  if (!text) return;
+async function sendText(text) {
+  if (!text.trim()) return;
 
   conversation.push({ role: "user", text });
   renderMessage("user", text);
-  inputEl.value = "";
   sendBtn.disabled = true;
+  topicChipsEl.querySelectorAll(".chip").forEach((c) => (c.disabled = true));
 
   try {
     const res = await fetch("/api/chat", {
@@ -52,19 +52,49 @@ formEl.addEventListener("submit", async (e) => {
     renderMessage("model", data.reply);
 
     if (data.crisis && data.crisisNotice) {
-      renderCrisisNotice(data.crisisNotice);
+      renderNotice("crisis", data.crisisNotice);
+    }
+    if (Array.isArray(data.topicNotices)) {
+      data.topicNotices.forEach((notice) => renderNotice("resource", notice));
     }
   } catch (err) {
     renderMessage("model", "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้งนะ");
   } finally {
     sendBtn.disabled = false;
-    inputEl.focus();
+    topicChipsEl.querySelectorAll(".chip").forEach((c) => (c.disabled = false));
+    topicChipsEl.style.display = "none"; // one-time starters, hide once the chat has begun
   }
+}
+
+formEl.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = inputEl.value.trim();
+  if (!text) return;
+  inputEl.value = "";
+  await sendText(text);
+  inputEl.focus();
+});
+
+topicChipsEl.querySelectorAll(".chip").forEach((chip) => {
+  chip.addEventListener("click", () => sendText(chip.dataset.message));
 });
 
 clearBtn.addEventListener("click", () => {
   conversation = [];
   messagesEl.innerHTML = "";
+  topicChipsEl.style.display = "flex";
+});
+
+downloadBtn.addEventListener("click", () => {
+  if (!conversation.length) return;
+  const lines = conversation.map((m) => `${m.role === "user" ? "เรา" : "ที่ปรึกษาใจ"}: ${m.text}`);
+  const blob = new Blob([lines.join("\n\n")], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `บทสนทนา-${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 });
 
 renderMessage("model", "สวัสดีนะ อยากเล่าอะไรให้ฟังบ้างวันนี้?");

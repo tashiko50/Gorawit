@@ -22,6 +22,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .app-header h1 {
@@ -30,7 +32,13 @@ body {
   color: #2f6f5e;
 }
 
-.clear-btn {
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-btn {
   background: none;
   border: 1px solid #a9c9bf;
   color: #4a6b60;
@@ -39,7 +47,32 @@ body {
   cursor: pointer;
   font-size: 0.85rem;
 }
-.clear-btn:hover { background: #e3f0ec; }
+.header-btn:hover { background: #e3f0ec; }
+
+.topic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.topic-chips-label {
+  font-size: 0.82rem;
+  color: #5a6b66;
+}
+
+.chip {
+  background: #ffffff;
+  border: 1px solid #bcd8cd;
+  color: #2f6f5e;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.chip:hover { background: #e3f0ec; }
+.chip:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .disclaimer {
   background: #fff8e6;
@@ -91,6 +124,15 @@ body {
   color: #7a2b24;
   font-weight: 600;
   text-align: center;
+}
+
+.msg.resource {
+  align-self: center;
+  background: #eaf1fb;
+  border: 1px solid #a9c6ea;
+  color: #2a4a70;
+  text-align: center;
+  font-size: 0.88rem;
 }
 
 .chat-form {

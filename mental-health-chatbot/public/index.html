@@ -10,13 +10,24 @@
   <div class="app">
     <header class="app-header">
       <h1>🌿 ที่ปรึกษาใจ</h1>
-      <button id="clearBtn" class="clear-btn" title="ล้างบทสนทนานี้">ล้างบทสนทนา</button>
+      <div class="header-actions">
+        <button id="downloadBtn" class="header-btn" title="ดาวน์โหลดบทสนทนานี้เป็นไฟล์">ดาวน์โหลดบทสนทนา</button>
+        <button id="clearBtn" class="header-btn" title="ล้างบทสนทนานี้">ล้างบทสนทนา</button>
+      </div>
     </header>
 
     <div class="disclaimer">
       <strong>ข้อจำกัดที่ควรรู้:</strong> ผู้ช่วยนี้เป็น AI ทดลอง ไม่ใช่นักจิตวิทยาหรือแพทย์จริง ไม่สามารถวินิจฉัยหรือทดแทนการรักษาได้
       บทสนทนาของคุณ<strong>ไม่ถูกบันทึกที่ใดเลย</strong> — อยู่ในหน้าเว็บนี้ชั่วคราวเท่านั้น รีเฟรชหรือออกจากหน้านี้ = ข้อมูลหายทันที
       หากอยู่ในภาวะฉุกเฉิน โทร 1669 หรือสายด่วนสุขภาพจิต 1323
+    </div>
+
+    <div id="topicChips" class="topic-chips">
+      <span class="topic-chips-label">ไม่รู้จะเริ่มยังไง? ลองกดดูสักหัวข้อ:</span>
+      <button class="chip" data-message="อยากคุยเรื่องความสัมพันธ์ที่กำลังเป็นปัญหาอยู่">ความสัมพันธ์</button>
+      <button class="chip" data-message="อยากระบายเรื่องความเครียดจากงาน">ความเครียดจากงาน</button>
+      <button class="chip" data-message="ช่วงนี้รู้สึกเหงามากเลย">รู้สึกเหงา</button>
+      <button class="chip" data-message="รู้สึกไม่ค่อยมั่นใจในตัวเองเลยช่วงนี้">ไม่มั่นใจในตัวเอง</button>
     </div>
 
     <main id="messages" class="messages" aria-live="polite"></main>
