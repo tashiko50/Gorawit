@@ -205,6 +205,16 @@ body {
   box-shadow: 0 3px 10px rgba(61, 138, 114, 0.25);
 }
 
+.cursor {
+  display: inline-block;
+  margin-left: 1px;
+  animation: cursorBlink 0.9s step-start infinite;
+}
+
+@keyframes cursorBlink {
+  50% { opacity: 0; }
+}
+
 .msg.model {
   align-self: flex-start;
   background: var(--model-bubble);

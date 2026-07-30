@@ -44,6 +44,20 @@ function hideTyping() {
   if (el) el.remove();
 }
 
+function createStreamingBubble() {
+  const div = document.createElement("div");
+  div.className = "msg model";
+  const textSpan = document.createElement("span");
+  textSpan.className = "typed-text";
+  const cursor = document.createElement("span");
+  cursor.className = "cursor";
+  cursor.textContent = "▌";
+  div.appendChild(textSpan);
+  div.appendChild(cursor);
+  messagesEl.appendChild(div);
+  return { div, textSpan, cursor };
+}
+
 async function sendText(text) {
   if (!text.trim()) return;
 
@@ -53,32 +67,86 @@ async function sendText(text) {
   topicChipsEl.querySelectorAll(".chip").forEach((c) => (c.disabled = true));
   showTyping();
 
+  let bubble = null;
+  let accumulated = "";
+  let doneData = null;
+
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: conversation })
     });
-    const data = await res.json();
-    hideTyping();
 
-    if (!res.ok) {
+    if (!res.ok || !res.body) {
+      hideTyping();
       renderMessage("model", "ขอโทษด้วย เกิดข้อผิดพลาด ลองใหม่อีกครั้งนะ");
       return;
     }
 
-    conversation.push({ role: "model", text: data.reply });
-    renderMessage("model", data.reply);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
 
-    if (data.crisis && data.crisisNotice) {
-      renderNotice("crisis", data.crisisNotice);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let idx;
+      while ((idx = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (!line) continue;
+
+        let event;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          continue;
+        }
+
+        if (event.type === "chunk") {
+          if (!bubble) {
+            hideTyping();
+            bubble = createStreamingBubble();
+          }
+          accumulated += event.text;
+          bubble.textSpan.textContent = accumulated;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        } else if (event.type === "done") {
+          doneData = event;
+        } else if (event.type === "error") {
+          hideTyping();
+          renderMessage("model", "ขอโทษด้วย เกิดข้อผิดพลาด ลองใหม่อีกครั้งนะ");
+        }
+      }
     }
-    if (Array.isArray(data.topicNotices)) {
-      data.topicNotices.forEach(({ key, text }) => {
-        if (shownTopics.has(key)) return;
-        shownTopics.add(key);
-        renderNotice("resource", text);
-      });
+
+    hideTyping();
+    if (bubble) bubble.cursor.remove();
+
+    if (!accumulated && doneData && doneData.reply) {
+      accumulated = doneData.reply;
+      if (!bubble) bubble = createStreamingBubble();
+      bubble.textSpan.textContent = accumulated;
+      bubble.cursor.remove();
+    }
+    if (accumulated) {
+      conversation.push({ role: "model", text: accumulated });
+    }
+
+    if (doneData) {
+      if (doneData.crisis && doneData.crisisNotice) {
+        renderNotice("crisis", doneData.crisisNotice);
+      }
+      if (Array.isArray(doneData.topicNotices)) {
+        doneData.topicNotices.forEach(({ key, text }) => {
+          if (shownTopics.has(key)) return;
+          shownTopics.add(key);
+          renderNotice("resource", text);
+        });
+      }
     }
   } catch (err) {
     hideTyping();

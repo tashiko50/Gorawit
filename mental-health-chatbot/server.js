@@ -7,7 +7,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_URL = process.env.GROQ_URL || "https://api.groq.com/openai/v1/chat/completions";
 
 const MAX_TURNS = 30; // keep each request bounded even though nothing is stored server-side
 
@@ -109,7 +109,10 @@ async function draftAnalysis(chatMessages) {
   }
 }
 
-async function generateThoughtfulReply(chatMessages) {
+// Streams the final reply so the UI can reveal it token-by-token instead of popping in all
+// at once. onToken is called with each text delta as it arrives from Groq; the full text is
+// still returned at the end for pushing into conversation history.
+async function streamThoughtfulReply(chatMessages, onToken) {
   const analysis = await draftAnalysis(chatMessages);
   const messages = analysis
     ? [
@@ -121,7 +124,7 @@ async function generateThoughtfulReply(chatMessages) {
         }
       ]
     : chatMessages;
-  return callGroq(messages, { temperature: 0.7, maxTokens: 500 });
+  return streamGroq(messages, { temperature: 0.7, maxTokens: 500 }, onToken);
 }
 
 function detectCrisis(text) {
@@ -150,6 +153,62 @@ async function callGroq(messages, { temperature, maxTokens }) {
 
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || "";
+}
+
+// Same call as callGroq but with stream: true, parsing Groq's SSE-formatted response
+// ("data: {...}\n\n" chunks, ending in "data: [DONE]") and invoking onToken per delta.
+async function streamGroq(messages, { temperature, maxTokens }, onToken) {
+  const res = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${GROQ_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      stream: true
+    })
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Groq API error ${res.status}: ${errText}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let full = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let idx;
+    while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      const rawEvent = buffer.slice(0, idx).trim();
+      buffer = buffer.slice(idx + 2);
+      if (!rawEvent.startsWith("data:")) continue;
+      const payload = rawEvent.slice(5).trim();
+      if (payload === "[DONE]") continue;
+      try {
+        const json = JSON.parse(payload);
+        const delta = json?.choices?.[0]?.delta?.content;
+        if (delta) {
+          full += delta;
+          onToken(delta);
+        }
+      } catch {
+        // partial/malformed chunk boundary — skip, next chunk usually completes it
+      }
+    }
+  }
+
+  return full;
 }
 
 // Best-effort semantic pass on top of the regex backstop — catches indirect distress signals
@@ -207,26 +266,41 @@ app.post("/api/chat", async (req, res) => {
       .map((m) => ({ role: m.role === "model" ? "assistant" : "user", content: m.text }))
   ];
 
-  try {
-    const [reply, assessment] = await Promise.all([
-      generateThoughtfulReply(chatMessages),
-      assessRiskAndTopics(trimmed)
-    ]);
+  // assessRiskAndTopics runs independently in the background while the reply streams —
+  // it's unrelated to the visible text, so there's no reason to make the user wait for it.
+  const assessmentPromise = assessRiskAndTopics(trimmed);
+  let streaming = false;
 
+  try {
+    res.writeHead(200, { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache" });
+    streaming = true;
+
+    const fullReply = await streamThoughtfulReply(chatMessages, (delta) => {
+      res.write(JSON.stringify({ type: "chunk", text: delta }) + "\n");
+    });
+
+    const assessment = await assessmentPromise;
     const crisis = regexCrisis || assessment.risk;
     // Sent as {key, text} pairs (not just text) so the client can dedupe by key and avoid
     // re-showing the same resource notice every turn once it's already been surfaced once.
     const topicNotices = assessment.topics.map((t) => ({ key: t, text: RESOURCE_NOTICES[t] }));
 
-    res.json({
-      reply: reply || "ขอโทษด้วย ตอนนี้ระบบตอบไม่ได้ ลองพิมพ์อีกครั้งได้ไหม",
+    res.write(JSON.stringify({
+      type: "done",
+      reply: fullReply || "ขอโทษด้วย ตอนนี้ระบบตอบไม่ได้ ลองพิมพ์อีกครั้งได้ไหม",
       crisis,
       crisisNotice: crisis ? CRISIS_NOTICE_TH : null,
       topicNotices
-    });
+    }) + "\n");
+    res.end();
   } catch (e) {
     console.error("Chat request failed:", e.message);
-    res.status(500).json({ error: "internal error" });
+    if (streaming) {
+      res.write(JSON.stringify({ type: "error", message: "internal error" }) + "\n");
+      res.end();
+    } else {
+      res.status(500).json({ error: "internal error" });
+    }
   }
 });
 
