@@ -64,9 +64,9 @@ function createStreamingBubble() {
 // chunks just accumulate into a buffer, and a fixed-pace loop drains it into the DOM a few
 // characters at a time. Content is always real (never fabricated ahead of arrival) — only the
 // reveal *pace* is deliberate, same technique many chat UIs use to smooth out bursty delivery.
-const MIN_THINKING_MS = 600; // guarantees a visible "thinking" pause even on an instant reply
-const REVEAL_CHARS_PER_TICK = 3;
-const REVEAL_INTERVAL_MS = 20; // ~150 chars/sec
+const MIN_THINKING_MS = 1100; // guarantees a visible "thinking" pause even on an instant reply
+const REVEAL_CHARS_PER_TICK = 2;
+const REVEAL_INTERVAL_MS = 35; // ~57 chars/sec — closer to watching someone actually type
 
 async function sendText(text) {
   if (!text.trim()) return;
