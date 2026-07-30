@@ -58,6 +58,16 @@ function createStreamingBubble() {
   return { div, textSpan, cursor };
 }
 
+// Groq's inference is fast enough that a whole reply can arrive within a few hundred ms —
+// rendering each network chunk the instant it lands would make the "typing" feel skip past
+// too fast to register as motion. So the reveal is decoupled from network speed entirely:
+// chunks just accumulate into a buffer, and a fixed-pace loop drains it into the DOM a few
+// characters at a time. Content is always real (never fabricated ahead of arrival) — only the
+// reveal *pace* is deliberate, same technique many chat UIs use to smooth out bursty delivery.
+const MIN_THINKING_MS = 600; // guarantees a visible "thinking" pause even on an instant reply
+const REVEAL_CHARS_PER_TICK = 3;
+const REVEAL_INTERVAL_MS = 20; // ~150 chars/sec
+
 async function sendText(text) {
   if (!text.trim()) return;
 
@@ -66,10 +76,37 @@ async function sendText(text) {
   sendBtn.disabled = true;
   topicChipsEl.querySelectorAll(".chip").forEach((c) => (c.disabled = true));
   showTyping();
+  const startedAt = Date.now();
 
   let bubble = null;
+  let bubbleReady = false;
   let accumulated = "";
+  let revealed = "";
+  let revealTimer = null;
   let doneData = null;
+
+  function startRevealLoop() {
+    if (revealTimer) return;
+    revealTimer = setInterval(() => {
+      if (revealed.length < accumulated.length) {
+        revealed = accumulated.slice(0, revealed.length + REVEAL_CHARS_PER_TICK);
+        bubble.textSpan.textContent = revealed;
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    }, REVEAL_INTERVAL_MS);
+  }
+
+  async function ensureBubbleReady() {
+    if (bubbleReady) return;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < MIN_THINKING_MS) {
+      await new Promise((resolve) => setTimeout(resolve, MIN_THINKING_MS - elapsed));
+    }
+    hideTyping();
+    bubble = createStreamingBubble();
+    bubbleReady = true;
+    startRevealLoop();
+  }
 
   try {
     const res = await fetch("/api/chat", {
@@ -107,13 +144,8 @@ async function sendText(text) {
         }
 
         if (event.type === "chunk") {
-          if (!bubble) {
-            hideTyping();
-            bubble = createStreamingBubble();
-          }
           accumulated += event.text;
-          bubble.textSpan.textContent = accumulated;
-          messagesEl.scrollTop = messagesEl.scrollHeight;
+          if (!bubbleReady) await ensureBubbleReady();
         } else if (event.type === "done") {
           doneData = event;
         } else if (event.type === "error") {
@@ -121,6 +153,21 @@ async function sendText(text) {
           renderMessage("model", "ขอโทษด้วย เกิดข้อผิดพลาด ลองใหม่อีกครั้งนะ");
         }
       }
+    }
+
+    // Network side is done, but the paced reveal may still be catching up — let it finish
+    // draining the buffer before wrapping up, so the animation always plays out in full.
+    if (bubbleReady) {
+      await new Promise((resolve) => {
+        const check = setInterval(() => {
+          if (revealed.length >= accumulated.length) {
+            clearInterval(check);
+            clearInterval(revealTimer);
+            revealTimer = null;
+            resolve();
+          }
+        }, REVEAL_INTERVAL_MS);
+      });
     }
 
     hideTyping();
@@ -149,6 +196,7 @@ async function sendText(text) {
       }
     }
   } catch (err) {
+    if (revealTimer) clearInterval(revealTimer);
     hideTyping();
     renderMessage("model", "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้งนะ");
   } finally {
