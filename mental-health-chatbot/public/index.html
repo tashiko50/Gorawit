@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ที่ปรึกษาใจ — AI Chat</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>🌿 ที่ปรึกษาใจ</h1>
+      <button id="clearBtn" class="clear-btn" title="ล้างบทสนทนานี้">ล้างบทสนทนา</button>
+    </header>
+
+    <div class="disclaimer">
+      <strong>ข้อจำกัดที่ควรรู้:</strong> ผู้ช่วยนี้เป็น AI ทดลอง ไม่ใช่นักจิตวิทยาหรือแพทย์จริง ไม่สามารถวินิจฉัยหรือทดแทนการรักษาได้
+      บทสนทนาของคุณ<strong>ไม่ถูกบันทึกที่ใดเลย</strong> — อยู่ในหน้าเว็บนี้ชั่วคราวเท่านั้น รีเฟรชหรือออกจากหน้านี้ = ข้อมูลหายทันที
+      หากอยู่ในภาวะฉุกเฉิน โทร 1669 หรือสายด่วนสุขภาพจิต 1323
+    </div>
+
+    <main id="messages" class="messages" aria-live="polite"></main>
+
+    <form id="chatForm" class="chat-form">
+      <textarea id="chatInput" placeholder="พิมพ์สิ่งที่อยากเล่า..." rows="2" required></textarea>
+      <button type="submit" id="sendBtn">ส่ง</button>
+    </form>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

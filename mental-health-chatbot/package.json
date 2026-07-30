@@ -1,0 +1,16 @@
+{
+  "name": "mental-health-chatbot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Free, no-database mental health support chatbot prototype — conversation lives only in the browser tab and is never persisted.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
