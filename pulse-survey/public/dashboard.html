@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard — TDFB Pulse Survey</title>
+<link rel="stylesheet" href="/shared.css" />
+<style>
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 26px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .kpi-label { font-size: 12px; color: var(--ink-muted); margin: 0 0 8px; min-height: 32px; }
+  .kpi-value { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 0; }
+  .bar-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .bar-row:first-child { border-top: none; }
+  .bar-name { width: 220px; flex: 0 0 220px; font-size: 13px; color: var(--ink-2); line-height: 1.3; }
+  .bar-track { position: relative; flex: 1; height: 20px; background: var(--surface-2); border-radius: 3px; }
+  .bar-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; justify-content: flex-end; }
+  .bar-score { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 26px 0; }
+  .quote { border-radius: 8px; padding: 12px 14px; font-size: 13.5px; line-height: 1.5; margin-bottom: 9px; border-left: 3px solid transparent; }
+  .quote.praise { border-left-color: var(--accent); background: var(--accent-tint); }
+  .quote.ask { border-left-color: var(--ask-rule); background: var(--ask-tint); }
+  @media (max-width: 620px) { .kpis, .voice-grid { grid-template-columns: 1fr; } .bar-name { width: 130px; flex-basis: 130px; } .bar-score { position: static; margin-left: 8px; } }
+</style>
+</head>
+<body>
+  <div class="wrap wide">
+    <div class="top-bar">
+      <div id="who" class="who"></div>
+      <div style="display:flex; gap:8px;">
+        <a class="btn secondary" href="/admin.html" style="font-size:12.5px; padding:7px 12px; text-decoration:none;">+ สร้างกิจกรรมใหม่</a>
+        <button class="btn secondary" id="logoutBtn" style="font-size:12.5px; padding:7px 12px;">ออกจากระบบ</button>
+      </div>
+    </div>
+    <div id="content"><p class="sub">กำลังโหลด...</p></div>
+  </div>
+
+<script>
+function colorForRank(rank, total) {
+  // sequential blue: rank 0 = highest score = darkest
+  const light = [0xcd,0xe2,0xfb], dark = [0x0d,0x36,0x6b];
+  const t = total <= 1 ? 0 : rank / (total - 1);
+  const rgb = light.map((c, i) => Math.round(c + (dark[i] - c) * t));
+  return "rgb(" + rgb.join(",") + ")";
+}
+
+async function boot() {
+  const me = await fetch("/api/me");
+  if (!me.ok) { location.href = "/login.html"; return; }
+  const meData = await me.json();
+  if (!meData.isAdmin) {
+    document.getElementById("content").innerHTML = '<div class="notice error">หน้านี้สำหรับทีม GM/HR เท่านั้น</div>';
+    return;
+  }
+  document.getElementById("who").innerHTML =
+    (meData.user.picture ? '<img src="' + meData.user.picture + '" alt="">' : "") +
+    "<span>" + meData.user.name + "</span>";
+  document.getElementById("logoutBtn").onclick = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    location.href = "/login.html";
+  };
+
+  const res = await fetch("/api/dashboard/current");
+  const content = document.getElementById("content");
+  if (!res.ok) {
+    const err = await res.json();
+    content.innerHTML = '<div class="notice info">' + (err.error || "ยังไม่มีข้อมูล") + "</div>";
+    return;
+  }
+  const data = await res.json();
+  render(data);
+}
+
+function render(data) {
+  const overall = data.topicStats.find((t) => t.key === "overall") || data.topicStats[0];
+  const nextYear = data.topicStats.find((t) => t.key === "nextyear");
+  const lowest = [...data.topicStats].filter((t) => t.avg !== null).sort((a, b) => a.avg - b.avg)[0];
+
+  const kpis =
+    '<div class="kpis">' +
+      kpiCard("ความพึงพอใจโดยรวม", overall) +
+      (nextYear ? kpiCard("อยากเข้าร่วมปีหน้า", nextYear) : "") +
+      (lowest ? kpiCard("หัวข้อคะแนนต่ำสุด — ควรแก้ก่อน", lowest, true) : "") +
+    "</div>";
+
+  const bars = data.topicStats.map((t, i) => {
+    const pct = t.avg !== null ? (t.avg / 5 * 100).toFixed(1) : 0;
+    return (
+      '<div class="bar-row">' +
+        '<div class="bar-name">' + t.label + "</div>" +
+        '<div class="bar-track">' +
+          '<div class="bar-fill" style="width:' + pct + '%; background:' + colorForRank(i, data.topicStats.length) + '">' +
+            '<span class="bar-score">' + (t.avg !== null ? t.avg.toFixed(2) : "—") + "</span>" +
+          "</div>" +
+        "</div>" +
+      "</div>"
+    );
+  }).join("");
+
+  const praise = data.comments.praise.length
+    ? data.comments.praise.map((p) => '<div class="quote praise">“' + escapeHtml(p) + '”</div>').join("")
+    : '<p class="sub">ยังไม่มีความคิดเห็น</p>';
+  const ask = data.comments.ask.length
+    ? data.comments.ask.map((a) => '<div class="quote ask">“' + escapeHtml(a) + '”</div>').join("")
+    : '<p class="sub">ยังไม่มีความคิดเห็น</p>';
+
+  document.getElementById("content").innerHTML =
+    '<p class="eyebrow">' + data.activity.quarter + " · " + data.totalResponses + ' คำตอบ</p>' +
+    "<h1>" + data.activity.name + "</h1>" +
+    kpis +
+    '<div class="card">' + bars + "</div>" +
+    '<div class="voice-grid">' +
+      "<div><h3>ชื่นชม</h3>" + praise + "</div>" +
+      "<div><h3>ข้อเสนอแนะ</h3>" + ask + "</div>" +
+    "</div>";
+}
+
+function kpiCard(label, topic, isFlag) {
+  return (
+    '<div class="kpi">' +
+      '<p class="kpi-label">' + label + "</p>" +
+      '<p class="kpi-value">' + (topic.avg !== null ? topic.avg.toFixed(2) : "—") + '<small style="font-size:14px;color:var(--ink-muted);"> / 5</small></p>' +
+      (isFlag ? '<span style="font-size:12px;font-weight:600;color:var(--ask-rule);">' + topic.label + "</span>" : "") +
+    "</div>"
+  );
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+window.addEventListener("load", boot);
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>เข้าสู่ระบบ — TDFB Pulse Survey</title>
+<link rel="stylesheet" href="/shared.css" />
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="center-screen">
+    <div class="card" style="max-width:380px; width:100%; text-align:center;">
+      <p class="eyebrow">TDFB · GM &amp; HR</p>
+      <h1 style="margin-bottom:4px;">Pulse Survey</h1>
+      <p class="sub">เข้าสู่ระบบด้วยอีเมลบริษัท (@tdfb.co) เพื่อตอบแบบสำรวจกิจกรรม</p>
+      <div id="notice" class="notice error" style="display:none;"></div>
+      <div id="gsiBtn" style="display:flex; justify-content:center;"></div>
+      <p id="loading" class="sub" style="margin-top:16px;">กำลังโหลด...</p>
+    </div>
+  </div>
+
+<script>
+function showError(msg) {
+  var n = document.getElementById("notice");
+  n.textContent = msg;
+  n.style.display = "block";
+}
+
+async function handleCredentialResponse(response) {
+  document.getElementById("loading").textContent = "กำลังเข้าสู่ระบบ...";
+  try {
+    const r = await fetch("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      showError(data.error || "เข้าสู่ระบบไม่สำเร็จ");
+      document.getElementById("loading").textContent = "";
+      return;
+    }
+    location.href = data.isAdmin ? "/dashboard.html" : "/survey.html";
+  } catch {
+    showError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
+    document.getElementById("loading").textContent = "";
+  }
+}
+
+async function init() {
+  try {
+    const cfg = await fetch("/api/config").then((r) => r.json());
+    if (!cfg.googleClientId) {
+      showError("ระบบยังไม่ได้ตั้งค่า Google Sign-In — แจ้งผู้ดูแลระบบ");
+      document.getElementById("loading").textContent = "";
+      return;
+    }
+    // Already logged in?
+    const me = await fetch("/api/me");
+    if (me.ok) {
+      const data = await me.json();
+      location.href = data.isAdmin ? "/dashboard.html" : "/survey.html";
+      return;
+    }
+    google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: handleCredentialResponse });
+    google.accounts.id.renderButton(document.getElementById("gsiBtn"), {
+      theme: "outline", size: "large", locale: "th", width: 300,
+    });
+    document.getElementById("loading").textContent = "";
+  } catch {
+    showError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองรีเฟรชหน้านี้");
+    document.getElementById("loading").textContent = "";
+  }
+}
+window.addEventListener("load", init);
+</script>
+</body>
+</html>

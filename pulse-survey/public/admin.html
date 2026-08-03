@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>สร้างกิจกรรมใหม่ — TDFB Pulse Survey</title>
+<link rel="stylesheet" href="/shared.css" />
+<style>
+  .topic-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .topic-input-row input { flex: 1; }
+  .topic-input-row button { flex: 0 0 auto; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-bar">
+      <a href="/dashboard.html" style="font-size:13px;">&larr; กลับไป Dashboard</a>
+      <div id="who" class="who"></div>
+    </div>
+
+    <p class="eyebrow">GM / HR</p>
+    <h1>สร้างกิจกรรมใหม่</h1>
+    <p class="sub">สร้างแบบสำรวจสำหรับกิจกรรมไตรมาสถัดไป — เปิดใหม่จะปิดกิจกรรมก่อนหน้าอัตโนมัติ</p>
+
+    <div id="guard"></div>
+    <div class="card" id="formCard" style="display:none;">
+      <div class="field">
+        <label>ชื่อกิจกรรม</label>
+        <input type="text" id="name" placeholder="เช่น Company Outing Q4 2026" />
+      </div>
+      <div class="field">
+        <label>ไตรมาส</label>
+        <input type="text" id="quarter" placeholder="เช่น 2026-Q4" />
+      </div>
+      <div class="field">
+        <label>หัวข้อที่ให้คะแนน (1–5)</label>
+        <div id="topics"></div>
+        <button type="button" class="btn secondary" id="addTopicBtn" style="margin-top:4px; font-size:13px; padding:8px 14px;">+ เพิ่มหัวข้อ</button>
+      </div>
+      <div id="formError" class="notice error" style="display:none;"></div>
+      <button class="btn" id="createBtn">สร้างกิจกรรม</button>
+    </div>
+  </div>
+
+<script>
+function slugify(label) {
+  return label.trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/g, "_").replace(/^_+|_+$/g, "") || "topic";
+}
+
+function addTopicRow(value) {
+  const div = document.createElement("div");
+  div.className = "topic-input-row";
+  div.innerHTML =
+    '<input type="text" value="' + (value || "") + '" placeholder="เช่น ความพึงพอใจโดยรวม" />' +
+    '<button type="button" class="btn secondary" style="font-size:13px; padding:8px 12px;">ลบ</button>';
+  div.querySelector("button").onclick = () => div.remove();
+  document.getElementById("topics").appendChild(div);
+}
+
+async function boot() {
+  const me = await fetch("/api/me");
+  if (!me.ok) { location.href = "/login.html"; return; }
+  const meData = await me.json();
+  if (!meData.isAdmin) {
+    document.getElementById("guard").innerHTML = '<div class="notice error">หน้านี้สำหรับทีม GM/HR เท่านั้น</div>';
+    return;
+  }
+  document.getElementById("who").innerHTML =
+    (meData.user.picture ? '<img src="' + meData.user.picture + '" alt="">' : "") +
+    "<span>" + meData.user.name + "</span>";
+
+  ["ความพึงพอใจโดยรวมต่อกิจกรรม", "ความเหมาะสมของสถานที่", "การสื่อสารล่วงหน้า"].forEach(addTopicRow);
+  document.getElementById("addTopicBtn").onclick = () => addTopicRow("");
+  document.getElementById("formCard").style.display = "block";
+  document.getElementById("createBtn").onclick = create;
+}
+
+async function create() {
+  const name = document.getElementById("name").value.trim();
+  const quarter = document.getElementById("quarter").value.trim();
+  const labels = [...document.querySelectorAll("#topics input")].map((i) => i.value.trim()).filter(Boolean);
+  const errBox = document.getElementById("formError");
+
+  if (!name || !quarter || !labels.length) {
+    errBox.textContent = "กรุณากรอกชื่อกิจกรรม ไตรมาส และหัวข้ออย่างน้อย 1 ข้อ";
+    errBox.style.display = "block";
+    return;
+  }
+  errBox.style.display = "none";
+
+  const seen = {};
+  const topics = labels.map((label) => {
+    let key = slugify(label);
+    if (seen[key]) key = key + "_" + (++seen[key]); else seen[key] = 1;
+    return { key, label };
+  });
+
+  const btn = document.getElementById("createBtn");
+  btn.disabled = true;
+  btn.textContent = "กำลังสร้าง...";
+
+  const res = await fetch("/api/admin/activities", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, quarter, topics }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    errBox.textContent = err.error || "สร้างกิจกรรมไม่สำเร็จ";
+    errBox.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "สร้างกิจกรรม";
+    return;
+  }
+  location.href = "/dashboard.html";
+}
+
+window.addEventListener("load", boot);
+</script>
+</body>
+</html>

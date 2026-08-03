@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>แบบสำรวจกิจกรรม — TDFB</title>
+<link rel="stylesheet" href="/shared.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-bar">
+      <div id="who" class="who"></div>
+      <button class="btn secondary" id="logoutBtn" style="font-size:12.5px; padding:7px 12px;">ออกจากระบบ</button>
+    </div>
+
+    <div id="content">
+      <p class="sub">กำลังโหลด...</p>
+    </div>
+  </div>
+
+<script>
+let ACTIVITY = null;
+
+async function boot() {
+  const me = await fetch("/api/me");
+  if (!me.ok) { location.href = "/login.html"; return; }
+  const meData = await me.json();
+  document.getElementById("who").innerHTML =
+    (meData.user.picture ? '<img src="' + meData.user.picture + '" alt="">' : "") +
+    "<span>" + meData.user.name + "</span>";
+  document.getElementById("logoutBtn").onclick = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    location.href = "/login.html";
+  };
+
+  const res = await fetch("/api/activities/current");
+  const content = document.getElementById("content");
+  if (!res.ok) {
+    const err = await res.json();
+    content.innerHTML = '<div class="notice info">' + (err.error || "ยังไม่มีแบบสำรวจที่เปิดอยู่ในขณะนี้") + "</div>";
+    return;
+  }
+  const data = await res.json();
+  ACTIVITY = data.activity;
+  render(data.activity, data.previousResponse);
+}
+
+function render(activity, previous) {
+  const content = document.getElementById("content");
+  const answers = (previous && previous.answers) || {};
+
+  const topicsHtml = activity.topics.map((t) => {
+    const buttons = [1, 2, 3, 4, 5].map((n) =>
+      '<button type="button" data-key="' + t.key + '" data-val="' + n + '" class="' +
+      (answers[t.key] === n ? "selected" : "") + '">' + n + "</button>"
+    ).join("");
+    return (
+      '<div class="topic-row">' +
+        "<label>" + t.label + "</label>" +
+        '<div class="rating" data-topic="' + t.key + '">' + buttons + "</div>" +
+      "</div>"
+    );
+  }).join("");
+
+  content.innerHTML =
+    '<p class="eyebrow">' + activity.quarter + '</p>' +
+    "<h1>" + activity.name + "</h1>" +
+    '<p class="sub">ให้คะแนนแต่ละหัวข้อ 1–5 (5 คือมากที่สุด) ' +
+    (previous ? "คุณเคยตอบแบบนี้ไปแล้ว — ส่งซ้ำจะแก้ไขคำตอบเดิม" : "") + "</p>" +
+    (previous ? '<div class="notice info">พบคำตอบเดิมของคุณ — แก้ไขแล้วกด “ส่งคำตอบ” เพื่ออัปเดต</div>' : "") +
+    '<div class="card">' +
+      topicsHtml +
+      '<div class="field" style="margin-top:8px;">' +
+        "<label>สิ่งที่ประทับใจ / ชื่นชมมากที่สุด</label>" +
+        '<textarea id="praise" rows="3">' + (previous?.praise || "") + "</textarea>" +
+      "</div>" +
+      '<div class="field">' +
+        "<label>ข้อเสนอแนะสำหรับครั้งถัดไป</label>" +
+        '<textarea id="ask" rows="3">' + (previous?.ask || "") + "</textarea>" +
+      "</div>" +
+      '<div id="formError" class="notice error" style="display:none;"></div>' +
+      '<button class="btn" id="submitBtn">ส่งคำตอบ</button>' +
+    "</div>";
+
+  content.querySelectorAll(".rating").forEach((group) => {
+    group.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        group.querySelectorAll("button").forEach((b) => b.classList.remove("selected"));
+        btn.classList.add("selected");
+      });
+    });
+  });
+
+  document.getElementById("submitBtn").addEventListener("click", submit);
+}
+
+async function submit() {
+  const answers = {};
+  document.querySelectorAll(".rating").forEach((group) => {
+    const selected = group.querySelector("button.selected");
+    if (selected) answers[group.dataset.topic] = Number(selected.dataset.val);
+  });
+
+  const errBox = document.getElementById("formError");
+  if (Object.keys(answers).length < ACTIVITY.topics.length) {
+    errBox.textContent = "กรุณาให้คะแนนครบทุกหัวข้อ";
+    errBox.style.display = "block";
+    return;
+  }
+  errBox.style.display = "none";
+
+  const submitBtn = document.getElementById("submitBtn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "กำลังส่ง...";
+
+  const res = await fetch("/api/responses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      activityId: ACTIVITY.id,
+      answers,
+      praise: document.getElementById("praise").value.trim(),
+      ask: document.getElementById("ask").value.trim(),
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    errBox.textContent = err.error || "ส่งคำตอบไม่สำเร็จ ลองอีกครั้ง";
+    errBox.style.display = "block";
+    submitBtn.disabled = false;
+    submitBtn.textContent = "ส่งคำตอบ";
+    return;
+  }
+
+  document.getElementById("content").innerHTML =
+    '<div class="card" style="text-align:center;">' +
+      '<p class="eyebrow">ขอบคุณค่ะ / ครับ</p>' +
+      "<h1>บันทึกคำตอบแล้ว 🎉</h1>" +
+      '<p class="sub">ทีม GM/HR จะนำไปพัฒนากิจกรรมครั้งถัดไป</p>' +
+    "</div>";
+}
+
+window.addEventListener("load", boot);
+</script>
+</body>
+</html>
