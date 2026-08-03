@@ -6,6 +6,11 @@
 <title>Dashboard — TDFB Pulse Survey</title>
 <link rel="stylesheet" href="/shared.css" />
 <style>
+  .picker { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
+  .picker select { font-family: inherit; font-size: 14px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-1); }
+  .pill { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 100px; }
+  .pill.open { background: var(--accent-tint); color: var(--accent-deep); }
+  .pill.closed { background: var(--surface-2); color: var(--ink-muted); }
   .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 26px; }
   .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
   .kpi-label { font-size: 12px; color: var(--ink-muted); margin: 0 0 8px; min-height: 32px; }
@@ -28,7 +33,7 @@
     <div class="top-bar">
       <div id="who" class="who"></div>
       <div style="display:flex; gap:8px;">
-        <a class="btn secondary" href="/admin.html" style="font-size:12.5px; padding:7px 12px; text-decoration:none;">+ สร้างกิจกรรมใหม่</a>
+        <a class="btn secondary" href="/admin.html" style="font-size:12.5px; padding:7px 12px; text-decoration:none;">จัดการกิจกรรม</a>
         <button class="btn secondary" id="logoutBtn" style="font-size:12.5px; padding:7px 12px;">ออกจากระบบ</button>
       </div>
     </div>
@@ -36,8 +41,9 @@
   </div>
 
 <script>
+let ALL_ACTIVITIES = [];
+
 function colorForRank(rank, total) {
-  // sequential blue: rank 0 = highest score = darkest
   const light = [0xcd,0xe2,0xfb], dark = [0x0d,0x36,0x6b];
   const t = total <= 1 ? 0 : rank / (total - 1);
   const rgb = light.map((c, i) => Math.round(c + (dark[i] - c) * t));
@@ -60,18 +66,50 @@ async function boot() {
     location.href = "/login.html";
   };
 
-  const res = await fetch("/api/dashboard/current");
+  const listRes = await fetch("/api/admin/activities");
   const content = document.getElementById("content");
-  if (!res.ok) {
-    const err = await res.json();
-    content.innerHTML = '<div class="notice info">' + (err.error || "ยังไม่มีข้อมูล") + "</div>";
+  if (!listRes.ok) {
+    content.innerHTML = '<div class="notice error">โหลดรายชื่อกิจกรรมไม่สำเร็จ</div>';
     return;
   }
-  const data = await res.json();
-  render(data);
+  const listData = await listRes.json();
+  ALL_ACTIVITIES = listData.activities;
+
+  if (!ALL_ACTIVITIES.length) {
+    content.innerHTML = '<div class="notice info">ยังไม่มีกิจกรรมในระบบ — <a href="/admin.html">สร้างกิจกรรมแรก</a></div>';
+    return;
+  }
+
+  content.innerHTML =
+    '<div class="picker">' +
+      '<select id="activityPicker"></select>' +
+    "</div>" +
+    '<div id="dashboardBody"><p class="sub">กำลังโหลด...</p></div>';
+
+  const picker = document.getElementById("activityPicker");
+  picker.innerHTML = ALL_ACTIVITIES.map((a) =>
+    '<option value="' + a.id + '">' + a.name + " (" + a.quarter + ") · " + a.responseCount + " คำตอบ" +
+    (a.is_open ? "" : " · ปิดแล้ว") + "</option>"
+  ).join("");
+  picker.addEventListener("change", () => loadDashboard(picker.value));
+
+  loadDashboard(ALL_ACTIVITIES[0].id);
 }
 
-function render(data) {
+async function loadDashboard(activityId) {
+  const body = document.getElementById("dashboardBody");
+  body.innerHTML = '<p class="sub">กำลังโหลด...</p>';
+  const res = await fetch("/api/dashboard/" + activityId);
+  if (!res.ok) {
+    const err = await res.json();
+    body.innerHTML = '<div class="notice info">' + (err.error || "โหลดข้อมูลไม่สำเร็จ") + "</div>";
+    return;
+  }
+  render(await res.json(), body);
+}
+
+function render(data, body) {
+  const meta = ALL_ACTIVITIES.find((a) => a.id === data.activity.id);
   const overall = data.topicStats.find((t) => t.key === "overall") || data.topicStats[0];
   const nextYear = data.topicStats.find((t) => t.key === "nextyear");
   const lowest = [...data.topicStats].filter((t) => t.avg !== null).sort((a, b) => a.avg - b.avg)[0];
@@ -104,8 +142,9 @@ function render(data) {
     ? data.comments.ask.map((a) => '<div class="quote ask">“' + escapeHtml(a) + '”</div>').join("")
     : '<p class="sub">ยังไม่มีความคิดเห็น</p>';
 
-  document.getElementById("content").innerHTML =
-    '<p class="eyebrow">' + data.activity.quarter + " · " + data.totalResponses + ' คำตอบ</p>' +
+  body.innerHTML =
+    '<p class="eyebrow">' + data.activity.quarter + " · " + data.totalResponses + " คำตอบ " +
+      '<span class="pill ' + (meta && meta.is_open ? "open" : "closed") + '">' + (meta && meta.is_open ? "เปิดอยู่" : "ปิดแล้ว") + "</span></p>" +
     "<h1>" + data.activity.name + "</h1>" +
     kpis +
     '<div class="card">' + bars + "</div>" +

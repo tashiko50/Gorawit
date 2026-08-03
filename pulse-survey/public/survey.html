@@ -19,7 +19,7 @@
   </div>
 
 <script>
-let ACTIVITY = null;
+let ACTIVITIES = [];
 
 async function boot() {
   const me = await fetch("/api/me");
@@ -33,7 +33,7 @@ async function boot() {
     location.href = "/login.html";
   };
 
-  const res = await fetch("/api/activities/current");
+  const res = await fetch("/api/activities/open");
   const content = document.getElementById("content");
   if (!res.ok) {
     const err = await res.json();
@@ -41,17 +41,36 @@ async function boot() {
     return;
   }
   const data = await res.json();
-  ACTIVITY = data.activity;
-  render(data.activity, data.previousResponse);
+  ACTIVITIES = data.activities;
+
+  if (!ACTIVITIES.length) {
+    content.innerHTML = '<div class="notice info">ยังไม่มีแบบสำรวจที่เปิดอยู่ในขณะนี้ — กลับมาดูใหม่ตอนมีกิจกรรมถัดไปนะครับ</div>';
+    return;
+  }
+
+  content.innerHTML =
+    '<p class="eyebrow">' + ACTIVITIES.length + " แบบสำรวจที่เปิดอยู่ตอนนี้</p>" +
+    '<h1 style="margin-bottom:20px;">ตอบแบบสำรวจ</h1>' +
+    '<div id="cards"></div>';
+
+  const cardsEl = document.getElementById("cards");
+  ACTIVITIES.forEach((activity) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.id = "activity-" + activity.id;
+    cardsEl.appendChild(card);
+    renderCard(activity);
+  });
 }
 
-function render(activity, previous) {
-  const content = document.getElementById("content");
+function renderCard(activity) {
+  const card = document.getElementById("activity-" + activity.id);
+  const previous = activity.previousResponse;
   const answers = (previous && previous.answers) || {};
 
   const topicsHtml = activity.topics.map((t) => {
     const buttons = [1, 2, 3, 4, 5].map((n) =>
-      '<button type="button" data-key="' + t.key + '" data-val="' + n + '" class="' +
+      '<button type="button" data-val="' + n + '" class="' +
       (answers[t.key] === n ? "selected" : "") + '">' + n + "</button>"
     ).join("");
     return (
@@ -62,27 +81,24 @@ function render(activity, previous) {
     );
   }).join("");
 
-  content.innerHTML =
+  card.innerHTML =
     '<p class="eyebrow">' + activity.quarter + '</p>' +
-    "<h1>" + activity.name + "</h1>" +
-    '<p class="sub">ให้คะแนนแต่ละหัวข้อ 1–5 (5 คือมากที่สุด) ' +
-    (previous ? "คุณเคยตอบแบบนี้ไปแล้ว — ส่งซ้ำจะแก้ไขคำตอบเดิม" : "") + "</p>" +
-    (previous ? '<div class="notice info">พบคำตอบเดิมของคุณ — แก้ไขแล้วกด “ส่งคำตอบ” เพื่ออัปเดต</div>' : "") +
-    '<div class="card">' +
-      topicsHtml +
-      '<div class="field" style="margin-top:8px;">' +
-        "<label>สิ่งที่ประทับใจ / ชื่นชมมากที่สุด</label>" +
-        '<textarea id="praise" rows="3">' + (previous?.praise || "") + "</textarea>" +
-      "</div>" +
-      '<div class="field">' +
-        "<label>ข้อเสนอแนะสำหรับครั้งถัดไป</label>" +
-        '<textarea id="ask" rows="3">' + (previous?.ask || "") + "</textarea>" +
-      "</div>" +
-      '<div id="formError" class="notice error" style="display:none;"></div>' +
-      '<button class="btn" id="submitBtn">ส่งคำตอบ</button>' +
-    "</div>";
+    '<h2 style="font-size:18px; margin:0 0 4px;">' + activity.name + "</h2>" +
+    '<p class="sub" style="margin-bottom:16px;">ให้คะแนนแต่ละหัวข้อ 1–5 (5 คือมากที่สุด)' +
+    (previous ? " · คุณเคยตอบแล้ว ส่งซ้ำจะแก้ไขคำตอบเดิม" : "") + "</p>" +
+    topicsHtml +
+    '<div class="field" style="margin-top:16px;">' +
+      "<label>สิ่งที่ประทับใจ / ชื่นชมมากที่สุด</label>" +
+      '<textarea rows="3" data-field="praise">' + (previous?.praise || "") + "</textarea>" +
+    "</div>" +
+    '<div class="field">' +
+      "<label>ข้อเสนอแนะสำหรับครั้งถัดไป</label>" +
+      '<textarea rows="3" data-field="ask">' + (previous?.ask || "") + "</textarea>" +
+    "</div>" +
+    '<div class="notice error" data-role="formError" style="display:none;"></div>' +
+    '<button class="btn" data-role="submitBtn">ส่งคำตอบ</button>';
 
-  content.querySelectorAll(".rating").forEach((group) => {
+  card.querySelectorAll(".rating").forEach((group) => {
     group.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", () => {
         group.querySelectorAll("button").forEach((b) => b.classList.remove("selected"));
@@ -91,25 +107,25 @@ function render(activity, previous) {
     });
   });
 
-  document.getElementById("submitBtn").addEventListener("click", submit);
+  card.querySelector('[data-role="submitBtn"]').addEventListener("click", () => submit(activity, card));
 }
 
-async function submit() {
+async function submit(activity, card) {
   const answers = {};
-  document.querySelectorAll(".rating").forEach((group) => {
+  card.querySelectorAll(".rating").forEach((group) => {
     const selected = group.querySelector("button.selected");
     if (selected) answers[group.dataset.topic] = Number(selected.dataset.val);
   });
 
-  const errBox = document.getElementById("formError");
-  if (Object.keys(answers).length < ACTIVITY.topics.length) {
+  const errBox = card.querySelector('[data-role="formError"]');
+  if (Object.keys(answers).length < activity.topics.length) {
     errBox.textContent = "กรุณาให้คะแนนครบทุกหัวข้อ";
     errBox.style.display = "block";
     return;
   }
   errBox.style.display = "none";
 
-  const submitBtn = document.getElementById("submitBtn");
+  const submitBtn = card.querySelector('[data-role="submitBtn"]');
   submitBtn.disabled = true;
   submitBtn.textContent = "กำลังส่ง...";
 
@@ -117,10 +133,10 @@ async function submit() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      activityId: ACTIVITY.id,
+      activityId: activity.id,
       answers,
-      praise: document.getElementById("praise").value.trim(),
-      ask: document.getElementById("ask").value.trim(),
+      praise: card.querySelector('[data-field="praise"]').value.trim(),
+      ask: card.querySelector('[data-field="ask"]').value.trim(),
     }),
   });
 
@@ -133,12 +149,10 @@ async function submit() {
     return;
   }
 
-  document.getElementById("content").innerHTML =
-    '<div class="card" style="text-align:center;">' +
-      '<p class="eyebrow">ขอบคุณค่ะ / ครับ</p>' +
-      "<h1>บันทึกคำตอบแล้ว 🎉</h1>" +
-      '<p class="sub">ทีม GM/HR จะนำไปพัฒนากิจกรรมครั้งถัดไป</p>' +
-    "</div>";
+  card.innerHTML =
+    '<p class="eyebrow">' + activity.quarter + '</p>' +
+    '<h2 style="font-size:18px; margin:0 0 6px;">' + activity.name + "</h2>" +
+    '<p class="sub" style="margin:0;">บันทึกคำตอบแล้ว 🎉 ขอบคุณครับ/ค่ะ</p>';
 }
 
 window.addEventListener("load", boot);

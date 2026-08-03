@@ -24,6 +24,14 @@ create table if not exists responses (
 
 create index if not exists responses_activity_idx on responses (activity_id);
 
+-- พนักงานสายผลิต/คลัง ที่ใช้อีเมลส่วนตัว (เช่น @gmail.com) แทน @tdfb.co — เพิ่มชื่อได้ทีละคนผ่าน /admin.html
+-- ไม่ต้องเพิ่มคนที่ใช้ @tdfb.co เพราะทั้งโดเมนได้รับอนุญาตอยู่แล้ว
+create table if not exists allowed_emails (
+  email text primary key,
+  name text,
+  created_at timestamptz not null default now()
+);
+
 -- เปิดกิจกรรมแรกให้ทดสอบได้ทันที (ลบ/แก้เนื้อหาได้อิสระ หรือสร้างใหม่ผ่านหน้า /admin.html)
 insert into activities (name, quarter, topics, is_open)
 values (

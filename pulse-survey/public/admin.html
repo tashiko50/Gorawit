@@ -3,42 +3,79 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>สร้างกิจกรรมใหม่ — TDFB Pulse Survey</title>
+<title>จัดการระบบ — TDFB Pulse Survey</title>
 <link rel="stylesheet" href="/shared.css" />
 <style>
   .topic-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
   .topic-input-row input { flex: 1; }
   .topic-input-row button { flex: 0 0 auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); padding: 0 10px 8px; }
+  td { padding: 10px; border-top: 1px solid var(--border); vertical-align: middle; }
+  .row-actions { display: flex; gap: 6px; }
+  .row-actions button { font-size: 12px; padding: 6px 10px; }
+  .pill { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 100px; white-space: nowrap; }
+  .pill.open { background: var(--accent-tint); color: var(--accent-deep); }
+  .pill.closed { background: var(--surface-2); color: var(--ink-muted); }
+  h2.section { font-size: 16px; margin: 34px 0 12px; }
+  .inline-add { display: flex; gap: 8px; margin-top: 12px; }
+  .inline-add input { flex: 1; }
 </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap wide">
     <div class="top-bar">
       <a href="/dashboard.html" style="font-size:13px;">&larr; กลับไป Dashboard</a>
       <div id="who" class="who"></div>
     </div>
 
     <p class="eyebrow">GM / HR</p>
-    <h1>สร้างกิจกรรมใหม่</h1>
-    <p class="sub">สร้างแบบสำรวจสำหรับกิจกรรมไตรมาสถัดไป — เปิดใหม่จะปิดกิจกรรมก่อนหน้าอัตโนมัติ</p>
-
+    <h1>จัดการระบบ</h1>
     <div id="guard"></div>
-    <div class="card" id="formCard" style="display:none;">
-      <div class="field">
-        <label>ชื่อกิจกรรม</label>
-        <input type="text" id="name" placeholder="เช่น Company Outing Q4 2026" />
+
+    <div id="managePanel" style="display:none;">
+      <h2 class="section">กิจกรรม / โปรเจกต์ทั้งหมด</h2>
+      <p class="sub">เปิดได้พร้อมกันหลายกิจกรรม (เช่น Sport Day กับ Better Me Better Health คู่กัน) พนักงานจะเห็นทุกกิจกรรมที่ "เปิดอยู่" ในหน้าแบบสำรวจของตัวเอง</p>
+      <div class="card">
+        <table>
+          <thead><tr><th>ชื่อกิจกรรม</th><th>ไตรมาส</th><th>คำตอบ</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody id="activityRows"></tbody>
+        </table>
       </div>
-      <div class="field">
-        <label>ไตรมาส</label>
-        <input type="text" id="quarter" placeholder="เช่น 2026-Q4" />
+
+      <h2 class="section">เพิ่มกิจกรรมใหม่</h2>
+      <div class="card">
+        <div class="field">
+          <label>ชื่อกิจกรรม</label>
+          <input type="text" id="name" placeholder="เช่น Company Outing Q4 2026" />
+        </div>
+        <div class="field">
+          <label>ไตรมาส</label>
+          <input type="text" id="quarter" placeholder="เช่น 2026-Q4" />
+        </div>
+        <div class="field">
+          <label>หัวข้อที่ให้คะแนน (1–5)</label>
+          <div id="topics"></div>
+          <button type="button" class="btn secondary" id="addTopicBtn" style="margin-top:4px; font-size:13px; padding:8px 14px;">+ เพิ่มหัวข้อ</button>
+        </div>
+        <div id="formError" class="notice error" style="display:none;"></div>
+        <button class="btn" id="createBtn">สร้างกิจกรรม</button>
       </div>
-      <div class="field">
-        <label>หัวข้อที่ให้คะแนน (1–5)</label>
-        <div id="topics"></div>
-        <button type="button" class="btn secondary" id="addTopicBtn" style="margin-top:4px; font-size:13px; padding:8px 14px;">+ เพิ่มหัวข้อ</button>
+
+      <h2 class="section">อีเมลส่วนตัวที่อนุญาตให้ล็อกอิน</h2>
+      <p class="sub">พนักงาน @tdfb.co ล็อกอินได้ทั้งโดเมนอยู่แล้ว ส่วนนี้ใช้เพิ่มพนักงานสายผลิต/คลังที่ใช้อีเมลส่วนตัว (เช่น Gmail) เท่านั้น</p>
+      <div class="card">
+        <table>
+          <thead><tr><th>อีเมล</th><th>ชื่อ</th><th></th></tr></thead>
+          <tbody id="emailRows"></tbody>
+        </table>
+        <div class="inline-add">
+          <input type="text" id="newEmail" placeholder="somchai.line@gmail.com" />
+          <input type="text" id="newEmailName" placeholder="ชื่อ (ไม่บังคับ)" style="max-width:180px;" />
+          <button class="btn secondary" id="addEmailBtn" style="white-space:nowrap;">+ เพิ่ม</button>
+        </div>
+        <div id="emailError" class="notice error" style="display:none; margin-top:12px;"></div>
       </div>
-      <div id="formError" class="notice error" style="display:none;"></div>
-      <button class="btn" id="createBtn">สร้างกิจกรรม</button>
     </div>
   </div>
 
@@ -57,6 +94,10 @@ function addTopicRow(value) {
   document.getElementById("topics").appendChild(div);
 }
 
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 async function boot() {
   const me = await fetch("/api/me");
   if (!me.ok) { location.href = "/login.html"; return; }
@@ -69,13 +110,59 @@ async function boot() {
     (meData.user.picture ? '<img src="' + meData.user.picture + '" alt="">' : "") +
     "<span>" + meData.user.name + "</span>";
 
+  document.getElementById("managePanel").style.display = "block";
   ["ความพึงพอใจโดยรวมต่อกิจกรรม", "ความเหมาะสมของสถานที่", "การสื่อสารล่วงหน้า"].forEach(addTopicRow);
   document.getElementById("addTopicBtn").onclick = () => addTopicRow("");
-  document.getElementById("formCard").style.display = "block";
-  document.getElementById("createBtn").onclick = create;
+  document.getElementById("createBtn").onclick = createActivity;
+  document.getElementById("addEmailBtn").onclick = addEmail;
+
+  loadActivities();
+  loadEmails();
 }
 
-async function create() {
+async function loadActivities() {
+  const res = await fetch("/api/admin/activities");
+  const rows = document.getElementById("activityRows");
+  if (!res.ok) { rows.innerHTML = '<tr><td colspan="5">โหลดไม่สำเร็จ</td></tr>'; return; }
+  const data = await res.json();
+  if (!data.activities.length) {
+    rows.innerHTML = '<tr><td colspan="5" class="sub">ยังไม่มีกิจกรรม — สร้างด้านล่างได้เลย</td></tr>';
+    return;
+  }
+  rows.innerHTML = data.activities.map((a) =>
+    "<tr>" +
+      "<td>" + escapeHtml(a.name) + "</td>" +
+      "<td>" + escapeHtml(a.quarter) + "</td>" +
+      "<td>" + a.responseCount + "</td>" +
+      '<td><span class="pill ' + (a.is_open ? "open" : "closed") + '">' + (a.is_open ? "เปิดอยู่" : "ปิดแล้ว") + "</span></td>" +
+      '<td><div class="row-actions">' +
+        '<button class="btn secondary" data-action="toggle" data-id="' + a.id + '" data-open="' + a.is_open + '">' +
+          (a.is_open ? "ปิด" : "เปิดอีกครั้ง") + "</button>" +
+        '<button class="btn secondary" data-action="delete" data-id="' + a.id + '" data-name="' + escapeHtml(a.name) + '">ลบ</button>' +
+      "</div></td>" +
+    "</tr>"
+  ).join("");
+
+  rows.querySelectorAll('[data-action="toggle"]').forEach((btn) => {
+    btn.onclick = async () => {
+      await fetch("/api/admin/activities/" + btn.dataset.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOpen: btn.dataset.open !== "true" }),
+      });
+      loadActivities();
+    };
+  });
+  rows.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+    btn.onclick = async () => {
+      if (!confirm('ลบ "' + btn.dataset.name + '" ทิ้งทั้งกิจกรรมและคำตอบทั้งหมด? กู้กลับไม่ได้')) return;
+      await fetch("/api/admin/activities/" + btn.dataset.id, { method: "DELETE" });
+      loadActivities();
+    };
+  });
+}
+
+async function createActivity() {
   const name = document.getElementById("name").value.trim();
   const quarter = document.getElementById("quarter").value.trim();
   const labels = [...document.querySelectorAll("#topics input")].map((i) => i.value.trim()).filter(Boolean);
@@ -105,15 +192,66 @@ async function create() {
     body: JSON.stringify({ name, quarter, topics }),
   });
 
+  btn.disabled = false;
+  btn.textContent = "สร้างกิจกรรม";
+
   if (!res.ok) {
     const err = await res.json();
     errBox.textContent = err.error || "สร้างกิจกรรมไม่สำเร็จ";
     errBox.style.display = "block";
-    btn.disabled = false;
-    btn.textContent = "สร้างกิจกรรม";
     return;
   }
-  location.href = "/dashboard.html";
+
+  document.getElementById("name").value = "";
+  document.getElementById("quarter").value = "";
+  document.getElementById("topics").innerHTML = "";
+  ["ความพึงพอใจโดยรวมต่อกิจกรรม", "ความเหมาะสมของสถานที่", "การสื่อสารล่วงหน้า"].forEach(addTopicRow);
+  loadActivities();
+}
+
+async function loadEmails() {
+  const res = await fetch("/api/admin/allowed-emails");
+  const rows = document.getElementById("emailRows");
+  if (!res.ok) { rows.innerHTML = '<tr><td colspan="3">โหลดไม่สำเร็จ</td></tr>'; return; }
+  const data = await res.json();
+  if (!data.allowedEmails.length) {
+    rows.innerHTML = '<tr><td colspan="3" class="sub">ยังไม่มีอีเมลส่วนตัวในลิสต์</td></tr>';
+    return;
+  }
+  rows.innerHTML = data.allowedEmails.map((e) =>
+    "<tr>" +
+      "<td>" + escapeHtml(e.email) + "</td>" +
+      "<td>" + escapeHtml(e.name || "—") + "</td>" +
+      '<td><button class="btn secondary" data-email="' + escapeHtml(e.email) + '" style="font-size:12px; padding:6px 10px;">ลบ</button></td>' +
+    "</tr>"
+  ).join("");
+  rows.querySelectorAll("button[data-email]").forEach((btn) => {
+    btn.onclick = async () => {
+      await fetch("/api/admin/allowed-emails/" + encodeURIComponent(btn.dataset.email), { method: "DELETE" });
+      loadEmails();
+    };
+  });
+}
+
+async function addEmail() {
+  const email = document.getElementById("newEmail").value.trim();
+  const name = document.getElementById("newEmailName").value.trim();
+  const errBox = document.getElementById("emailError");
+  const res = await fetch("/api/admin/allowed-emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, name }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    errBox.textContent = err.error || "เพิ่มอีเมลไม่สำเร็จ";
+    errBox.style.display = "block";
+    return;
+  }
+  errBox.style.display = "none";
+  document.getElementById("newEmail").value = "";
+  document.getElementById("newEmailName").value = "";
+  loadEmails();
 }
 
 window.addEventListener("load", boot);

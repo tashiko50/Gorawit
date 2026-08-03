@@ -2,7 +2,6 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
-const crypto = require("crypto");
 const cookieParser = require("cookie-parser");
 const { OAuth2Client } = require("google-auth-library");
 const { createClient } = require("@supabase/supabase-js");
@@ -82,6 +81,16 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// อีเมล @tdfb.co ผ่านได้ทั้งโดเมนเสมอ ส่วนอีเมลส่วนตัว (เช่น @gmail.com ของพนักงานสายผลิต/คลัง)
+// ต้องอยู่ในตาราง allowed_emails ที่ทีม GM/HR เพิ่มชื่อไว้ล่วงหน้าผ่าน /admin.html
+async function isEmailAllowed(email) {
+  const domain = email.split("@")[1] || "";
+  if (domain === ALLOWED_EMAIL_DOMAIN) return true;
+  if (!supabase) return false;
+  const { data } = await supabase.from("allowed_emails").select("email").eq("email", email).maybeSingle();
+  return Boolean(data);
+}
+
 // ---- Public config (client ID is not secret; needed by the Google Sign-In button) ----
 app.get("/api/config", (req, res) => {
   res.json({ googleClientId: GOOGLE_CLIENT_ID, allowedEmailDomain: ALLOWED_EMAIL_DOMAIN });
@@ -102,9 +111,13 @@ app.post("/api/auth/google", async (req, res) => {
   }
 
   const email = (payload.email || "").toLowerCase();
-  const domain = email.split("@")[1] || "";
-  if (!payload.email_verified || domain !== ALLOWED_EMAIL_DOMAIN) {
-    return res.status(403).json({ error: `ต้องใช้บัญชี @${ALLOWED_EMAIL_DOMAIN} เท่านั้น` });
+  if (!payload.email_verified) {
+    return res.status(403).json({ error: "อีเมลนี้ยังไม่ได้ยืนยันกับ Google" });
+  }
+  if (!(await isEmailAllowed(email))) {
+    return res.status(403).json({
+      error: `อีเมลนี้ยังไม่ได้รับอนุญาต — ใช้บัญชี @${ALLOWED_EMAIL_DOMAIN} หรือแจ้งทีม GM/HR ให้เพิ่มอีเมลนี้ในระบบก่อน`,
+    });
   }
 
   const user = { email, name: payload.name || email, picture: payload.picture || "" };
@@ -123,27 +136,27 @@ app.get("/api/me", (req, res) => {
   res.json({ user, isAdmin: ADMIN_EMAILS.includes(user.email.toLowerCase()) });
 });
 
-// ---- Survey ----
-app.get("/api/activities/current", requireAuth, async (req, res) => {
+// ---- Survey: every open activity, not just one — an employee may have several to fill ----
+app.get("/api/activities/open", requireAuth, async (req, res) => {
   if (!requireSupabase(res)) return;
-  const { data: activity, error } = await supabase
+  const { data: activities, error } = await supabase
     .from("activities")
     .select("id, name, quarter, topics")
     .eq("is_open", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
-  if (!activity) return res.status(404).json({ error: "ยังไม่มีแบบสำรวจที่เปิดอยู่ในขณะนี้" });
+  if (!activities.length) return res.json({ activities: [] });
 
   const { data: existing } = await supabase
     .from("responses")
-    .select("answers, praise, ask")
-    .eq("activity_id", activity.id)
+    .select("activity_id, answers, praise, ask")
     .eq("user_email", req.user.email)
-    .maybeSingle();
+    .in("activity_id", activities.map((a) => a.id));
 
-  res.json({ activity, previousResponse: existing || null });
+  const byActivity = Object.fromEntries((existing || []).map((r) => [r.activity_id, r]));
+  res.json({
+    activities: activities.map((a) => ({ ...a, previousResponse: byActivity[a.id] || null })),
+  });
 });
 
 app.post("/api/responses", requireAuth, async (req, res) => {
@@ -169,17 +182,66 @@ app.post("/api/responses", requireAuth, async (req, res) => {
 });
 
 // ---- Dashboard (GM/HR only) ----
-app.get("/api/dashboard/current", requireAuth, requireAdmin, async (req, res) => {
+
+// รายชื่อกิจกรรมทั้งหมด (เปิด+ปิด) พร้อมจำนวนคำตอบ — ใช้ทำตัวเลือก/ตารางจัดการฝั่งแอดมิน
+app.get("/api/admin/activities", requireAuth, requireAdmin, async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const { data: activities, error } = await supabase
+    .from("activities")
+    .select("id, name, quarter, topics, is_open, created_at")
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+
+  const { data: counts } = await supabase.from("responses").select("activity_id");
+  const countByActivity = {};
+  (counts || []).forEach((r) => { countByActivity[r.activity_id] = (countByActivity[r.activity_id] || 0) + 1; });
+
+  res.json({
+    activities: activities.map((a) => ({ ...a, responseCount: countByActivity[a.id] || 0 })),
+  });
+});
+
+app.post("/api/admin/activities", requireAuth, requireAdmin, async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const { name, quarter, topics } = req.body || {};
+  if (!name || !quarter || !Array.isArray(topics) || !topics.length) {
+    return res.status(400).json({ error: "ข้อมูลไม่ครบ (ต้องมีชื่อ, ไตรมาส, และหัวข้ออย่างน้อย 1 หัวข้อ)" });
+  }
+  // ไม่ปิดกิจกรรมอื่นอัตโนมัติ — รองรับหลายกิจกรรม/โปรเจกต์เปิดพร้อมกันได้ (เช่น Sport Day + Better Me คู่กัน)
+  const { data, error } = await supabase
+    .from("activities")
+    .insert({ name, quarter, topics, is_open: true })
+    .select("id")
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true, id: data.id });
+});
+
+app.patch("/api/admin/activities/:id", requireAuth, requireAdmin, async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const { isOpen } = req.body || {};
+  if (typeof isOpen !== "boolean") return res.status(400).json({ error: "ต้องระบุ isOpen เป็น true/false" });
+  const { error } = await supabase.from("activities").update({ is_open: isOpen }).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+app.delete("/api/admin/activities/:id", requireAuth, requireAdmin, async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const { error } = await supabase.from("activities").delete().eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+app.get("/api/dashboard/:activityId", requireAuth, requireAdmin, async (req, res) => {
   if (!requireSupabase(res)) return;
   const { data: activity, error: activityErr } = await supabase
     .from("activities")
     .select("id, name, quarter, topics")
-    .eq("is_open", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("id", req.params.activityId)
     .maybeSingle();
   if (activityErr) return res.status(500).json({ error: activityErr.message });
-  if (!activity) return res.status(404).json({ error: "ยังไม่มีกิจกรรมที่เปิดอยู่" });
+  if (!activity) return res.status(404).json({ error: "ไม่พบกิจกรรมนี้" });
 
   const { data: responses, error: respErr } = await supabase
     .from("responses")
@@ -200,30 +262,44 @@ app.get("/api/dashboard/current", requireAuth, requireAdmin, async (req, res) =>
   const ask = responses.map((r) => r.ask).filter(Boolean).slice(-20).reverse();
 
   res.json({
-    activity: { name: activity.name, quarter: activity.quarter },
+    activity: { id: activity.id, name: activity.name, quarter: activity.quarter },
     totalResponses: responses.length,
     topicStats,
     comments: { praise, ask },
   });
 });
 
-// ---- Admin: create a new activity ----
-app.post("/api/admin/activities", requireAuth, requireAdmin, async (req, res) => {
+// ---- Admin: allowed personal emails (เช่น @gmail.com ของพนักงานสายผลิต/คลัง) ----
+app.get("/api/admin/allowed-emails", requireAuth, requireAdmin, async (req, res) => {
   if (!requireSupabase(res)) return;
-  const { name, quarter, topics, closeOthers } = req.body || {};
-  if (!name || !quarter || !Array.isArray(topics) || !topics.length) {
-    return res.status(400).json({ error: "ข้อมูลไม่ครบ (ต้องมีชื่อ, ไตรมาส, และหัวข้ออย่างน้อย 1 หัวข้อ)" });
-  }
-  if (closeOthers !== false) {
-    await supabase.from("activities").update({ is_open: false }).eq("is_open", true);
-  }
   const { data, error } = await supabase
-    .from("activities")
-    .insert({ name, quarter, topics, is_open: true })
-    .select("id")
-    .single();
+    .from("allowed_emails")
+    .select("email, name, created_at")
+    .order("created_at", { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ ok: true, id: data.id });
+  res.json({ allowedEmails: data });
+});
+
+app.post("/api/admin/allowed-emails", requireAuth, requireAdmin, async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const email = (req.body?.email || "").trim().toLowerCase();
+  const name = (req.body?.name || "").trim() || null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "รูปแบบอีเมลไม่ถูกต้อง" });
+  }
+  const { error } = await supabase.from("allowed_emails").upsert({ email, name });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+app.delete("/api/admin/allowed-emails/:email", requireAuth, requireAdmin, async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const { error } = await supabase
+    .from("allowed_emails")
+    .delete()
+    .eq("email", decodeURIComponent(req.params.email).toLowerCase());
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 app.get("/", (req, res) => res.redirect("/login.html"));
