@@ -262,7 +262,7 @@ async function refreshWeather() {
       const current = results[i] && results[i].current;
       if (!current) return;
       const code = WEATHER_CODE_MAP[current.weather_code] || { emoji: "🌡️", label: "ไม่ทราบสภาพอากาศ", color: "#8a97a6" };
-      next[wp.name] = { emoji: code.emoji, label: code.label, color: code.color, temp: Math.round(current.temperature_2m) };
+      next[wp.name] = { emoji: code.emoji, label: code.label, color: code.color, temp: Math.round(current.temperature_2m), code: current.weather_code };
     });
     weatherByPlace = next;
   } catch (e) {

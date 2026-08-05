@@ -486,8 +486,8 @@
     setTimeout(function () { wrap.remove(); }, 6000);
   }
 
-  function applyWeather(sceneEl) {
-    var w = weatherForNow();
+  function applyWeather(sceneEl, forcedWeather) {
+    var w = forcedWeather || weatherForNow();
     if (sceneEl.dataset.weather === w) return w;
     sceneEl.dataset.weather = w;
     sceneEl.querySelectorAll(".raindrop, .snowflake").forEach(function (el) { el.remove(); });

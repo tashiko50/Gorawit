@@ -329,6 +329,22 @@
      visually noisy. */
   var weatherByPlace = {};
 
+  /* Maps a real Open-Meteo WMO weather code to one of the ambient background categories the
+     card frame's CSS already knows how to render (rain/snow — anything else keeps the
+     default "sun" look with no filter), so each team's map background reflects the actual
+     current weather of whichever province that team is passing through right now. */
+  function weatherCategoryFromCode(code) {
+    if (code == null) return null;
+    if (code === 71 || code === 73 || code === 75 || code === 77 || code === 85 || code === 86) return "snow";
+    if ((code >= 51 && code <= 67) || code === 80 || code === 81 || code === 82 || (code >= 95 && code <= 99)) return "rain";
+    return "sun";
+  }
+
+  function realWeatherCategoryForPlace(place) {
+    var w = weatherByPlace[place];
+    return w && w.code != null ? weatherCategoryFromCode(w.code) : null;
+  }
+
   function applyWeatherToPins() {
     cardRefs.forEach(function (refs) {
       if (!refs.pinWeatherEls) return;
@@ -562,6 +578,9 @@
     }
     refs.lastPlace = p.place;
 
+    var weatherCat = realWeatherCategoryForPlace(p.place);
+    if (weatherCat) S.applyWeather(refs.frame, weatherCat);
+
     var finalStretch = team.km < route.finishKm && (route.finishKm - team.km) <= 50;
     refs.runnerWrap.classList.toggle("final-stretch", finalStretch);
 
@@ -715,7 +734,6 @@
   S.applyWeather(sceneEl);
   setInterval(function () {
     S.applyWeather(sceneEl);
-    cardRefs.forEach(function (refs) { S.applyWeather(refs.frame); });
   }, 30000);
 
   setInterval(tickVehicles, 150);
