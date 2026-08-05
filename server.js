@@ -12,7 +12,7 @@ const KM_PER_LEVEL = 20;
 // ever recreated and gets a new published link).
 const SHEET_CSV_URL = process.env.SHEET_CSV_URL ||
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8wr9dyMr-UW5dX5_Wz1M0htcG_Ks8Sezeidtxr-TL2VHoXngf4sPddgGHW0xeSDEUL_v8zII6pbG3/pub?gid=475941001&single=true&output=csv";
-const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 90 * 1000;
+const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 20 * 1000;
 
 // Open-Meteo — free, no API key needed, supports current weather for many lat/lon pairs
 // in a single request. Weather doesn't need to track km changes, so this polls on its
