@@ -630,7 +630,7 @@
     var banner = document.createElement("div");
     banner.className = "close-race-banner";
     if (sorted.length >= 2) {
-      var gap = sorted[0].km - sorted[1].km;
+      var gap = Math.round((sorted[0].km - sorted[1].km) * 100) / 100;
       if (gap <= 20) {
         banner.classList.add("show");
         banner.textContent = "\u{1F525} " + sorted[0].name + " กับ " + sorted[1].name + " สูสีกันมาก! ห่างกันแค่ " + gap + " กม.";
