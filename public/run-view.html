@@ -215,12 +215,24 @@
     display: flex; flex-direction: column; gap: 8px; margin-bottom: clamp(6px, 1vw, 12px);
   }
   .rank-summary-empty { display: none; }
-  .rank-row { display: flex; align-items: center; gap: 10px; }
+  .rank-row { display: flex; flex-direction: column; gap: 6px; }
+  .rank-row-top { display: flex; align-items: center; gap: 8px; }
   .rank-medal { font-weight: 800; width: 26px; text-align: center; flex-shrink: 0; font-size: 0.95rem; }
-  .rank-name { font-weight: 800; width: clamp(92px, 16vw, 150px); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rank-track { flex: 1 1 auto; height: 10px; border-radius: 999px; background: var(--toolbar-bg); overflow: hidden; }
-  .rank-track-fill { height: 100%; border-radius: 999px; background: var(--accent, #4a90d9); transition: width 0.6s ease; }
-  .rank-km { width: 74px; text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .rank-name { font-weight: 800; flex: 1 1 auto; min-width: 0; }
+  .rank-km { text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .rank-track-wrap { padding-top: 14px; }
+  .rank-track { position: relative; height: 4px; border-radius: 999px; background: var(--toolbar-bg); overflow: visible; }
+  .rank-track-fill { position: absolute; inset: 0 auto 0 0; height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+  /* Runner stands on top of the fill's leading edge, facing right (scale flips the
+     emoji, which otherwise renders facing left) and bounces gently in place. */
+  .rank-runner {
+    position: absolute; bottom: 100%; margin-bottom: 1px; font-size: 1.05rem; line-height: 1;
+    translate: -50% 0; scale: -1 1; filter: drop-shadow(0 1px 1px var(--panel-shadow));
+    animation: rank-runner-bounce 0.6s ease-in-out infinite alternate;
+    transition: left 0.6s ease;
+  }
+  @keyframes rank-runner-bounce { from { translate: -50% 0; } to { translate: -50% -3px; } }
+  @media (prefers-reduced-motion: reduce) { .rank-runner { animation: none; } }
   .close-race-banner {
     display: none; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; color: #b23a1f;
     background: color-mix(in srgb, #ff8a5c 18%, var(--card-bg)); border-radius: 10px; padding: 6px 12px;

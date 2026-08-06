@@ -596,34 +596,55 @@
   }
 
   /* One mini track per team, ranked — the whole race at a glance without opening every
-     card. Small enough team count that a full rebuild each poll is simplest and cheap. */
+     card. Small enough team count that a full rebuild each poll is simplest and cheap.
+     Each row is two lines: name+km on top (full name, never truncated), a thin track
+     below with a runner mark riding its filled edge. The track is scaled to the current
+     leader, not the full 890km route — early in the race every team's km is a sliver of
+     the full route and the bar reads as empty, whereas scaling to the leader shows the
+     actual gap between teams from day one. */
   function renderRankSummary(teams) {
     rankSummaryEl.innerHTML = "";
     if (!teams.length) return;
     var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
+    var leaderKm = sorted[0].km;
     sorted.forEach(function (team, i) {
       var row = document.createElement("div");
       row.className = "rank-row";
+
+      var top = document.createElement("div");
+      top.className = "rank-row-top";
       var medal = document.createElement("span");
       medal.className = "rank-medal";
       medal.textContent = S.rankBadgeText(i + 1);
       var name = document.createElement("span");
       name.className = "rank-name";
       name.textContent = team.name;
-      var track = document.createElement("div");
-      track.className = "rank-track";
-      var fill = document.createElement("div");
-      fill.className = "rank-track-fill";
-      fill.style.background = team.color;
-      fill.style.width = S.clamp((team.km / route.finishKm) * 100, 0, 100) + "%";
-      track.appendChild(fill);
       var km = document.createElement("span");
       km.className = "rank-km";
       km.textContent = team.km + " กม.";
-      row.appendChild(medal);
-      row.appendChild(name);
-      row.appendChild(track);
-      row.appendChild(km);
+      top.appendChild(medal);
+      top.appendChild(name);
+      top.appendChild(km);
+
+      var trackWrap = document.createElement("div");
+      trackWrap.className = "rank-track-wrap";
+      var track = document.createElement("div");
+      track.className = "rank-track";
+      var pct = leaderKm > 0 ? S.clamp((team.km / leaderKm) * 100, 0, 100) : 0;
+      var fill = document.createElement("div");
+      fill.className = "rank-track-fill";
+      fill.style.background = team.color;
+      fill.style.width = pct + "%";
+      var runner = document.createElement("span");
+      runner.className = "rank-runner";
+      runner.textContent = "\u{1F3C3}";
+      runner.style.left = pct + "%";
+      track.appendChild(fill);
+      track.appendChild(runner);
+      trackWrap.appendChild(track);
+
+      row.appendChild(top);
+      row.appendChild(trackWrap);
       rankSummaryEl.appendChild(row);
     });
 
