@@ -8,10 +8,7 @@
   var gridEl = document.getElementById("teamMapsGrid");
   var titleEl = document.getElementById("boardTitle");
   var lastUpdatedEl = document.getElementById("lastUpdated");
-  var feedListEl = document.getElementById("feedList");
-  var feedWidget = document.getElementById("feedWidget");
-  var feedToggle = document.getElementById("feedToggle");
-  var feedCountEl = document.getElementById("feedCount");
+  var visitCountEl = document.getElementById("visitCount");
   var rankSummaryEl = document.getElementById("rankSummary");
   var kioskToggleBtn = document.getElementById("kioskToggle");
   var kioskBackdrop = document.getElementById("kioskBackdrop");
@@ -22,8 +19,6 @@
   var clockDateEl = document.getElementById("clockDate");
   var bgmEl = document.getElementById("bgm");
   var bgmToggleBtn = document.getElementById("bgmToggle");
-
-  var feed = S.createFeedWidget({ listEl: feedListEl, widgetEl: feedWidget, toggleEl: feedToggle, countEl: feedCountEl });
 
   var route = null; // { waypoints, viewBox: {w,h}, finishKm }
   var routeD = "";
@@ -462,11 +457,23 @@
       return chip;
     }) : [];
 
+    var topRunners = document.createElement("div");
+    topRunners.className = "team-top-runners";
+    topRunners.hidden = true;
+    var topRunnersTitle = document.createElement("div");
+    topRunnersTitle.className = "team-top-runners-title";
+    topRunnersTitle.textContent = "วิ่งเยอะสุดในทีม";
+    var topRunnersList = document.createElement("div");
+    topRunnersList.className = "team-top-runners-list";
+    topRunners.appendChild(topRunnersTitle);
+    topRunners.appendChild(topRunnersList);
+
     card.appendChild(header);
     card.appendChild(frame);
     card.appendChild(place);
     card.appendChild(barTrack);
     card.appendChild(stamps);
+    card.appendChild(topRunners);
 
     var refs = {
       card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,
@@ -476,6 +483,7 @@
       subTicksEl: frame.querySelector(".sub-ticks"),
       pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
       dustEls: dustEls, stampChips: stampChips, vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
+      topRunnersEl: topRunners, topRunnersListEl: topRunnersList, lastTop3Key: "",
       lastPlace: null
     };
 
@@ -593,6 +601,31 @@
     }
     var pct = S.clamp((team.km / route.finishKm) * 100, 0, 100);
     refs.barFill.style.width = pct + "%";
+
+    var top3 = team.top3 || [];
+    refs.topRunnersEl.hidden = top3.length === 0;
+    var top3Key = top3.map(function (r) { return r.name + ":" + r.km; }).join(",");
+    if (top3Key !== refs.lastTop3Key) {
+      refs.lastTop3Key = top3Key;
+      refs.topRunnersListEl.innerHTML = "";
+      top3.forEach(function (runner, i) {
+        var row = document.createElement("div");
+        row.className = "top-runner-row";
+        var medal = document.createElement("span");
+        medal.className = "top-runner-medal";
+        medal.textContent = S.rankBadgeText(i + 1);
+        var name = document.createElement("span");
+        name.className = "top-runner-name";
+        name.textContent = runner.name;
+        var km = document.createElement("span");
+        km.className = "top-runner-km";
+        km.textContent = runner.km + " กม.";
+        row.appendChild(medal);
+        row.appendChild(name);
+        row.appendChild(km);
+        refs.topRunnersListEl.appendChild(row);
+      });
+    }
   }
 
   /* One mini track per team, ranked — the whole race at a glance without opening every
@@ -665,7 +698,9 @@
     var order = state.teams.map(function (t) { return t.id; }).join(",");
     if (order !== lastTeamOrder) { fullRebuild(state.teams); applyWeatherToPins(); } else state.teams.forEach(updateCard);
     renderRankSummary(state.teams);
-    feed.render(state.events || []);
+    if (visitCountEl && typeof state.visitCount === "number") {
+      visitCountEl.textContent = state.visitCount.toLocaleString("th-TH");
+    }
     lastFetchTs = Date.now();
   }
 
@@ -745,7 +780,6 @@
   }
 
   setInterval(function () {
-    feed.tick();
     if (lastFetchTs) lastUpdatedEl.textContent = "อัปเดตล่าสุด: " + S.relativeTime(lastFetchTs);
   }, 1000);
 

@@ -360,79 +360,6 @@
     return days + " วันที่แล้ว";
   }
 
-  /* Shared activity-feed widget used by view.js and run-view.js — both poll the same
-     /api/state events array and render it the same floating panel + unseen-count badge. */
-  function createFeedWidget(els) {
-    var lastEventIds = "";
-    var seenEventId = null;
-    var feedOpen = false;
-    var feedInitialized = false;
-
-    function render(events) {
-      var ids = events.map(function (e) { return e.id; }).join(",");
-      if (ids !== lastEventIds) {
-        lastEventIds = ids;
-        els.listEl.innerHTML = "";
-        if (!events.length) {
-          var empty = document.createElement("li");
-          empty.className = "feed-empty";
-          empty.textContent = "ยังไม่มีความเคลื่อนไหว";
-          els.listEl.appendChild(empty);
-        } else {
-          events.forEach(function (event) {
-            var li = document.createElement("li");
-            li.className = "feed-item";
-            var text = document.createElement("span");
-            text.textContent = event.text;
-            var time = document.createElement("span");
-            time.className = "feed-time";
-            time.dataset.ts = event.ts;
-            time.textContent = relativeTime(event.ts);
-            li.appendChild(text);
-            li.appendChild(time);
-            els.listEl.appendChild(li);
-          });
-        }
-      }
-
-      if (!feedInitialized) {
-        feedInitialized = true;
-        if (events.length) seenEventId = events[0].id;
-      }
-
-      var unseenCount = 0;
-      if (events.length) {
-        if (seenEventId === null) {
-          unseenCount = events.length;
-        } else {
-          var idx = events.findIndex(function (e) { return e.id === seenEventId; });
-          unseenCount = idx === -1 ? events.length : idx;
-        }
-      }
-      if (feedOpen && events.length) seenEventId = events[0].id;
-      els.countEl.hidden = unseenCount <= 0;
-      els.countEl.textContent = unseenCount > 9 ? "9+" : String(unseenCount);
-    }
-
-    els.toggleEl.addEventListener("click", function () {
-      feedOpen = !feedOpen;
-      els.widgetEl.classList.toggle("open", feedOpen);
-      if (feedOpen && lastEventIds) {
-        var ids = lastEventIds.split(",");
-        seenEventId = ids[0] || null;
-        els.countEl.hidden = true;
-      }
-    });
-
-    function tick() {
-      els.listEl.querySelectorAll(".feed-time").forEach(function (el) {
-        el.textContent = relativeTime(Number(el.dataset.ts));
-      });
-    }
-
-    return { render: render, tick: tick };
-  }
-
   /* Real local-time day/night overlay on a .scene-sky element — separate concept from
      the random weather rotation above. Also stamps document.body so house windows
      (which live inside each team card, not this shared sky) can light up via a plain
@@ -540,7 +467,6 @@
     maybeSpawnShootingStar: maybeSpawnShootingStar,
     showRainbow: showRainbow,
     clamp: clamp,
-    relativeTime: relativeTime,
-    createFeedWidget: createFeedWidget
+    relativeTime: relativeTime
   };
 })(window);

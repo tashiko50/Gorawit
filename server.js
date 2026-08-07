@@ -116,7 +116,7 @@ function milestoneNameForLevel(level) {
 }
 
 function makeTeam(id, name, color) {
-  return { id, name, color, km: 0, lastVerified: "ยังไม่ตรวจ" };
+  return { id, name, color, km: 0, lastVerified: "ยังไม่ตรวจ", top3: [] };
 }
 
 function defaultState() {
@@ -127,7 +127,8 @@ function defaultState() {
       makeTeam("t2", "คลังสินค้า", PALETTE[1]),
       makeTeam("t3", "โรงงาน", PALETTE[2])
     ],
-    events: []
+    events: [],
+    visitCount: 0
   };
 }
 
@@ -220,6 +221,13 @@ async function refreshFromSheet() {
     const verifiedCol = findColumn(headers, "ตรวจล่าสุด");
     if (nameCol === -1 || kmCol === -1) throw new Error("sheet headers not recognized — check the published tab's column names");
 
+    // Optional — only present once the "top 3 runners" columns are added to the published
+    // tab. Missing columns (-1) just mean no per-runner ranking shows on the board yet.
+    const top3Cols = [1, 2, 3].map((rank) => ({
+      nameCol: findColumn(headers, `อันดับ${rank}_ชื่อ`),
+      kmCol: findColumn(headers, `อันดับ${rank}_กม.`)
+    }));
+
     for (let i = 1; i < rows.length; i++) {
       const cells = rows[i];
       const teamName = (cells[nameCol] || "").trim();
@@ -235,6 +243,16 @@ async function refreshFromSheet() {
         else if (km !== team.km) applyKmChange(team, km);
       }
       if (verifiedCol !== -1) team.lastVerified = (cells[verifiedCol] || "").trim() || "ยังไม่ตรวจ";
+
+      team.top3 = top3Cols
+        .map(({ nameCol: rNameCol, kmCol: rKmCol }) => {
+          if (rNameCol === -1 || rKmCol === -1) return null;
+          const runnerName = (cells[rNameCol] || "").trim();
+          const runnerKm = Number(String(cells[rKmCol] || "0").replace(/,/g, "").trim());
+          if (!runnerName || !Number.isFinite(runnerKm) || runnerKm <= 0) return null;
+          return { name: runnerName, km: runnerKm };
+        })
+        .filter(Boolean);
     }
 
     firstSyncDone = true;
@@ -270,8 +288,16 @@ async function refreshWeather() {
   }
 }
 
+// Counts page loads only (not the /api/* polling that happens every few seconds per
+// open tab) — anyone opening the board hits one of these two paths exactly once.
 app.get("/", (req, res) => {
+  state.visitCount++;
   res.redirect("/run-view.html");
+});
+
+app.get("/run-view.html", (req, res, next) => {
+  state.visitCount++;
+  next();
 });
 
 app.use(express.static(path.join(__dirname, "public")));
