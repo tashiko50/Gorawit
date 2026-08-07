@@ -7,11 +7,14 @@ const app = express();
 const MAX_EVENTS = 60;
 const KM_PER_LEVEL = 20;
 
-// Google Sheet: File > Share > Publish to web, published from the "🌐 สรุปคะแนน" tab only,
-// format CSV. Can be overridden via env var without touching code (e.g. if the sheet is
-// ever recreated and gets a new published link).
+// Direct sheet export (not "Publish to web") — the /pub endpoint sits behind a Google-side
+// cache that refreshes on its own schedule (sometimes minutes, outside our control), so a
+// sheet edit could take far longer than SHEET_POLL_MS to actually show up here. /export
+// reads the live sheet directly with no separate cache, same freshness as opening it in a
+// browser. Requires the sheet's sharing set to "Anyone with the link" (Viewer is enough).
+// Can be overridden via env var without touching code (e.g. if the sheet is ever recreated).
 const SHEET_CSV_URL = process.env.SHEET_CSV_URL ||
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8wr9dyMr-UW5dX5_Wz1M0htcG_Ks8Sezeidtxr-TL2VHoXngf4sPddgGHW0xeSDEUL_v8zII6pbG3/pub?gid=475941001&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/1BN7R1un1QUTvVyXqTgT8ijxkpx692o2YY0HM0MkiDUs/export?format=csv&gid=475941001";
 const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 20 * 1000;
 
 // Open-Meteo — free, no API key needed, supports current weather for many lat/lon pairs
