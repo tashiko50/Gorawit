@@ -8,10 +8,13 @@
 <style>
   /* Each location gets its own independent map card — no shared canvas, so one team's
      runner/animation never competes for space or overlaps another's. */
-  .team-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(22px, 3vw, 40px); width: 100%; max-width: 1600px; }
+  /* min-width: 0 overrides the grid/flex default of min-width: auto, which otherwise lets
+     a card's intrinsic content width (long place-name text, nowrap labels, ...) win over
+     the actual track width and push the whole grid wider than the viewport on narrow phones */
+  .team-maps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(22px, 3vw, 40px); width: 100%; max-width: 1600px; min-width: 0; }
   .team-map-card {
     --accent-deep: color-mix(in srgb, var(--accent, #4a90d9) 70%, black);
-    display: flex; flex-direction: column; gap: 10px;
+    display: flex; flex-direction: column; gap: 10px; min-width: 0;
   }
   .team-map-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
   .team-map-name { font-weight: 800; font-size: 1.05rem; color: var(--accent-deep); }
@@ -192,21 +195,23 @@
     background: var(--accent, #4a90d9); border-color: var(--accent-deep); color: #fff; transform: scale(1.08);
   }
 
-  /* Per-team top-3 runner leaderboard — hidden until the sheet publishes ranked-runner
-     columns, so older published tabs without them just show the card as before. */
-  .team-top-runners {
-    display: flex; flex-direction: column; gap: 6px; padding-top: 10px; margin-top: 4px;
-    border-top: 1px dashed var(--card-border);
+  /* Top-3 runner leaderboard — a second summary box below .rank-summary, same card look,
+     one stacked block per team (not columns) so it never fights for width like a nested
+     flex row inside the narrower per-team map card would. Hidden entirely (:empty) until
+     the sheet publishes at least one team's ranked-runner columns. */
+  .top-runners-summary {
+    width: 100%; max-width: 1600px; background: var(--card-bg); border: 2px solid var(--card-border);
+    border-radius: 16px; padding: 12px 18px; box-shadow: 0 4px 10px var(--panel-shadow);
+    display: flex; flex-direction: column; gap: 12px; margin-bottom: clamp(6px, 1vw, 12px);
   }
-  /* explicit override needed — the class above sets `display` as an author rule, which
-     otherwise beats the browser's default `[hidden] { display: none }` UA rule */
-  .team-top-runners[hidden] { display: none; }
-  .team-top-runners-title { font-size: 0.68rem; font-weight: 700; color: var(--ink-soft); }
-  .team-top-runners-list { display: flex; flex-direction: column; gap: 4px; }
-  .top-runner-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
-  .top-runner-medal { flex-shrink: 0; width: 1.4em; text-align: center; }
-  .top-runner-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 600; }
-  .top-runner-km { flex-shrink: 0; color: var(--ink-soft); font-weight: 700; }
+  .top-runners-summary:empty { display: none; }
+  .top-team-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .top-team-block + .top-team-block { padding-top: 12px; border-top: 1px solid var(--card-border); }
+  .top-team-block-title { font-weight: 800; font-size: 0.85rem; }
+  .top-team-runner-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding-left: 4px; min-width: 0; }
+  .top-team-runner-medal { width: 1.6em; text-align: center; flex-shrink: 0; }
+  .top-team-runner-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .top-team-runner-km { flex-shrink: 0; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
 
   .page-links-btn {
     font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--ink); text-decoration: none; cursor: pointer;
@@ -293,9 +298,6 @@
   .kiosk-active .team-map-place { grid-area: place; align-self: center; }
   .kiosk-active .roster-bar-track { grid-area: bar; align-self: center; height: 16px; }
   .kiosk-active .team-map-stamps { grid-area: stamps; align-self: center; }
-  /* kiosk grid only defines header/frame/place/bar/stamps areas — keep the fullscreen
-     spotlight view uncluttered rather than wiring this in as a 5th area */
-  .kiosk-active .team-top-runners { display: none; }
   .kiosk-active .team-map-name { font-size: 1.8rem; }
   .kiosk-active .team-map-km { font-size: 1.8rem; }
   .kiosk-active .team-map-rank { font-size: 1.4rem; }
@@ -351,6 +353,8 @@
     <audio id="bgm" src="audio/theme.mp3" loop preload="auto"></audio>
 
     <div class="rank-summary" id="rankSummary"></div>
+
+    <div class="top-runners-summary" id="topRunnersSummary"></div>
 
     <div class="team-maps-grid" id="teamMapsGrid"></div>
 

@@ -10,6 +10,7 @@
   var lastUpdatedEl = document.getElementById("lastUpdated");
   var visitCountEl = document.getElementById("visitCount");
   var rankSummaryEl = document.getElementById("rankSummary");
+  var topRunnersSummaryEl = document.getElementById("topRunnersSummary");
   var kioskToggleBtn = document.getElementById("kioskToggle");
   var kioskBackdrop = document.getElementById("kioskBackdrop");
   var kioskHeader = document.getElementById("kioskHeader");
@@ -457,23 +458,11 @@
       return chip;
     }) : [];
 
-    var topRunners = document.createElement("div");
-    topRunners.className = "team-top-runners";
-    topRunners.hidden = true;
-    var topRunnersTitle = document.createElement("div");
-    topRunnersTitle.className = "team-top-runners-title";
-    topRunnersTitle.textContent = "วิ่งเยอะสุดในทีม";
-    var topRunnersList = document.createElement("div");
-    topRunnersList.className = "team-top-runners-list";
-    topRunners.appendChild(topRunnersTitle);
-    topRunners.appendChild(topRunnersList);
-
     card.appendChild(header);
     card.appendChild(frame);
     card.appendChild(place);
     card.appendChild(barTrack);
     card.appendChild(stamps);
-    card.appendChild(topRunners);
 
     var refs = {
       card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,
@@ -483,7 +472,6 @@
       subTicksEl: frame.querySelector(".sub-ticks"),
       pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
       dustEls: dustEls, stampChips: stampChips, vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
-      topRunnersEl: topRunners, topRunnersListEl: topRunnersList, lastTop3Key: "",
       lastPlace: null
     };
 
@@ -601,31 +589,6 @@
     }
     var pct = S.clamp((team.km / route.finishKm) * 100, 0, 100);
     refs.barFill.style.width = pct + "%";
-
-    var top3 = team.top3 || [];
-    refs.topRunnersEl.hidden = top3.length === 0;
-    var top3Key = top3.map(function (r) { return r.name + ":" + r.km; }).join(",");
-    if (top3Key !== refs.lastTop3Key) {
-      refs.lastTop3Key = top3Key;
-      refs.topRunnersListEl.innerHTML = "";
-      top3.forEach(function (runner, i) {
-        var row = document.createElement("div");
-        row.className = "top-runner-row";
-        var medal = document.createElement("span");
-        medal.className = "top-runner-medal";
-        medal.textContent = S.rankBadgeText(i + 1);
-        var name = document.createElement("span");
-        name.className = "top-runner-name";
-        name.textContent = runner.name;
-        var km = document.createElement("span");
-        km.className = "top-runner-km";
-        km.textContent = runner.km + " กม.";
-        row.appendChild(medal);
-        row.appendChild(name);
-        row.appendChild(km);
-        refs.topRunnersListEl.appendChild(row);
-      });
-    }
   }
 
   /* One mini track per team, ranked — the whole race at a glance without opening every
@@ -691,6 +654,43 @@
     rankSummaryEl.appendChild(banner);
   }
 
+  /* Second summary box, right below the team-rank one — one stacked block per team
+     (ranked same as above), each listing that team's top-3 runners. A plain vertical
+     list rather than side-by-side columns, so it never needs to fight for width inside
+     a narrow flex row the way embedding this in each map card did. */
+  function renderTopRunnersSummary(teams) {
+    topRunnersSummaryEl.innerHTML = "";
+    var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
+    sorted.forEach(function (team) {
+      var top3 = team.top3 || [];
+      if (!top3.length) return;
+      var block = document.createElement("div");
+      block.className = "top-team-block";
+      var title = document.createElement("div");
+      title.className = "top-team-block-title";
+      title.textContent = team.name;
+      block.appendChild(title);
+      top3.forEach(function (runner, i) {
+        var row = document.createElement("div");
+        row.className = "top-team-runner-row";
+        var medal = document.createElement("span");
+        medal.className = "top-team-runner-medal";
+        medal.textContent = S.rankBadgeText(i + 1);
+        var name = document.createElement("span");
+        name.className = "top-team-runner-name";
+        name.textContent = runner.name;
+        var km = document.createElement("span");
+        km.className = "top-team-runner-km";
+        km.textContent = runner.km + " กม.";
+        row.appendChild(medal);
+        row.appendChild(name);
+        row.appendChild(km);
+        block.appendChild(row);
+      });
+      topRunnersSummaryEl.appendChild(block);
+    });
+  }
+
   function render(state) {
     titleEl.textContent = state.title;
     currentRanks = S.computeRanks(state.teams);
@@ -698,6 +698,7 @@
     var order = state.teams.map(function (t) { return t.id; }).join(",");
     if (order !== lastTeamOrder) { fullRebuild(state.teams); applyWeatherToPins(); } else state.teams.forEach(updateCard);
     renderRankSummary(state.teams);
+    renderTopRunnersSummary(state.teams);
     if (visitCountEl && typeof state.visitCount === "number") {
       visitCountEl.textContent = state.visitCount.toLocaleString("th-TH");
     }
