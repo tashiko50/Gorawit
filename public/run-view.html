@@ -195,18 +195,20 @@
     background: var(--accent, #4a90d9); border-color: var(--accent-deep); color: #fff; transform: scale(1.08);
   }
 
-  /* Top-3 runner leaderboard — a second summary box below .rank-summary, same card look,
-     one stacked block per team (not columns) so it never fights for width like a nested
-     flex row inside the narrower per-team map card would. Hidden entirely (:empty) until
-     the sheet publishes at least one team's ranked-runner columns. */
+  /* Top-3 runner leaderboard — a second summary box below .rank-summary, same card look.
+     One column per team (same auto-fit/minmax trick as .team-maps-grid below), so it
+     echoes that rhythm on wide screens instead of stretching a handful of short rows
+     across the full page width, and collapses to a single stacked column on phones.
+     Hidden entirely (:empty) until the sheet publishes at least one team's ranked-runner
+     columns. */
   .top-runners-summary {
     width: 100%; max-width: 1600px; background: var(--card-bg); border: 2px solid var(--card-border);
-    border-radius: 16px; padding: 12px 18px; box-shadow: 0 4px 10px var(--panel-shadow);
-    display: flex; flex-direction: column; gap: 12px; margin-bottom: clamp(6px, 1vw, 12px);
+    border-radius: 16px; padding: 14px 18px; box-shadow: 0 4px 10px var(--panel-shadow);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px 28px;
+    margin-bottom: clamp(6px, 1vw, 12px);
   }
   .top-runners-summary:empty { display: none; }
   .top-team-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .top-team-block + .top-team-block { padding-top: 12px; border-top: 1px solid var(--card-border); }
   .top-team-block-title { font-weight: 800; font-size: 0.85rem; }
   .top-team-runner-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding-left: 4px; min-width: 0; }
   .top-team-runner-medal { width: 1.6em; text-align: center; flex-shrink: 0; }
