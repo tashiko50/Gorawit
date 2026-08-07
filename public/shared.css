@@ -54,13 +54,6 @@
 
 * { box-sizing: border-box; }
 
-/* KNOWN ISSUE (deferred, not yet fixed): at exactly ~390px viewport width (iPhone 12–15
-   standard size, not just older small phones) several unrelated pieces of text get
-   silently clipped by this overflow-x: hidden — the header clock badge, the subtitle,
-   and the team-rank-summary km numbers all lose their right edge. Works fine at 480px+.
-   Root cause not yet isolated (confirmed pre-existing, not introduced by the top-3
-   leaderboard work); needs a dedicated pass across .title-wrap/.clock-badge/.rank-summary.
-   Flag this to the user again whenever touching this file. */
 body {
   margin: 0;
   min-height: 100vh;
