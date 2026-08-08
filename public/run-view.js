@@ -556,6 +556,7 @@
       teams.forEach(updateCard);
     }
     lastTeamOrder = teams.map(function (t) { return t.id; }).join(",");
+    lastRankOrder = ""; // cards just got rebuilt in raw team order, not rank order — force reorderCards to run once more right after, even if the rank order string happens to match its stale cached value
   }
 
   function updateCard(team) {
@@ -620,10 +621,18 @@
      Re-appending the *same* card elements (not rebuilding them) keeps every embedded
      SVG/animation ref in cardRefs valid, so the runner/dust/weather state on each card
      is untouched by the reshuffle. Skipped during kiosk mode since that card is pulled
-     out of grid flow onto a fixed overlay anyway. */
+     out of grid flow onto a fixed overlay anyway. Only actually touches the DOM when the
+     rank order itself changed since last time — every poll ticks each team's km by a
+     little, and re-measuring/re-appending on every one of those (even when nobody
+     actually passed anybody) was causing a small pointless snap-transition each cycle,
+     which read as constant jitter rather than the occasional real rank-swap glide. */
+  var lastRankOrder = "";
   function reorderCards(teams) {
     if (kioskActive || !teams.length) return;
     var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
+    var rankOrder = sorted.map(function (t) { return t.id; }).join(",");
+    if (rankOrder === lastRankOrder) return;
+    lastRankOrder = rankOrder;
     var firstRects = new Map();
     cardRefs.forEach(function (refs, id) {
       firstRects.set(id, refs.card.getBoundingClientRect());
