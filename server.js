@@ -17,6 +17,13 @@ const SHEET_CSV_URL = process.env.SHEET_CSV_URL ||
   "https://docs.google.com/spreadsheets/d/1BN7R1un1QUTvVyXqTgT8ijxkpx692o2YY0HM0MkiDUs/export?format=csv&gid=475941001";
 const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 20 * 1000;
 
+// Visit counter persistence — this Render free instance spins down on inactivity and loses
+// all in-memory state on wake, so a plain in-process counter resets constantly. This Apps
+// Script Web App (doGet increments+returns a value in PropertiesService, which survives our
+// restarts) is the durable store instead. If unset, falls back to the old in-memory counter
+// (works, just resets on every cold start).
+const VISIT_COUNTER_URL = process.env.VISIT_COUNTER_URL || "";
+
 // Open-Meteo — free, no API key needed, supports current weather for many lat/lon pairs
 // in a single request. Weather doesn't need to track km changes, so this polls on its
 // own, much slower interval.
@@ -291,15 +298,34 @@ async function refreshWeather() {
   }
 }
 
+// Fire-and-forget — never awaited in a route handler, so a slow (or unreachable) counter
+// endpoint never delays a page load. Guards against overwriting with a smaller number in
+// case two concurrent requests' responses arrive out of order.
+function bumpVisitCounter() {
+  if (!VISIT_COUNTER_URL) {
+    state.visitCount++;
+    return;
+  }
+  fetch(VISIT_COUNTER_URL)
+    .then((r) => r.json())
+    .then((data) => {
+      if (Number.isFinite(data.count) && data.count > state.visitCount) state.visitCount = data.count;
+    })
+    .catch((e) => {
+      console.error("Run Mile: visit counter fetch failed —", e.message);
+      state.visitCount++;
+    });
+}
+
 // Counts page loads only (not the /api/* polling that happens every few seconds per
 // open tab) — anyone opening the board hits one of these two paths exactly once.
 app.get("/", (req, res) => {
-  state.visitCount++;
+  bumpVisitCounter();
   res.redirect("/run-view.html");
 });
 
 app.get("/run-view.html", (req, res, next) => {
-  state.visitCount++;
+  bumpVisitCounter();
   next();
 });
 
