@@ -613,6 +613,41 @@
     refs.barFill.style.width = pct + "%";
   }
 
+  /* Re-append the map cards in current-rank order so #1 always sits first (leftmost on
+     desktop, topmost once the grid collapses to a single column on phones) — using the
+     FLIP technique (record each card's position before moving it, then animate a
+     compensating transform back to zero) so a rank swap glides instead of jump-cutting.
+     Re-appending the *same* card elements (not rebuilding them) keeps every embedded
+     SVG/animation ref in cardRefs valid, so the runner/dust/weather state on each card
+     is untouched by the reshuffle. Skipped during kiosk mode since that card is pulled
+     out of grid flow onto a fixed overlay anyway. */
+  function reorderCards(teams) {
+    if (kioskActive || !teams.length) return;
+    var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
+    var firstRects = new Map();
+    cardRefs.forEach(function (refs, id) {
+      firstRects.set(id, refs.card.getBoundingClientRect());
+    });
+    sorted.forEach(function (team) {
+      var refs = cardRefs.get(team.id);
+      if (refs) gridEl.appendChild(refs.card);
+    });
+    cardRefs.forEach(function (refs, id) {
+      var first = firstRects.get(id);
+      if (!first) return;
+      var last = refs.card.getBoundingClientRect();
+      var dx = first.left - last.left;
+      var dy = first.top - last.top;
+      if (!dx && !dy) return;
+      refs.card.style.transition = "none";
+      refs.card.style.transform = "translate(" + dx + "px, " + dy + "px)";
+      refs.card.offsetWidth; // force reflow so the transform above is applied before animating away from it
+      refs.card.style.transition = "transform 0.6s cubic-bezier(.3,.8,.4,1)";
+      refs.card.style.transform = "";
+      setTimeout(function () { refs.card.style.transition = ""; }, 650);
+    });
+  }
+
   /* One mini track per team, ranked — the whole race at a glance without opening every
      card. Small enough team count that a full rebuild each poll is simplest and cheap.
      Each row is two lines: name+km on top (full name, never truncated), a thin track
@@ -719,6 +754,7 @@
     lastTeamsSnapshot = state.teams;
     var order = state.teams.map(function (t) { return t.id; }).join(",");
     if (order !== lastTeamOrder) { fullRebuild(state.teams); applyWeatherToPins(); } else state.teams.forEach(updateCard);
+    reorderCards(state.teams);
     renderRankSummary(state.teams);
     renderTopRunnersSummary(state.teams);
     if (visitCountEl && typeof state.visitCount === "number") {
