@@ -556,6 +556,19 @@ h1.board-title {
   box-shadow: 0 4px 14px var(--panel-shadow); pointer-events: none;
 }
 
+/* Small round-number celebration (100, 200, 300 visits, ...) — a compact radial burst
+   scaled for a corner pill, not the big finish-line confetti used on the map cards. */
+.visit-sparkle-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.visit-sparkle {
+  position: absolute; left: 0; top: 0; font-size: 13px; transform-origin: 0 0;
+  animation: visit-sparkle-fly 0.9s ease-out forwards; transform: rotate(var(--angle)) translateY(0);
+}
+@keyframes visit-sparkle-fly {
+  0% { opacity: 1; transform: rotate(var(--angle)) translateY(0) scale(0.5); }
+  100% { opacity: 0; transform: rotate(var(--angle)) translateY(-34px) scale(1.05); }
+}
+@media (prefers-reduced-motion: reduce) { .visit-sparkle { animation: none; opacity: 0; } }
+
 .step-btn {
   width: 22px; height: 22px; border-radius: 50%; border: none; background: var(--card-bg); color: var(--accent-deep);
   font-weight: 800; font-size: 13px; line-height: 1; cursor: pointer; box-shadow: 0 1px 3px var(--panel-shadow);

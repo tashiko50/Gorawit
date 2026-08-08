@@ -9,6 +9,8 @@
   var titleEl = document.getElementById("boardTitle");
   var lastUpdatedEl = document.getElementById("lastUpdated");
   var visitCountEl = document.getElementById("visitCount");
+  var visitBadgeEl = document.getElementById("visitBadge");
+  var lastVisitCount = null;
   var rankSummaryEl = document.getElementById("rankSummary");
   var topRunnersSummaryEl = document.getElementById("topRunnersSummary");
   var kioskToggleBtn = document.getElementById("kioskToggle");
@@ -172,6 +174,26 @@
       frame.appendChild(piece);
       (function (p) { setTimeout(function () { p.remove(); }, 2800); })(piece);
     }
+  }
+
+  /* Small radial sparkle burst around the visit-count badge, for a round-number crossing
+     (100, 200, 300, ...) — same technique as the checkpoint sparkle burst, just its own
+     class names so its short travel distance never gets confused with the bigger one. */
+  function celebrateVisitMilestone() {
+    if (!visitBadgeEl) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var burst = document.createElement("div");
+    burst.className = "visit-sparkle-burst";
+    var count = 8;
+    for (var i = 0; i < count; i++) {
+      var s = document.createElement("span");
+      s.className = "visit-sparkle";
+      s.style.setProperty("--angle", (360 / count) * i + "deg");
+      s.textContent = "🎉";
+      burst.appendChild(s);
+    }
+    visitBadgeEl.appendChild(burst);
+    setTimeout(function () { burst.remove(); }, 1000);
   }
 
   /* Position along the route for a given km: interpolates linearly between the two
@@ -701,6 +723,14 @@
     renderTopRunnersSummary(state.teams);
     if (visitCountEl && typeof state.visitCount === "number") {
       visitCountEl.textContent = state.visitCount.toLocaleString("th-TH");
+      // Math.floor(.../100) comparison catches crossing a hundred even if the count jumps
+      // by more than 1 between polls (several visits landing in the same ~poll window) —
+      // a plain "=== 0" check on the new value alone could miss it skipping past exactly 100.
+      if (lastVisitCount !== null && state.visitCount > lastVisitCount &&
+          Math.floor(state.visitCount / 100) > Math.floor(lastVisitCount / 100)) {
+        celebrateVisitMilestone();
+      }
+      lastVisitCount = state.visitCount;
     }
     lastFetchTs = Date.now();
   }
