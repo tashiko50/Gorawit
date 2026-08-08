@@ -23,11 +23,13 @@
   var bgmEl = document.getElementById("bgm");
   var bgmToggleBtn = document.getElementById("bgmToggle");
 
-  var route = null; // { waypoints, viewBox: {w,h}, finishKm }
-  var routeD = "";
-  var routeSegments = [];
-  var pinOffsets = []; // precomputed {ox,oy} per waypoint, shared by every card
-  var subTicks = []; // small unlabeled dots every 50km between named waypoints
+  // Each entry: { id, label, waypoints, viewBox: {w,h}, finishKm, startKm, routeD,
+  // routeSegments, pinOffsets, subTicks } — a team resolves to whichever chapter its own
+  // km has reached (see chapterForKm), so two cards can legitimately be on different
+  // chapters' art at the same time. Everything that used to close over one global `route`
+  // now takes the relevant chapter as a parameter instead.
+  var chapters = [];
+  var overallFinishKm = 0; // last chapter's finishKm, once loaded — used for the whole-race progress bars in the rank summary
   var cardRefs = new Map(); // teamId -> refs
   var lastTeamOrder = "";
   var lastFetchTs = null;
@@ -42,8 +44,8 @@
   var kioskCurrentTeamId = null;
   var KIOSK_INTERVAL_MS = 8000;
 
-  function pctX(x) { return (x / route.viewBox.w * 100) + "%"; }
-  function pctY(y) { return (y / route.viewBox.h * 100) + "%"; }
+  function pctX(x, chapter) { return (x / chapter.viewBox.w * 100) + "%"; }
+  function pctY(y, chapter) { return (y / chapter.viewBox.h * 100) + "%"; }
 
   /* Smooth the polyline through the real waypoints by curving through their midpoints
      (a common cheap Bezier trick) — the road reads as a curve, not a jagged zig-zag. */
@@ -92,18 +94,19 @@
   /* Position for a loop fraction (0-1) spread evenly across every segment of the visible
      curve — purely decorative, so equal time per segment (rather than true arc-length or
      km-accurate pacing) is plenty smooth and always exactly on the road. */
-  function positionOnRouteCurve(t) {
-    if (!routeSegments.length) return { x: 0, y: 0 };
-    var scaled = ((t % 1) + 1) % 1 * routeSegments.length;
-    var idx = Math.min(routeSegments.length - 1, Math.floor(scaled));
-    return pointOnSegment(routeSegments[idx], scaled - idx);
+  function positionOnRouteCurve(t, chapter) {
+    var segs = chapter.routeSegments;
+    if (!segs.length) return { x: 0, y: 0 };
+    var scaled = ((t % 1) + 1) % 1 * segs.length;
+    var idx = Math.min(segs.length - 1, Math.floor(scaled));
+    return pointOnSegment(segs[idx], scaled - idx);
   }
 
   /* Perpendicular direction of the road at waypoint i, from the segments either side of
      it — used to push each place's label off the road instead of stacking labels on top
      of the dashed line (and the runner marker, when it's sitting right on a checkpoint). */
-  function perpAt(i) {
-    var wps = route.waypoints;
+  function perpAt(chapter, i) {
+    var wps = chapter.waypoints;
     var prev = wps[i - 1] || wps[i];
     var next = wps[i + 1] || wps[i];
     var dx = next.x - prev.x, dy = next.y - prev.y;
@@ -116,10 +119,10 @@
   // further out specifically.
   var PIN_OFFSET_OVERRIDES = { "กรุงเทพฯ (TDFB HQ)": 78 };
 
-  function computePinOffsets() {
+  function computePinOffsets(chapter) {
     var OFFSET = 38;
-    return route.waypoints.map(function (wp, i) {
-      var perp = perpAt(i);
+    return chapter.waypoints.map(function (wp, i) {
+      var perp = perpAt(chapter, i);
       var side = i % 2 === 0 ? 1 : -1;
       var dist = PIN_OFFSET_OVERRIDES[wp.name] || OFFSET;
       return { ox: wp.x + perp.x * dist * side, oy: wp.y + perp.y * dist * side };
@@ -128,8 +131,8 @@
 
   /* Small unlabeled dots every 50km between the named waypoints, purely so the road
      reads with finer progress granularity than just the big province markers. */
-  function computeSubTicks() {
-    var wps = route.waypoints;
+  function computeSubTicks(chapter) {
+    var wps = chapter.waypoints;
     var ticks = [];
     for (var i = 0; i < wps.length - 1; i++) {
       var a = wps[i], b = wps[i + 1];
@@ -144,8 +147,8 @@
 
   /* Traveled-so-far path, built with the exact same per-segment interpolation as
      positionForKm — guarantees the solid line always ends precisely at the runner. */
-  function progressPathD(km) {
-    var wps = route.waypoints;
+  function progressPathD(km, chapter) {
+    var wps = chapter.waypoints;
     var k = Math.max(0, Number(km) || 0);
     var d = "M " + wps[0].x + " " + wps[0].y;
     for (var i = 0; i < wps.length - 1; i++) {
@@ -196,12 +199,25 @@
     setTimeout(function () { burst.remove(); }, 1000);
   }
 
-  /* Position along the route for a given km: interpolates linearly between the two
-     waypoints straddling it, and reports the place name / distance to the next place.
-     Past the last waypoint, the marker stays pinned there and `overshoot` reports how
-     far beyond that the team ran. */
-  function positionForKm(km) {
-    var wps = route.waypoints;
+  /* Which chapter a given absolute km belongs to — the last chapter whose startKm has
+     been reached. Chapters are always in ascending startKm order (as sent by the
+     server), so a simple forward scan keeping the latest match is enough. */
+  function chapterForKm(km) {
+    var current = chapters[0];
+    for (var i = 0; i < chapters.length; i++) {
+      if (chapters[i].startKm <= km) current = chapters[i];
+    }
+    return current;
+  }
+
+  /* Position along a chapter's route for a given km: interpolates linearly between the
+     two waypoints straddling it, and reports the place name / distance to the next
+     place. Past the chapter's last waypoint, the marker stays pinned there and
+     `overshoot` reports how far beyond that the team ran (only meaningful for the last
+     chapter — earlier chapters never see overshoot since chapterForKm would already
+     have moved the team into the next one by then). */
+  function positionForKm(km, chapter) {
+    var wps = chapter.waypoints;
     var k = Math.max(0, Number(km) || 0);
     var first = wps[0], last = wps[wps.length - 1];
     if (k <= first.km) {
@@ -227,10 +243,10 @@
     return e;
   }
 
-  /* Static terrain + road backdrop, identical for every card. Gradient/pattern ids are
-     suffixed per card since duplicate ids in one document would all resolve to the first
-     one defined. */
-  function mapSvgMarkup(uid) {
+  /* Thailand terrain + road backdrop (chapter "th") — identical to the original single-map
+     art. Gradient/pattern ids are suffixed per card since duplicate ids in one document
+     would all resolve to the first one defined. */
+  function chapter1SvgMarkup(uid) {
     return "" +
       '<svg viewBox="0 0 520 860" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
         "<defs>" +
@@ -273,21 +289,73 @@
       "</svg>";
   }
 
-  function renderSubTicks(refs) {
+  /* Myanmar/Yunnan backdrop for chapter "cn" (แม่สาย → คุนหมิง) — same structural class
+     hooks as chapter1SvgMarkup (route-path/route-glow/route-progress/pin-dots/night-overlay) so all
+     the existing weather-filter and day/night CSS keeps working unchanged on this frame
+     too. The terrain gradient runs misty highland (top, near Kunming) into warmer lowland
+     green (bottom, near the แม่สาย handoff) so the two chapters read as a continuous climb
+     north rather than an arbitrary palette swap. */
+  function chapter2SvgMarkup(uid) {
+    return "" +
+      '<svg viewBox="0 0 480 760" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
+        "<defs>" +
+          '<linearGradient id="terrainGrad2-' + uid + '" x1="0" y1="0" x2="0" y2="1">' +
+            '<stop offset="0%" stop-color="#9FC2B8" />' +
+            '<stop offset="35%" stop-color="#5F9A6E" />' +
+            '<stop offset="70%" stop-color="#3E6E4C" />' +
+            '<stop offset="100%" stop-color="#4D7A58" />' +
+          "</linearGradient>" +
+          '<pattern id="terraceHatch-' + uid + '" width="30" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-4)">' +
+            '<rect width="30" height="6" fill="#CDB15E" opacity="0.3" />' +
+          "</pattern>" +
+        "</defs>" +
+        '<rect x="0" y="0" width="480" height="760" fill="url(#terrainGrad2-' + uid + ')" />' +
+        '<path d="M0,190 L70,120 L130,175 L210,100 L280,165 L360,110 L480,150 L480,0 L0,0 Z" fill="#AECABF" opacity="0.55" />' +
+        '<path d="M0,240 L90,165 L160,220 L250,150 L330,215 L420,170 L480,205 L480,0 L0,0 Z" fill="#3E6E4C" opacity="0.35" />' +
+        '<rect x="0" y="520" width="480" height="240" fill="url(#terraceHatch-' + uid + ')" />' +
+        '<path d="M-10,760 C60,700 90,620 140,560 C170,525 165,480 210,455 C225,435 190,400 200,340 C205,300 185,240 195,180" fill="none" stroke="#2F7EA8" stroke-width="4" stroke-linecap="round" opacity="0.35" />' +
+        '<path d="M-10,760 C60,700 90,620 140,560 C170,525 165,480 210,455 C225,435 190,400 200,340 C205,300 185,240 195,180" fill="none" stroke="#4FA0CE" stroke-width="20" stroke-linecap="round" opacity="0.55" />' +
+        '<g opacity="0.8">' +
+          '<polygon points="345,592 351,606 339,606" fill="#D99F2E" /><rect x="337" y="606" width="16" height="9" fill="#C0553A" />' +
+          '<polygon points="363,598 367,608 359,608" fill="#D99F2E" /><rect x="360" y="608" width="8" height="6" fill="#C0553A" />' +
+        "</g>" +
+        '<g opacity="0.85">' +
+          '<rect x="170" y="454" width="20" height="8" fill="#C0553A" /><polygon points="167,454 193,454 180,442" fill="#D99F2E" />' +
+          '<rect x="173" y="434" width="14" height="8" fill="#C0553A" /><polygon points="171,434 189,434 180,424" fill="#D99F2E" />' +
+        "</g>" +
+        '<rect class="night-overlay" x="0" y="0" width="480" height="760" />' +
+        '<g fill="#fff" class="night-stars">' +
+          '<circle class="night-star" cx="60" cy="55" r="1.6" /><circle class="night-star" cx="130" cy="25" r="1.2" />' +
+          '<circle class="night-star" cx="210" cy="65" r="1.8" /><circle class="night-star" cx="290" cy="20" r="1.3" />' +
+          '<circle class="night-star" cx="350" cy="85" r="1.5" /><circle class="night-star" cx="420" cy="35" r="1.2" />' +
+          '<circle class="night-star" cx="450" cy="105" r="1.6" /><circle class="night-star" cx="25" cy="120" r="1.3" />' +
+        "</g>" +
+        '<path class="route-glow" d="" /><path class="route-path" d="" /><path class="route-progress" d="" />' +
+        '<g class="pin-leaders" stroke="#7a3320" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"></g>' +
+        '<g class="sub-ticks"></g>' +
+        '<g class="pin-dots"></g>' +
+      "</svg>";
+  }
+
+  function mapSvgMarkup(chapterId, uid) {
+    return chapterId === "cn" ? chapter2SvgMarkup(uid) : chapter1SvgMarkup(uid);
+  }
+
+  function renderSubTicks(refs, chapter) {
     refs.subTicksEl.innerHTML = "";
-    subTicks.forEach(function (tick) {
+    chapter.subTicks.forEach(function (tick) {
       refs.subTicksEl.appendChild(svgEl("circle", { cx: tick.x, cy: tick.y, r: 2, fill: "#fff8e6", opacity: 0.6 }));
     });
   }
 
-  function renderPins(refs) {
+  function renderPins(refs, chapter) {
     refs.pinsLayer.innerHTML = "";
     refs.pinDotsEl.innerHTML = "";
     refs.pinLeadersEl.innerHTML = "";
     refs.pinWeatherEls = [];
-    route.waypoints.forEach(function (wp, i) {
-      var isFinish = wp.km === route.finishKm;
-      var off = pinOffsets[i];
+    chapter.waypoints.forEach(function (wp, i) {
+      var isFinish = wp.km === chapter.finishKm;
+      var off = chapter.pinOffsets[i];
 
       refs.pinDotsEl.appendChild(svgEl("circle", {
         cx: wp.x, cy: wp.y, r: isFinish ? 6 : 3.5,
@@ -297,16 +365,16 @@
 
       var pin = document.createElement("div");
       pin.className = "way-label-pin" + (isFinish ? " finish" : "");
-      pin.style.left = pctX(off.ox);
-      pin.style.top = pctY(off.oy);
+      pin.style.left = pctX(off.ox, chapter);
+      pin.style.top = pctY(off.oy, chapter);
 
       /* This pin is centered on both axes by default, but several waypoints (start/finish
          especially) sit close enough to a frame corner that centering pushes the label past
          the clipped border on both sides at once — anchor toward the inside instead whenever
          the offset point is near an edge. Static per-waypoint offsets, so this only needs
          computing once here, not on every km update. */
-      var hFrac = off.ox / route.viewBox.w;
-      var vFrac = off.oy / route.viewBox.h;
+      var hFrac = off.ox / chapter.viewBox.w;
+      var vFrac = off.oy / chapter.viewBox.h;
       var tx = hFrac < 0.1 ? "-8%" : hFrac > 0.85 ? "-92%" : "-50%";
       var ty = vFrac < 0.12 ? "-8%" : vFrac > 0.85 ? "-92%" : "-50%";
       pin.style.transform = "translate(" + tx + ", " + ty + ")";
@@ -340,17 +408,15 @@
     });
   }
 
-  /* Real current weather per waypoint (same for every card — the route is shared), fetched
-     separately from team km on its own slower interval. Only a single emoji is ever shown
-     inline; full condition + temperature stay in the pin's title tooltip (hover/tap), same
-     low-clutter pattern the stamp chips already use, so 12 waypoints x 3 cards never gets
-     visually noisy. */
+  /* Real current weather per waypoint (across BOTH chapters — fetched once, keyed by
+     name), separate from team km on its own slower interval. Only a single emoji is ever
+     shown inline; full condition + temperature stay in the pin's title tooltip. */
   var weatherByPlace = {};
 
   /* Maps a real Open-Meteo WMO weather code to one of the ambient background categories the
      card frame's CSS already knows how to render (rain/snow — anything else keeps the
      default "sun" look with no filter), so each team's map background reflects the actual
-     current weather of whichever province that team is passing through right now. */
+     current weather of whichever place that team is passing through right now. */
   function weatherCategoryFromCode(code) {
     if (code == null) return null;
     if (code === 71 || code === 73 || code === 75 || code === 77 || code === 85 || code === 86) return "snow";
@@ -385,6 +451,51 @@
       .catch(function () {});
   }
 
+  /* (Re)builds the numbered stamp-chip row at the bottom of a card for whichever chapter
+     it's currently on — called both at initial build and again on a chapter swap, since
+     chapter 2 has a different waypoint count than chapter 1. */
+  function buildStampChips(refs, chapter) {
+    refs.stampsEl.innerHTML = "";
+    refs.stampChips = chapter.waypoints.map(function (wp, i) {
+      var chip = document.createElement("span");
+      chip.className = "stamp-chip";
+      chip.title = wp.name + " (" + wp.km + " กม.)";
+      chip.textContent = String(i + 1);
+      refs.stampsEl.appendChild(chip);
+      return chip;
+    });
+  }
+
+  /* (Re)builds a card's background map — the SVG terrain/route art plus its pins and sub-
+     ticks — for whichever chapter applies right now. Used both for the very first build
+     (frame starts with an empty placeholder <svg> so this always has something to replace)
+     and for a live chapter swap mid-race: only the <svg> child gets swapped out, so the
+     overlaid runner/dust/vehicle/cloud layers (siblings of the svg, not inside it) are
+     never touched and keep animating straight through the transition. */
+  function setupMapFrame(refs, chapter) {
+    var temp = document.createElement("div");
+    temp.innerHTML = mapSvgMarkup(chapter.id, refs.teamId);
+    var newSvg = temp.firstElementChild;
+    var oldSvg = refs.frame.querySelector("svg");
+    if (oldSvg) refs.frame.replaceChild(newSvg, oldSvg);
+    else refs.frame.insertBefore(newSvg, refs.frame.firstChild);
+
+    refs.routePathEl = newSvg.querySelector(".route-path");
+    refs.routeGlowEl = newSvg.querySelector(".route-glow");
+    refs.routeProgressEl = newSvg.querySelector(".route-progress");
+    refs.pinDotsEl = newSvg.querySelector(".pin-dots");
+    refs.pinLeadersEl = newSvg.querySelector(".pin-leaders");
+    refs.subTicksEl = newSvg.querySelector(".sub-ticks");
+
+    refs.routePathEl.setAttribute("d", chapter.routeD);
+    refs.routeGlowEl.setAttribute("d", chapter.routeD);
+    renderPins(refs, chapter);
+    renderSubTicks(refs, chapter);
+    refs.chapter = chapter;
+    S.applyWeather(refs.frame);
+    refs.frame.dataset.night = S.dayPhase();
+  }
+
   function buildTeamMapCard(team) {
     var card = document.createElement("div");
     card.className = "team-map-card";
@@ -406,7 +517,9 @@
 
     var frame = document.createElement("div");
     frame.className = "map-frame";
-    frame.innerHTML = mapSvgMarkup(team.id);
+    // Empty placeholder so setupMapFrame always has an <svg> to replaceChild against,
+    // whether this is the very first build or a later mid-race chapter swap.
+    frame.appendChild(document.createElementNS(SVG_NS, "svg"));
     var cloudA = document.createElement("div");
     cloudA.className = "map-cloud";
     var cloudB = document.createElement("div");
@@ -471,14 +584,6 @@
 
     var stamps = document.createElement("div");
     stamps.className = "team-map-stamps";
-    var stampChips = route ? route.waypoints.map(function (wp, i) {
-      var chip = document.createElement("span");
-      chip.className = "stamp-chip";
-      chip.title = wp.name + " (" + wp.km + " กม.)";
-      chip.textContent = String(i + 1);
-      stamps.appendChild(chip);
-      return chip;
-    }) : [];
 
     card.appendChild(header);
     card.appendChild(frame);
@@ -488,23 +593,16 @@
 
     var refs = {
       card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,
-      routePathEl: frame.querySelector(".route-path"), routeGlowEl: frame.querySelector(".route-glow"),
-      routeProgressEl: frame.querySelector(".route-progress"),
-      pinDotsEl: frame.querySelector(".pin-dots"), pinLeadersEl: frame.querySelector(".pin-leaders"),
-      subTicksEl: frame.querySelector(".sub-ticks"),
       pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
-      dustEls: dustEls, stampChips: stampChips, vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
-      lastPlace: null
+      dustEls: dustEls, stampsEl: stamps, stampChips: [], vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
+      lastPlace: null, teamId: team.id, chapter: null
     };
 
-    if (route) {
-      refs.routePathEl.setAttribute("d", routeD);
-      refs.routeGlowEl.setAttribute("d", routeD);
-      renderPins(refs);
-      renderSubTicks(refs);
+    if (chapters.length) {
+      var initialChapter = chapterForKm(team.km);
+      setupMapFrame(refs, initialChapter);
+      buildStampChips(refs, initialChapter);
     }
-    S.applyWeather(frame);
-    frame.dataset.night = S.dayPhase();
     return refs;
   }
 
@@ -561,46 +659,65 @@
 
   function updateCard(team) {
     var refs = cardRefs.get(team.id);
-    if (!refs) return;
+    if (!refs || !chapters.length) return;
+
+    var chapter = chapterForKm(team.km);
+    var chapterChanged = refs.chapter !== chapter;
+    if (chapterChanged) {
+      setupMapFrame(refs, chapter);
+      buildStampChips(refs, chapter);
+    }
+
     refs.card.style.setProperty("--accent", team.color);
     refs.nameEl.textContent = team.name;
     refs.kmEl.textContent = team.km + " กม.";
     refs.rankEl.textContent = S.rankBadgeText(currentRanks[team.id] || 1);
 
-    var p = positionForKm(team.km);
-    refs.runnerWrap.style.left = pctX(p.x);
-    refs.runnerWrap.style.top = pctY(p.y);
+    var p = positionForKm(team.km, chapter);
+    refs.runnerWrap.style.left = pctX(p.x, chapter);
+    refs.runnerWrap.style.top = pctY(p.y, chapter);
     refs.runnerName.textContent = team.name;
     refs.runnerKm.textContent = team.km + " กม.";
 
     /* The name+km tag is centered on the runner by default, but near the map's left/right
        edges (e.g. right at the start point) that centering pushes it past the frame's
        clipped border — flip its anchor near either edge so it always stays fully visible. */
-    var edgeFrac = p.x / route.viewBox.w;
+    var edgeFrac = p.x / chapter.viewBox.w;
     refs.tagEl.classList.toggle("runner-tag--edge-start", edgeFrac < 0.2);
     refs.tagEl.classList.toggle("runner-tag--edge-end", edgeFrac > 0.8);
 
-    refs.routeProgressEl.setAttribute("d", progressPathD(team.km));
+    refs.routeProgressEl.setAttribute("d", progressPathD(team.km, chapter));
     DUST_OFFSETS_KM.forEach(function (behindKm, i) {
-      var dp = positionForKm(Math.max(0, team.km - behindKm));
-      refs.dustEls[i].style.left = pctX(dp.x);
-      refs.dustEls[i].style.top = pctY(dp.y);
+      var dp = positionForKm(Math.max(0, team.km - behindKm), chapter);
+      refs.dustEls[i].style.left = pctX(dp.x, chapter);
+      refs.dustEls[i].style.top = pctY(dp.y, chapter);
     });
     refs.stampChips.forEach(function (chip, i) {
-      chip.classList.toggle("reached", team.km >= route.waypoints[i].km);
+      chip.classList.toggle("reached", team.km >= chapter.waypoints[i].km);
     });
 
-    if (refs.lastPlace !== null && p.place !== refs.lastPlace) {
-      var big = p.place.indexOf("เชียงราย") !== -1;
+    if (chapterChanged && refs.lastPlace !== null) {
+      // Crossing into a later chapter always outranks a same-poll "arrived at place"
+      // toast (the new chapter's first waypoint is the same shared place by name, e.g.
+      // แม่สาย, so the check below naturally stays quiet right after this fires).
+      celebrateRunner(refs, true);
+      showToast(refs, "\u{1F30F} ข้ามพรมแดนแล้ว! เริ่ม" + (chapter.label || "บทใหม่"));
+    } else if (refs.lastPlace !== null && p.place !== refs.lastPlace) {
+      var isChiangRai = p.place.indexOf("เชียงราย") !== -1;
+      var isKunming = p.place.indexOf("คุนหมิง") !== -1;
+      var big = isChiangRai || isKunming;
       celebrateRunner(refs, big);
-      showToast(refs, big ? "\u{1F3C5} ถึงเชียงรายแล้ว!" : "\u{1F4CD} ถึง" + p.place + "แล้ว!");
+      var msg = isKunming ? "\u{1F386} ถึงคุนหมิงแล้ว! จบการเดินทางสุดยิ่งใหญ่!"
+        : isChiangRai ? "\u{1F3C5} ถึงเชียงรายแล้ว!"
+        : "\u{1F4CD} ถึง" + p.place + "แล้ว!";
+      showToast(refs, msg);
     }
     refs.lastPlace = p.place;
 
     var weatherCat = realWeatherCategoryForPlace(p.place);
     if (weatherCat) S.applyWeather(refs.frame, weatherCat);
 
-    var finalStretch = team.km < route.finishKm && (route.finishKm - team.km) <= 50;
+    var finalStretch = team.km < chapter.finishKm && (chapter.finishKm - team.km) <= 50;
     refs.runnerWrap.classList.toggle("final-stretch", finalStretch);
 
     if (p.overshoot > 0) {
@@ -610,7 +727,7 @@
     } else {
       refs.placeEl.textContent = "อยู่ที่ " + p.place;
     }
-    var pct = S.clamp((team.km / route.finishKm) * 100, 0, 100);
+    var pct = S.clamp((team.km / chapter.finishKm) * 100, 0, 100);
     refs.barFill.style.width = pct + "%";
   }
 
@@ -660,12 +777,12 @@
   /* One mini track per team, ranked — the whole race at a glance without opening every
      card. Small enough team count that a full rebuild each poll is simplest and cheap.
      Each row is two lines: name+km on top (full name, never truncated), a thin track
-     below with a runner mark riding its filled edge. The track is scaled to the real
-     finish-line distance, same basis as each team's own big map card below, so the bar
-     reads as genuine race progress rather than a relative-to-leader comparison. */
+     below with a runner mark riding its filled edge. The track is scaled to the overall
+     race finish (last chapter's finishKm) so standing reads consistently across the
+     whole journey regardless of which chapter each team is currently on. */
   function renderRankSummary(teams) {
     rankSummaryEl.innerHTML = "";
-    if (!teams.length) return;
+    if (!teams.length || !overallFinishKm) return;
     var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
     sorted.forEach(function (team, i) {
       var row = document.createElement("div");
@@ -690,7 +807,7 @@
       trackWrap.className = "rank-track-wrap";
       var track = document.createElement("div");
       track.className = "rank-track";
-      var pct = S.clamp((team.km / route.finishKm) * 100, 0, 100);
+      var pct = S.clamp((team.km / overallFinishKm) * 100, 0, 100);
       var fill = document.createElement("div");
       fill.className = "rank-track-fill";
       fill.style.background = team.color;
@@ -783,10 +900,11 @@
   function tickVehicles() {
     var now = Date.now();
     cardRefs.forEach(function (refs) {
+      if (!refs.chapter) return;
       var t = ((now + refs.vehiclePhase) % VEHICLE_LOOP_MS) / VEHICLE_LOOP_MS;
-      var p = positionOnRouteCurve(t);
-      refs.vehicleEl.style.left = pctX(p.x);
-      refs.vehicleEl.style.top = pctY(p.y);
+      var p = positionOnRouteCurve(t, refs.chapter);
+      refs.vehicleEl.style.left = pctX(p.x, refs.chapter);
+      refs.vehicleEl.style.top = pctY(p.y, refs.chapter);
     });
   }
 
@@ -946,11 +1064,18 @@
   fetch("/api/route")
     .then(function (res) { return res.json(); })
     .then(function (data) {
-      route = data;
-      routeD = smoothPathD(route.waypoints);
-      routeSegments = buildRouteSegments(route.waypoints);
-      pinOffsets = computePinOffsets();
-      subTicks = computeSubTicks();
+      chapters = data.chapters.map(function (c) {
+        var chapter = {
+          id: c.id, label: c.label, startKm: c.startKm,
+          waypoints: c.waypoints, viewBox: c.viewBox, finishKm: c.finishKm
+        };
+        chapter.routeD = smoothPathD(chapter.waypoints);
+        chapter.routeSegments = buildRouteSegments(chapter.waypoints);
+        chapter.pinOffsets = computePinOffsets(chapter);
+        chapter.subTicks = computeSubTicks(chapter);
+        return chapter;
+      });
+      overallFinishKm = chapters.length ? chapters[chapters.length - 1].finishKm : 0;
       poll();
       setInterval(poll, POLL_MS);
       refreshWeatherClient();

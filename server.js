@@ -102,6 +102,26 @@ const ROUTE = [
 const ROUTE_VIEWBOX = { w: 520, h: 860 };
 const ROUTE_FINISH_KM = 830;
 
+// Chapter 2 — kept parked (built, not wired to any deploy toggle) for whenever a team
+// gets close to 890km and the "will we even reach the finish" question becomes real.
+// Absolute km continues straight on from chapter 1 (no reset at the border) — แม่สาย is
+// shared as chapter 1's last stop and chapter 2's first, so the handoff is seamless.
+// Real road distances researched leg-by-leg (see chat for sources); lat/lon are
+// approximate town centers, close enough for the weather lookup.
+const ROUTE_CHAPTER2 = [
+  { name: "แม่สาย (ชายแดน)", km: 890, x: 250, y: 720, lat: 20.4258, lon: 99.8756 },
+  { name: "ท่าขี้เหล็ก", km: 895, x: 275, y: 705, lat: 20.4486, lon: 99.8767 },
+  { name: "เชียงตุง", km: 1052, x: 320, y: 615, lat: 21.2953, lon: 99.6152 },
+  { name: "มงลา / ต้าลั่ว", km: 1155, x: 300, y: 545, lat: 21.4900, lon: 100.5000 },
+  { name: "เมิ่งไห่", km: 1236, x: 255, y: 490, lat: 21.9578, lon: 100.4514 },
+  { name: "จิ่งหง", km: 1285, x: 210, y: 455, lat: 22.0017, lon: 100.7975 },
+  { name: "ผูเอ่อร์", km: 1407, x: 255, y: 375, lat: 22.8167, lon: 100.9667 },
+  { name: "คุนหมิง 🏁", km: 1837, x: 235, y: 90, lat: 24.8801, lon: 102.8329 }
+];
+const ROUTE_CHAPTER2_VIEWBOX = { w: 480, h: 760 };
+const ROUTE_CHAPTER2_FINISH_KM = 1837;
+const ROUTE_CHAPTER2_LABEL = "บทที่ 2 — มุ่งสู่คุนหมิง";
+
 function placeForKm(km) {
   const k = Math.max(0, Number(km) || 0);
   let current = ROUTE[0];
@@ -276,17 +296,21 @@ async function refreshFromSheet() {
 
 let weatherByPlace = {};
 
+// แม่สาย appears in both arrays (chapter 1's last stop, chapter 2's first) — harmless
+// duplicate fetch, same coordinates both times, just overwrites itself in `next`.
+const ALL_ROUTE_WAYPOINTS = [...ROUTE, ...ROUTE_CHAPTER2];
+
 async function refreshWeather() {
   try {
-    const lats = ROUTE.map((wp) => wp.lat).join(",");
-    const lons = ROUTE.map((wp) => wp.lon).join(",");
+    const lats = ALL_ROUTE_WAYPOINTS.map((wp) => wp.lat).join(",");
+    const lons = ALL_ROUTE_WAYPOINTS.map((wp) => wp.lon).join(",");
     const url = `${WEATHER_API_BASE}?latitude=${lats}&longitude=${lons}&current=temperature_2m,weather_code&timezone=Asia%2FBangkok`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const results = Array.isArray(data) ? data : [data];
     const next = {};
-    ROUTE.forEach((wp, i) => {
+    ALL_ROUTE_WAYPOINTS.forEach((wp, i) => {
       const current = results[i] && results[i].current;
       if (!current) return;
       const code = WEATHER_CODE_MAP[current.weather_code] || { emoji: "🌡️", label: "ไม่ทราบสภาพอากาศ", color: "#8a97a6" };
@@ -336,7 +360,12 @@ app.get("/api/state", (req, res) => {
 });
 
 app.get("/api/route", (req, res) => {
-  res.json({ waypoints: ROUTE, viewBox: ROUTE_VIEWBOX, finishKm: ROUTE_FINISH_KM });
+  res.json({
+    chapters: [
+      { id: "th", startKm: 0, waypoints: ROUTE, viewBox: ROUTE_VIEWBOX, finishKm: ROUTE_FINISH_KM },
+      { id: "cn", startKm: 890, label: ROUTE_CHAPTER2_LABEL, waypoints: ROUTE_CHAPTER2, viewBox: ROUTE_CHAPTER2_VIEWBOX, finishKm: ROUTE_CHAPTER2_FINISH_KM }
+    ]
+  });
 });
 
 app.get("/api/sheet-sync", (req, res) => {
