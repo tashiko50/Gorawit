@@ -1007,12 +1007,27 @@
      (always allowed) and unmute + fade the volume in on the very first click/tap/keypress
      anywhere on the page — in practice that's within a second of load for most visitors.
      Kiosk/TV screens with nobody touching them will stay silent until someone taps the
-     toggle button once; after that it keeps looping on its own. */
+     toggle button once; after that it keeps looping on its own.
+
+     Playlist: pick a random track on load, then pick a new random track (never repeating
+     the one that just finished) each time one ends — an endless shuffle that lands on a
+     different song per visit instead of always looping the same one. */
   if (bgmEl && bgmToggleBtn) {
+    var BGM_TRACKS = ["audio/theme.mp3", "audio/track2.mp3", "audio/track3.mp3", "audio/track4.mp3"];
     var BGM_TARGET_VOLUME = 0.18;
     var BGM_FADE_MS = 4000;
     var bgmUserPaused = false;
+    var bgmCurrentTrack = null;
     var bgmReduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var pickNextTrack = function () {
+      if (BGM_TRACKS.length === 1) return BGM_TRACKS[0];
+      var choice;
+      do {
+        choice = BGM_TRACKS[Math.floor(Math.random() * BGM_TRACKS.length)];
+      } while (choice === bgmCurrentTrack);
+      return choice;
+    };
 
     var setToggleLabel = function (playing) {
       bgmToggleBtn.textContent = playing ? "🔈 เพลง" : "🔇 เพลง";
@@ -1036,6 +1051,14 @@
       setToggleLabel(true);
     };
 
+    bgmEl.addEventListener("ended", function () {
+      bgmCurrentTrack = pickNextTrack();
+      bgmEl.src = bgmCurrentTrack;
+      startPlaying();
+    });
+
+    bgmCurrentTrack = pickNextTrack();
+    bgmEl.src = bgmCurrentTrack;
     bgmEl.volume = 0;
     bgmEl.muted = true;
     bgmEl.play().catch(function () {});
