@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RUN MILE — สรุปทริป</title>
+<style>
+  /* Deliberate single-mood design: a dusk-to-sunset gradient that runs the whole page,
+     evoking "the trip is ending, the sun is setting on this campaign" — like the product's
+     own day/night sky, just permanently at golden hour. Kept single-theme on purpose
+     (same spirit as a neon arcade screen) since a pale light-mode version would undercut
+     the whole "closing chapter" mood this page exists to deliver. Colors/background are
+     painted explicitly so it holds correctly on any host theme regardless. */
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: #1b1533;
+    color: #fff6e8;
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", "Noto Sans Thai", sans-serif;
+  }
+  body { overflow-x: hidden; }
+
+  .mock-badge {
+    position: fixed; top: 14px; right: 14px; z-index: 50;
+    background: rgba(27, 21, 51, 0.85); border: 1px solid rgba(255, 216, 115, 0.4);
+    color: #ffd873; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em;
+    padding: 6px 12px; border-radius: 999px; backdrop-filter: blur(4px);
+  }
+
+  section { position: relative; padding: 90px 20px; overflow: hidden; }
+  .wrap { max-width: 880px; margin: 0 auto; position: relative; z-index: 2; }
+
+  /* ===== Hero ===== */
+  .hero {
+    min-height: 92vh; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center;
+    background:
+      radial-gradient(120% 90% at 50% 110%, rgba(255, 138, 92, 0.55), transparent 60%),
+      linear-gradient(180deg, #1b1533 0%, #3a2360 45%, #6a3f7a 75%, #a8506b 100%);
+  }
+  .hero-eyebrow {
+    font-size: 0.78rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #ffd873; margin-bottom: 18px;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 6vw, 3.6rem); font-weight: 800; margin: 0 0 6px; text-wrap: balance;
+    line-height: 1.15;
+  }
+  .hero .dates { color: #d9c8e8; font-size: 0.95rem; margin-bottom: 46px; }
+  .hero-number { font-size: clamp(3.4rem, 13vw, 7.2rem); font-weight: 900; line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    background: linear-gradient(180deg, #fff6e8, #ffd873);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-number-label { font-size: 1rem; color: #f0d9c0; margin-top: 6px; font-weight: 600; }
+  .hero-sun {
+    position: absolute; bottom: -120px; left: 50%; transform: translateX(-50%);
+    width: 440px; height: 440px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, #ffe9b8, #ffd873 45%, #ff8a5c 75%, transparent 78%);
+    opacity: 0.5; filter: blur(2px);
+  }
+  .scroll-cue { margin-top: 56px; font-size: 0.8rem; color: #d9c8e8; opacity: 0.8; }
+
+  h2.section-title {
+    font-size: clamp(1.3rem, 3vw, 1.7rem); font-weight: 800; text-align: center;
+    margin: 0 0 8px; text-wrap: balance;
+  }
+  p.section-lede { text-align: center; color: #d9c8e8; font-size: 0.92rem; margin: 0 0 48px; }
+
+  /* ===== Podium ===== */
+  .podium-section { background: linear-gradient(180deg, #a8506b 0%, #c96a52 100%); }
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: 14px; }
+  .podium-card {
+    flex: 1; max-width: 220px; background: rgba(255, 246, 232, 0.1); border: 1px solid rgba(255, 246, 232, 0.22);
+    border-radius: 20px 20px 10px 10px; padding: 22px 16px 20px; text-align: center; backdrop-filter: blur(6px);
+  }
+  .podium-card.gold { order: 2; transform: translateY(-22px); border-color: rgba(255, 216, 115, 0.6);
+    background: rgba(255, 216, 115, 0.14); }
+  .podium-card.silver { order: 1; }
+  .podium-card.bronze { order: 3; }
+  .podium-medal { font-size: 2.1rem; display: block; margin-bottom: 6px; }
+  .podium-name { font-weight: 800; font-size: 1.02rem; margin-bottom: 4px; }
+  .podium-km { font-variant-numeric: tabular-nums; font-weight: 900; font-size: 1.5rem; color: #ffd873; }
+  .podium-km span { font-size: 0.8rem; font-weight: 600; color: #f0d9c0; margin-left: 3px; }
+
+  /* ===== Leaderboard ===== */
+  .leader-section { background: linear-gradient(180deg, #c96a52 0%, #d98a4e 100%); }
+  .leader-list { display: flex; flex-direction: column; gap: 10px; }
+  .leader-row {
+    display: flex; align-items: center; gap: 14px; background: rgba(255, 246, 232, 0.12);
+    border: 1px solid rgba(255, 246, 232, 0.2); border-radius: 14px; padding: 12px 18px;
+  }
+  .leader-rank { font-weight: 900; font-size: 1.1rem; width: 28px; text-align: center; color: #ffd873; }
+  .leader-name { flex: 1; font-weight: 700; }
+  .leader-team { font-size: 0.76rem; color: #f0d9c0; font-weight: 600; }
+  .leader-km { font-variant-numeric: tabular-nums; font-weight: 800; }
+
+  /* ===== Fun stats ===== */
+  .stats-section { background: linear-gradient(180deg, #d98a4e 0%, #e8a24a 100%); }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .stat-tile {
+    background: rgba(27, 21, 51, 0.18); border: 1px solid rgba(255, 246, 232, 0.25);
+    border-radius: 16px; padding: 22px 20px;
+  }
+  .stat-tile .num { font-size: 1.9rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat-tile .label { font-size: 0.82rem; color: #3a2a1a; font-weight: 700; margin-top: 6px; }
+  .stat-tile .sub { font-size: 0.74rem; color: #5a4530; margin-top: 2px; }
+  .stats-section .stat-tile .num { color: #241a0d; }
+
+  /* ===== Visits chart ===== */
+  .chart-section { background: linear-gradient(180deg, #e8a24a 0%, #f0c265 100%); color: #2b2130; }
+  .chart-section h2, .chart-section p.section-lede { color: #2b2130; }
+  .chart-section p.section-lede { color: #5a4a30; }
+  .chart-card {
+    background: rgba(255, 246, 232, 0.55); border: 1px solid rgba(43, 33, 48, 0.12);
+    border-radius: 20px; padding: 24px 20px 12px;
+  }
+  .chart-svg { width: 100%; height: auto; display: block; }
+  .chart-peak-label { font-size: 0.7rem; font-weight: 700; fill: #2b2130; }
+
+  /* ===== Closing ===== */
+  .closing-section {
+    background: linear-gradient(180deg, #f0c265 0%, #fff6e8 100%); color: #2b2130;
+    text-align: center; padding-bottom: 120px;
+  }
+  .closing-section h2 { color: #2b2130; }
+  .closing-section p { color: #5a4a30; max-width: 52ch; margin: 0 auto; font-size: 0.98rem; line-height: 1.7; }
+  .closing-emoji { font-size: 2.6rem; margin-bottom: 14px; }
+
+  @media (max-width: 620px) {
+    .podium { flex-direction: column-reverse; align-items: stretch; }
+    .podium-card { max-width: none; }
+    .podium-card.gold { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-badge">🎨 ตัวอย่างมอคอัพ — ตัวเลขในหน้านี้เป็นข้อมูลสมมติ</div>
+
+<section class="hero">
+  <div class="hero-sun" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="hero-eyebrow">🏃 Run Mile · สรุปทริป 2 เดือน</div>
+    <h1>กรุงเทพฯ → เชียงราย<br />เดินทางไปด้วยกันตลอดแคมเปญ</h1>
+    <div class="dates">5 สิงหาคม — 30 กันยายน 2569</div>
+    <div class="hero-number">2,847</div>
+    <div class="hero-number-label">กิโลเมตรที่วิ่ง/เดินรวมกันทั้งบริษัท</div>
+    <div class="scroll-cue">เลื่อนลงดูสรุปทั้งหมด ↓</div>
+  </div>
+</section>
+
+<section class="podium-section">
+  <div class="wrap">
+    <h2 class="section-title">โพเดียมสุดท้าย</h2>
+    <p class="section-lede">3 ทีมที่ไปได้ไกลที่สุดตลอดแคมเปญ</p>
+    <div class="podium">
+      <div class="podium-card silver">
+        <span class="podium-medal">🥈</span>
+        <div class="podium-name">คลังสินค้า</div>
+        <div class="podium-km">932<span>กม.</span></div>
+      </div>
+      <div class="podium-card gold">
+        <span class="podium-medal">🥇</span>
+        <div class="podium-name">โรงงาน</div>
+        <div class="podium-km">1,105<span>กม.</span></div>
+      </div>
+      <div class="podium-card bronze">
+        <span class="podium-medal">🥉</span>
+        <div class="podium-name">ออฟฟิศสามย่าน</div>
+        <div class="podium-km">810<span>กม.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="leader-section">
+  <div class="wrap">
+    <h2 class="section-title">นักวิ่งยอดเยี่ยมรวมทั้งบริษัท</h2>
+    <p class="section-lede">ไม่แยกทีม — ใครวิ่งเยอะที่สุดในบรรดาทุกคน</p>
+    <div class="leader-list">
+      <div class="leader-row"><span class="leader-rank">1</span><span class="leader-name">ขาว ณัฐธิกา <span class="leader-team">โรงงาน</span></span><span class="leader-km">142.6 กม.</span></div>
+      <div class="leader-row"><span class="leader-rank">2</span><span class="leader-name">ปิ๊ก กัญญะวีชร์ <span class="leader-team">คลังสินค้า</span></span><span class="leader-km">128.3 กม.</span></div>
+      <div class="leader-row"><span class="leader-rank">3</span><span class="leader-name">โอม ปวัน <span class="leader-team">โรงงาน</span></span><span class="leader-km">119.9 กม.</span></div>
+      <div class="leader-row"><span class="leader-rank">4</span><span class="leader-name">วิท อรรถวิท <span class="leader-team">ออฟฟิศสามย่าน</span></span><span class="leader-km">104.5 กม.</span></div>
+      <div class="leader-row"><span class="leader-rank">5</span><span class="leader-name">พิม กชมน <span class="leader-team">โรงงาน</span></span><span class="leader-km">98.1 กม.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="stats-section">
+  <div class="wrap">
+    <h2 class="section-title">เกร็ดสนุกๆ ตลอดแคมเปญ</h2>
+    <p class="section-lede" style="color:#5a4530">ตัวเลขที่รวบรวมได้จากข้อมูลที่เก็บไว้ระหว่างทาง</p>
+    <div class="stats-grid">
+      <div class="stat-tile">
+        <div class="num">1,842</div>
+        <div class="label">ครั้งที่เข้าดูเว็บ</div>
+        <div class="sub">ตลอด 2 เดือน</div>
+      </div>
+      <div class="stat-tile">
+        <div class="num">21 ส.ค.</div>
+        <div class="label">วันที่คนเข้าเว็บเยอะสุด</div>
+        <div class="sub">217 ครั้งในวันเดียว</div>
+      </div>
+      <div class="stat-tile">
+        <div class="num">0.8 กม.</div>
+        <div class="label">ช่วงสูสีที่สุดของการแข่ง</div>
+        <div class="sub">โรงงาน vs คลังสินค้า · 3 ก.ย.</div>
+      </div>
+      <div class="stat-tile">
+        <div class="num">312</div>
+        <div class="label">หลักฐานที่ตรวจผ่านทั้งหมด</div>
+        <div class="sub">ยืนยันด้วย OCR อัตโนมัติ</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chart-section">
+  <div class="wrap">
+    <h2 class="section-title">ยอดเข้าเว็บตลอดแคมเปญ</h2>
+    <p class="section-lede">จากข้อมูลที่เก็บสะสมไว้ทุกวันตลอดทริป</p>
+    <div class="chart-card">
+      <svg class="chart-svg" viewBox="0 0 760 260" role="img" aria-label="กราฟยอดเข้าเว็บสะสมตลอดแคมเปญ">
+        <line x1="30" y1="20" x2="30" y2="220" stroke="#2b2130" stroke-opacity="0.18" />
+        <line x1="30" y1="220" x2="740" y2="220" stroke="#2b2130" stroke-opacity="0.18" />
+        <path d="M30,215 C120,205 160,180 220,160 C280,140 300,90 360,80 C420,70 460,60 520,45 C580,32 620,28 680,20 L680,220 L30,220 Z"
+          fill="url(#chartFill)" opacity="0.9" />
+        <path d="M30,215 C120,205 160,180 220,160 C280,140 300,90 360,80 C420,70 460,60 520,45 C580,32 620,28 680,20"
+          fill="none" stroke="#c96a52" stroke-width="4" stroke-linecap="round" />
+        <circle cx="680" cy="20" r="6" fill="#c96a52" stroke="#fff6e8" stroke-width="2" />
+        <defs>
+          <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#c96a52" stop-opacity="0.35" />
+            <stop offset="100%" stop-color="#c96a52" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        <text x="30" y="240" class="chart-peak-label">5 ส.ค.</text>
+        <text x="655" y="240" class="chart-peak-label">30 ก.ย.</text>
+        <text x="670" y="14" class="chart-peak-label">1,842</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="closing-section">
+  <div class="wrap">
+    <div class="closing-emoji">🎉</div>
+    <h2 class="section-title">ขอบคุณทุกก้าวที่วิ่งด้วยกัน</h2>
+    <p>จากออฟฟิศสามย่าน คลังสินค้า และโรงงาน — 2 เดือนที่ทุกคนช่วยกันสะสมระยะทาง จนพาเราวิ่งไปได้ไกลกว่าที่คิด แล้วเจอกันแคมเปญหน้า 🏃‍♂️🏃‍♀️</p>
+  </div>
+</section>
+
+</body>
+</html>
