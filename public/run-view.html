@@ -4,12 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Run Mile — เส้นทางวิ่งกรุงเทพฯ→เชียงราย</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<!-- Mitr: a rounded Thai+Latin geometric sans — closest real match to the "friendly rounded"
-     look the site was designed for (ui-rounded/SF Pro Rounded), but with actual Thai glyphs
-     instead of falling through to whatever plain system font a given OS happens to have. -->
-<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="shared.css" />
 <style>
   /* Each location gets its own independent map card — no shared canvas, so one team's
@@ -375,7 +369,6 @@
   .rank10-row .rn { flex: 1; min-width: 0; font-size: clamp(0.82rem, 1.25vw, 1.05rem); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rank10-row .rkm { font-size: clamp(0.82rem, 1.25vw, 1.05rem); font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .rank10-empty { font-size: 0.8rem; color: var(--ink-soft); text-align: center; padding: 20px 0; }
-  .rank10-foot { padding: 8px 18px 16px; font-size: 0.68rem; color: var(--ink-soft); text-align: center; border-top: 1px solid var(--card-border); }
 
   @media (max-width: 720px) {
     .rank10-sheet {
@@ -439,7 +432,6 @@
       </div>
       <div class="rank10-tabs" id="rank10Tabs"></div>
       <div class="rank10-body" id="rank10Body"></div>
-      <div class="rank10-foot">อัปเดตทุก 3 วินาทีเหมือนหน้าหลัก</div>
     </div>
 
     <!-- Both live inside .page (not as siblings of it) so they share .page's own
