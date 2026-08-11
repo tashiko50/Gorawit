@@ -5,6 +5,13 @@
   var POLL_MS = 3000;
   var SVG_NS = "http://www.w3.org/2000/svg";
 
+  // Sheet-sourced km values can carry long floating-point tails (e.g. item-bonus
+  // multipliers landing on 38.918...) — always display at most 2 decimal places,
+  // trimming trailing zeros so whole/1-decimal numbers stay clean (30, 30.16).
+  function fmtKm(km) {
+    return (Math.round(Number(km) * 100) / 100).toString();
+  }
+
   var gridEl = document.getElementById("teamMapsGrid");
   var titleEl = document.getElementById("boardTitle");
   var lastUpdatedEl = document.getElementById("lastUpdated");
@@ -577,14 +584,14 @@
     if (!refs) return;
     refs.card.style.setProperty("--accent", team.color);
     refs.nameEl.textContent = team.name;
-    refs.kmEl.textContent = team.km + " กม.";
+    refs.kmEl.textContent = fmtKm(team.km) + " กม.";
     refs.rankEl.textContent = S.rankBadgeText(currentRanks[team.id] || 1);
 
     var p = positionForKm(team.km);
     refs.runnerWrap.style.left = pctX(p.x);
     refs.runnerWrap.style.top = pctY(p.y);
     refs.runnerName.textContent = team.name;
-    refs.runnerKm.textContent = team.km + " กม.";
+    refs.runnerKm.textContent = fmtKm(team.km) + " กม.";
 
     /* The name+km tag is centered on the runner by default, but near the map's left/right
        edges (e.g. right at the start point) that centering pushes it past the frame's
@@ -694,7 +701,7 @@
       name.textContent = team.name;
       var km = document.createElement("span");
       km.className = "rank-km";
-      km.textContent = team.km + " กม.";
+      km.textContent = fmtKm(team.km) + " กม.";
       top.appendChild(medal);
       top.appendChild(name);
       top.appendChild(km);
@@ -760,7 +767,7 @@
         name.textContent = runner.name;
         var km = document.createElement("span");
         km.className = "top-team-runner-km";
-        km.textContent = runner.km + " กม.";
+        km.textContent = fmtKm(runner.km) + " กม.";
         row.appendChild(medal);
         row.appendChild(name);
         row.appendChild(km);
@@ -830,7 +837,7 @@
         rn.textContent = runner.name;
         var rkm = document.createElement("span");
         rkm.className = "rkm";
-        rkm.textContent = runner.km + " กม.";
+        rkm.textContent = fmtKm(runner.km) + " กม.";
         row.appendChild(rk);
         row.appendChild(rn);
         row.appendChild(rkm);
@@ -940,7 +947,7 @@
       rn.textContent = runner.name;
       var rkm = document.createElement("span");
       rkm.className = "rkm";
-      rkm.textContent = runner.km + " กม.";
+      rkm.textContent = fmtKm(runner.km) + " กม.";
       row.appendChild(rk);
       row.appendChild(rn);
       row.appendChild(rkm);
