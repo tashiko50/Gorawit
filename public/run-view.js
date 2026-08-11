@@ -1048,7 +1048,10 @@
       if (bgmReduceMotion) { bgmEl.volume = BGM_TARGET_VOLUME; return; }
       var start = performance.now();
       function step(now) {
-        var t = Math.min(1, (now - start) / BGM_FADE_MS);
+        // Clamped both ends: some browsers (seen in headless/automated runs) can hand the
+        // very first rAF callback a timestamp slightly *before* the performance.now() read
+        // above, which would otherwise push volume just under 0 and throw IndexSizeError.
+        var t = Math.min(1, Math.max(0, (now - start) / BGM_FADE_MS));
         bgmEl.volume = BGM_TARGET_VOLUME * t;
         if (t < 1 && !bgmEl.paused) requestAnimationFrame(step);
       }
