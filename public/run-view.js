@@ -22,6 +22,13 @@
   var clockDateEl = document.getElementById("clockDate");
   var bgmEl = document.getElementById("bgm");
   var bgmToggleBtn = document.getElementById("bgmToggle");
+  var top10ToggleBtn = document.getElementById("top10Toggle");
+  var rank10Backdrop = document.getElementById("rank10Backdrop");
+  var rank10Sheet = document.getElementById("rank10Sheet");
+  var rank10Tabs = document.getElementById("rank10Tabs");
+  var rank10Body = document.getElementById("rank10Body");
+  var rank10Close = document.getElementById("rank10Close");
+  var rank10ActiveTeamId = null;
 
   var route = null; // { waypoints, viewBox: {w,h}, finishKm }
   var routeD = "";
@@ -728,7 +735,7 @@
     topRunnersSummaryEl.innerHTML = "";
     var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
     sorted.forEach(function (team) {
-      var top3 = team.top3 || [];
+      var top3 = (team.topRunners || []).slice(0, 3);
       if (!top3.length) return;
       var block = document.createElement("div");
       block.className = "top-team-block";
@@ -757,6 +764,127 @@
     });
   }
 
+  /* Top 10 popup — same team data as the summary above, just the fuller list (up to 10
+     per team instead of 3) plus a mini podium for ranks 1-3. Rebuilt from scratch on every
+     poll (cheap: 3 teams x <=10 rows) so it's already fresh the moment someone opens it,
+     and stays live-updating for as long as they leave it open. */
+  function renderTop10Modal(teams) {
+    if (!rank10Body) return;
+    var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
+    rank10Body.innerHTML = "";
+    rank10Tabs.innerHTML = "";
+
+    if (rank10ActiveTeamId === null || !sorted.some(function (t) { return t.id === rank10ActiveTeamId; })) {
+      rank10ActiveTeamId = sorted.length ? sorted[0].id : null;
+    }
+
+    sorted.forEach(function (team) {
+      var runners = team.topRunners || [];
+
+      var tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "rank10-tab" + (team.id === rank10ActiveTeamId ? " is-active" : "");
+      tab.textContent = team.name;
+      tab.style.setProperty("--tint", team.color);
+      tab.dataset.teamId = team.id;
+      rank10Tabs.appendChild(tab);
+
+      var col = document.createElement("div");
+      col.className = "rank10-team-col" + (team.id === rank10ActiveTeamId ? " is-active" : "");
+      col.dataset.teamId = team.id;
+      col.style.setProperty("--tint", team.color);
+
+      var head = document.createElement("div");
+      head.className = "rank10-team-head";
+      var swatch = document.createElement("span");
+      swatch.className = "swatch";
+      head.appendChild(swatch);
+      head.appendChild(document.createTextNode(team.name));
+      col.appendChild(head);
+
+      if (!runners.length) {
+        var empty = document.createElement("div");
+        empty.className = "rank10-empty";
+        empty.textContent = "ยังไม่มีข้อมูลนักวิ่งรายบุคคลของทีมนี้";
+        col.appendChild(empty);
+        rank10Body.appendChild(col);
+        return;
+      }
+
+      var podium = document.createElement("div");
+      podium.className = "rank10-podium";
+      runners.slice(0, 3).forEach(function (runner, i) {
+        var chip = document.createElement("div");
+        chip.className = "pchip";
+        var medal = document.createElement("span");
+        medal.className = "medal";
+        medal.textContent = S.rankBadgeText(i + 1);
+        var pname = document.createElement("div");
+        pname.className = "pname";
+        pname.textContent = runner.name;
+        var pkm = document.createElement("div");
+        pkm.className = "pkm";
+        pkm.textContent = runner.km + " กม.";
+        chip.appendChild(medal);
+        chip.appendChild(pname);
+        chip.appendChild(pkm);
+        podium.appendChild(chip);
+      });
+      col.appendChild(podium);
+
+      var list = document.createElement("div");
+      list.className = "rank10-list";
+      runners.slice(3).forEach(function (runner, i) {
+        var row = document.createElement("div");
+        row.className = "rank10-row";
+        var rk = document.createElement("span");
+        rk.className = "rk";
+        rk.textContent = S.rankBadgeText(i + 4);
+        var rn = document.createElement("span");
+        rn.className = "rn";
+        rn.textContent = runner.name;
+        var rkm = document.createElement("span");
+        rkm.className = "rkm";
+        rkm.textContent = runner.km + " กม.";
+        row.appendChild(rk);
+        row.appendChild(rn);
+        row.appendChild(rkm);
+        list.appendChild(row);
+      });
+      col.appendChild(list);
+
+      rank10Body.appendChild(col);
+    });
+  }
+
+  function openRank10Modal() {
+    if (!rank10Backdrop) return;
+    renderTop10Modal(lastTeamsSnapshot);
+    rank10Backdrop.classList.add("active");
+    rank10Sheet.classList.add("active");
+  }
+
+  function closeRank10Modal() {
+    if (!rank10Backdrop) return;
+    rank10Backdrop.classList.remove("active");
+    rank10Sheet.classList.remove("active");
+  }
+
+  if (top10ToggleBtn) {
+    top10ToggleBtn.addEventListener("click", openRank10Modal);
+    rank10Close.addEventListener("click", closeRank10Modal);
+    rank10Backdrop.addEventListener("click", closeRank10Modal);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeRank10Modal();
+    });
+    rank10Tabs.addEventListener("click", function (e) {
+      var btn = e.target.closest(".rank10-tab");
+      if (!btn) return;
+      rank10ActiveTeamId = btn.dataset.teamId;
+      renderTop10Modal(lastTeamsSnapshot);
+    });
+  }
+
   function render(state) {
     titleEl.textContent = state.title;
     currentRanks = S.computeRanks(state.teams);
@@ -766,6 +894,7 @@
     reorderCards(state.teams);
     renderRankSummary(state.teams);
     renderTopRunnersSummary(state.teams);
+    if (rank10Sheet && rank10Sheet.classList.contains("active")) renderTop10Modal(state.teams);
     if (visitCountEl && typeof state.visitCount === "number") {
       visitCountEl.textContent = state.visitCount.toLocaleString("th-TH");
       // Math.floor(.../100) comparison catches crossing a hundred even if the count jumps

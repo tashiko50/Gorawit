@@ -316,6 +316,67 @@
   .runner.final-stretch .final-stretch-tag { display: inline-block; }
   @media (prefers-reduced-motion: reduce) { .runner.final-stretch .runner-badge { animation: none; } }
 
+  /* Top 10 popup — desktop shows all 3 teams side by side; below 720px there isn't room
+     for 3 columns, so it switches to one team at a time via colored tabs, same pattern the
+     mockup validated before this was built for real. */
+  .rank10-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(20, 30, 45, 0.5); z-index: 56;
+  }
+  .rank10-backdrop.active { display: block; }
+  .rank10-sheet {
+    display: none; position: fixed; z-index: 57; background: var(--card-bg); color: var(--ink);
+    left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, 92vw); max-height: 84vh;
+    border-radius: 20px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4); flex-direction: column; overflow: hidden;
+  }
+  .rank10-sheet.active { display: flex; }
+  .rank10-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; border-bottom: 1px solid var(--card-border); }
+  .rank10-head h2 { font-size: 1rem; font-weight: 900; margin: 0; flex: 1; }
+  .rank10-live { margin: 0; flex-shrink: 0; }
+  .rank10-close {
+    width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--toolbar-bg); color: var(--ink);
+    font-size: 0.9rem; font-weight: 800; cursor: pointer; flex-shrink: 0; line-height: 1;
+  }
+  .rank10-tabs { display: none; gap: 6px; padding: 12px 16px 0; }
+  .rank10-tab {
+    flex: 1; border: none; border-radius: 10px; padding: 8px 4px; font-size: 0.74rem; font-weight: 800; cursor: pointer;
+    background: var(--card-border); color: var(--ink-soft); font: inherit;
+  }
+  .rank10-tab.is-active { background: var(--tint); color: #fff; }
+  .rank10-body { flex: 1; overflow-y: auto; padding: 14px 18px 20px; display: flex; gap: 18px; }
+  .rank10-team-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rank10-team-head {
+    display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 900; color: var(--tint);
+    padding-bottom: 5px; border-bottom: 2px solid var(--tint);
+  }
+  .rank10-team-head .swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--tint); flex-shrink: 0; }
+  .rank10-podium { display: flex; gap: 6px; margin: 4px 0 2px; }
+  .rank10-podium .pchip {
+    flex: 1; min-width: 0; text-align: center; border-radius: 10px; padding: 8px 4px;
+    background: color-mix(in srgb, var(--tint) 12%, var(--card-bg)); border: 1px solid color-mix(in srgb, var(--tint) 35%, transparent);
+  }
+  .rank10-podium .medal { font-size: 1rem; display: block; }
+  .rank10-podium .pname { font-size: 0.66rem; font-weight: 800; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank10-podium .pkm { font-size: 0.72rem; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--tint); }
+  .rank10-list { display: flex; flex-direction: column; gap: 3px; }
+  .rank10-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 8px; }
+  .rank10-row:nth-child(odd) { background: color-mix(in srgb, var(--tint) 6%, transparent); }
+  .rank10-row .rk { width: 22px; text-align: center; font-size: 0.7rem; font-weight: 900; color: var(--ink-soft); flex-shrink: 0; }
+  .rank10-row .rn { flex: 1; min-width: 0; font-size: 0.78rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank10-row .rkm { font-size: 0.78rem; font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .rank10-empty { font-size: 0.8rem; color: var(--ink-soft); text-align: center; padding: 20px 0; }
+  .rank10-foot { padding: 8px 18px 16px; font-size: 0.68rem; color: var(--ink-soft); text-align: center; border-top: 1px solid var(--card-border); }
+
+  @media (max-width: 720px) {
+    .rank10-sheet {
+      left: 0; right: 0; bottom: 0; top: auto; transform: none; width: 100%; max-height: 88vh;
+      border-radius: 20px 20px 0 0;
+    }
+    .rank10-tabs { display: flex; }
+    .rank10-body { display: block; padding: 10px 16px 20px; }
+    .rank10-team-col { display: none; }
+    .rank10-team-col.is-active { display: flex; }
+  }
+
   /* Real local-time day/night tint on the map (separate from the random weather rotation) */
   .night-overlay { fill: #0b1734; opacity: 0; transition: opacity 4s ease; pointer-events: none; }
   .map-frame[data-night="night"] .night-overlay { opacity: 0.42; }
@@ -346,6 +407,7 @@
       <div class="page-links">
         <button type="button" class="page-links-btn" id="bgmToggle">🔈 เพลง</button>
         <button type="button" class="page-links-btn" id="kioskToggle">🖥️ โหมดจอทีวี</button>
+        <button type="button" class="page-links-btn" id="top10Toggle">🏆 Top 10</button>
       </div>
     </div>
 
@@ -356,6 +418,18 @@
     <div class="top-runners-summary" id="topRunnersSummary"></div>
 
     <div class="team-maps-grid" id="teamMapsGrid"></div>
+
+    <div class="rank10-backdrop" id="rank10Backdrop"></div>
+    <div class="rank10-sheet" id="rank10Sheet">
+      <div class="rank10-head">
+        <h2>🏆 Top 10 นักวิ่งแต่ละสถานที่</h2>
+        <span class="live-badge rank10-live"><span class="live-dot"></span>เรียลไทม์</span>
+        <button type="button" class="rank10-close" id="rank10Close" aria-label="ปิด">✕</button>
+      </div>
+      <div class="rank10-tabs" id="rank10Tabs"></div>
+      <div class="rank10-body" id="rank10Body"></div>
+      <div class="rank10-foot">อัปเดตทุก 3 วินาทีเหมือนหน้าหลัก</div>
+    </div>
 
     <!-- Both live inside .page (not as siblings of it) so they share .page's own
          stacking context with the enlarged .kiosk-active card — .page has its own
