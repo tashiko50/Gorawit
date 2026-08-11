@@ -811,35 +811,14 @@
         return;
       }
 
-      var podium = document.createElement("div");
-      podium.className = "rank10-podium";
-      runners.slice(0, 3).forEach(function (runner, i) {
-        var chip = document.createElement("div");
-        chip.className = "pchip";
-        var medal = document.createElement("span");
-        medal.className = "medal";
-        medal.textContent = S.rankBadgeText(i + 1);
-        var pname = document.createElement("div");
-        pname.className = "pname";
-        pname.textContent = runner.name;
-        var pkm = document.createElement("div");
-        pkm.className = "pkm";
-        pkm.textContent = runner.km + " กม.";
-        chip.appendChild(medal);
-        chip.appendChild(pname);
-        chip.appendChild(pkm);
-        podium.appendChild(chip);
-      });
-      col.appendChild(podium);
-
       var list = document.createElement("div");
       list.className = "rank10-list";
-      runners.slice(3).forEach(function (runner, i) {
+      runners.forEach(function (runner, i) {
         var row = document.createElement("div");
         row.className = "rank10-row";
         var rk = document.createElement("span");
         rk.className = "rk";
-        rk.textContent = S.rankBadgeText(i + 4);
+        rk.textContent = String(i + 1);
         var rn = document.createElement("span");
         rn.className = "rn";
         rn.textContent = runner.name;
