@@ -18,10 +18,6 @@
   var kioskHeader = document.getElementById("kioskHeader");
   var kioskTeamNameEl = document.getElementById("kioskTeamName");
   var kioskExitBtn = document.getElementById("kioskExit");
-  var kioskTop10Card = document.getElementById("kioskTop10Card");
-  var kioskTop10Body = document.getElementById("kioskTop10Body");
-  var kioskTop10TeamNameEl = document.getElementById("kioskTop10TeamName");
-  var kioskTop10KmEl = document.getElementById("kioskTop10Km");
   var clockTimeEl = document.getElementById("clockTime");
   var clockDateEl = document.getElementById("clockDate");
   var bgmEl = document.getElementById("bgm");
@@ -53,9 +49,7 @@
   var kioskIndex = 0;
   var kioskTimer = null;
   var kioskCurrentTeamId = null;
-  var kioskSlide = "map"; // "map" | "top10" — alternates per team before moving to the next one
-  var KIOSK_MAP_MS = 8000;
-  var KIOSK_TOP10_MS = 12000; // longer: 10 rows to scan vs. a glance at the map
+  var KIOSK_INTERVAL_MS = 12000; // longer than the old map-only 8s: there's a Top 10 list to read now too
 
   function pctX(x, chapter) { return (x / chapter.viewBox.w * 100) + "%"; }
   function pctY(y, chapter) { return (y / chapter.viewBox.h * 100) + "%"; }
@@ -598,17 +592,23 @@
     var stamps = document.createElement("div");
     stamps.className = "team-map-stamps";
 
+    // Hidden outside kiosk mode (see .kiosk-names-inline in run-view.html) — replaces the
+    // roster-bar-track's spot on the big TV screen with that team's own Top 10 list instead.
+    var kioskNames = document.createElement("div");
+    kioskNames.className = "kiosk-names-inline";
+
     card.appendChild(header);
     card.appendChild(frame);
     card.appendChild(place);
     card.appendChild(barTrack);
+    card.appendChild(kioskNames);
     card.appendChild(stamps);
 
     var refs = {
       card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,
       pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
       dustEls: dustEls, stampsEl: stamps, stampChips: [], vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
-      lastPlace: null, teamId: team.id, chapter: null
+      lastPlace: null, teamId: team.id, chapter: null, kioskNamesEl: kioskNames
     };
 
     if (chapters.length) {
@@ -997,7 +997,11 @@
     renderRankSummary(state.teams);
     renderTopRunnersSummary(state.teams);
     if (rank10Sheet && rank10Sheet.classList.contains("active")) renderTop10Modal(state.teams);
-    if (kioskActive && kioskSlide === "top10" && state.teams[kioskIndex]) renderKioskTop10(state.teams[kioskIndex]);
+    if (kioskActive && kioskCurrentTeamId) {
+      var kioskRefs = cardRefs.get(kioskCurrentTeamId);
+      var kioskTeam = state.teams.find(function (t) { return t.id === kioskCurrentTeamId; });
+      if (kioskRefs && kioskTeam) renderCardTop10(kioskRefs, kioskTeam);
+    }
     if (visitCountEl && typeof state.visitCount === "number") {
       visitCountEl.textContent = state.visitCount.toLocaleString("th-TH");
       // Math.floor(.../100) comparison catches crossing a hundred even if the count jumps
@@ -1029,25 +1033,23 @@
   }
 
   /* Kiosk/TV mode blows up one team's actual card in place (a class toggle, not a
-     reparent), then — same fixed envelope, another class toggle — shows that team's own
-     Top 10 as a second slide, before moving to the next team. Uses a recursive setTimeout
-     rather than one fixed-interval timer since the two slide kinds run different durations. */
-  function renderKioskTop10(team) {
-    kioskTop10Card.style.setProperty("--tint", team.color);
-    kioskTop10TeamNameEl.textContent = team.name;
-    kioskTop10KmEl.textContent = team.km;
-    kioskTop10Body.innerHTML = "";
+     reparent) — the card's own .kiosk-names-inline (see run-view.html) fills in for the
+     roster-bar-track on that big screen, showing this team's Top 10 instead of a bare
+     progress percentage — then cycles to the next team on a timer. */
+  function renderCardTop10(refs, team) {
+    var body = refs.kioskNamesEl;
+    body.innerHTML = "";
     var runners = team.topRunners || [];
     if (!runners.length) {
       var empty = document.createElement("div");
-      empty.className = "kiosk-top10-empty";
+      empty.className = "kiosk-names-empty";
       empty.textContent = "ยังไม่มีข้อมูลนักวิ่งรายบุคคลของทีมนี้";
-      kioskTop10Body.appendChild(empty);
+      body.appendChild(empty);
       return;
     }
     runners.forEach(function (runner, i) {
       var row = document.createElement("div");
-      row.className = "kiosk-top10-row";
+      row.className = "kiosk-names-row";
       var rk = document.createElement("span");
       rk.className = "rk";
       rk.textContent = String(i + 1);
@@ -1060,44 +1062,24 @@
       row.appendChild(rk);
       row.appendChild(rn);
       row.appendChild(rkm);
-      kioskTop10Body.appendChild(row);
+      body.appendChild(row);
     });
   }
 
-  function showKioskSlide() {
-    var team = lastTeamsSnapshot[kioskIndex];
+  function showKioskTeam(i) {
+    var team = lastTeamsSnapshot[i];
     if (!team) return;
-
     if (kioskCurrentTeamId) {
       var prevRefs = cardRefs.get(kioskCurrentTeamId);
       if (prevRefs) prevRefs.card.classList.remove("kiosk-active");
     }
-    kioskTop10Card.classList.remove("active");
-
-    if (kioskSlide === "map") {
-      var refs = cardRefs.get(team.id);
-      if (refs) refs.card.classList.add("kiosk-active");
-      kioskCurrentTeamId = team.id;
-    } else {
-      kioskCurrentTeamId = null;
-      renderKioskTop10(team);
-      kioskTop10Card.classList.add("active");
+    var refs = cardRefs.get(team.id);
+    if (refs) {
+      refs.card.classList.add("kiosk-active");
+      renderCardTop10(refs, team);
     }
-    kioskTeamNameEl.textContent = team.name + (kioskSlide === "top10" ? " · 🏆 Top 10" : "");
-  }
-
-  function scheduleNextKioskSlide() {
-    var ms = kioskSlide === "map" ? KIOSK_MAP_MS : KIOSK_TOP10_MS;
-    kioskTimer = setTimeout(function () {
-      if (kioskSlide === "map") {
-        kioskSlide = "top10";
-      } else {
-        kioskSlide = "map";
-        kioskIndex = (kioskIndex + 1) % lastTeamsSnapshot.length;
-      }
-      showKioskSlide();
-      scheduleNextKioskSlide();
-    }, ms);
+    kioskCurrentTeamId = team.id;
+    kioskTeamNameEl.textContent = team.name;
   }
 
   function startKiosk() {
@@ -1106,17 +1088,18 @@
     kioskBackdrop.classList.add("active");
     kioskHeader.classList.add("active");
     kioskIndex = 0;
-    kioskSlide = "map";
-    showKioskSlide();
-    scheduleNextKioskSlide();
+    showKioskTeam(kioskIndex);
+    kioskTimer = setInterval(function () {
+      kioskIndex = (kioskIndex + 1) % lastTeamsSnapshot.length;
+      showKioskTeam(kioskIndex);
+    }, KIOSK_INTERVAL_MS);
   }
 
   function stopKiosk() {
     kioskActive = false;
-    clearTimeout(kioskTimer);
+    clearInterval(kioskTimer);
     kioskBackdrop.classList.remove("active");
     kioskHeader.classList.remove("active");
-    kioskTop10Card.classList.remove("active");
     if (kioskCurrentTeamId) {
       var refs = cardRefs.get(kioskCurrentTeamId);
       if (refs) refs.card.classList.remove("kiosk-active");

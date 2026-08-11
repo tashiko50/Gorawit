@@ -287,15 +287,18 @@
     width: min(94vw, calc(94vh * 16 / 9)); aspect-ratio: 16 / 9;
     z-index: 60; background: var(--card-bg); border-radius: 24px; overflow: hidden;
     padding: 28px 40px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
-    display: grid; column-gap: 44px; row-gap: 10px; justify-content: center; align-content: center;
+    display: grid; column-gap: 44px; row-gap: 8px; justify-content: center; align-content: center;
     grid-template-columns: auto minmax(300px, 460px);
-    grid-template-rows: auto 1fr 1fr 1fr;
-    grid-template-areas: "header header" "frame  place" "frame  bar" "frame  stamps";
+    grid-template-rows: auto 1fr 3fr 1fr;
+    grid-template-areas: "header header" "frame  place" "frame  names" "frame  stamps";
   }
   .kiosk-active .team-map-header { grid-area: header; align-self: end; }
   .kiosk-active .map-frame { grid-area: frame; width: auto; height: 100%; justify-self: start; }
   .kiosk-active .team-map-place { grid-area: place; align-self: center; }
-  .kiosk-active .roster-bar-track { grid-area: bar; align-self: center; height: 16px; }
+  /* The regular roster progress bar is swapped out for that team's own Top 10 list on the
+     big kiosk screen — more useful to read from across a room than a bare percentage. */
+  .kiosk-active .roster-bar-track { display: none; }
+  .kiosk-active .kiosk-names-inline { display: flex; grid-area: names; }
   .kiosk-active .team-map-stamps { grid-area: stamps; align-self: center; }
   .kiosk-active .team-map-name { font-size: 1.8rem; }
   .kiosk-active .team-map-km { font-size: 1.8rem; }
@@ -303,32 +306,15 @@
   .kiosk-active .team-map-place { font-size: 1.2rem; }
   .kiosk-active .stamp-chip { width: 34px; height: 34px; font-size: 0.9rem; }
 
-  /* Second kiosk slide — same fixed envelope/sizing as .team-map-card.kiosk-active (see
-     above) so the swap between "map" and "Top 10" slides never shifts or resizes anything,
-     just a straight class toggle between the two fixed-position elements. */
-  .kiosk-top10-card {
-    display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: min(94vw, calc(94vh * 16 / 9)); aspect-ratio: 16 / 9; z-index: 60;
-    background: var(--card-bg); border-radius: 24px; overflow: hidden;
-    padding: clamp(20px, 3vw, 34px) clamp(28px, 4vw, 52px) clamp(16px, 2vw, 26px);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5); flex-direction: column;
-  }
-  .kiosk-top10-card.active { display: flex; }
-  .kiosk-top10-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 6px; }
-  .kiosk-top10-title { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-  .kiosk-top10-title .trophy { font-size: clamp(1.4rem, 2.6vw, 1.9rem); }
-  .kiosk-top10-title h2 { margin: 0; font-size: clamp(1.3rem, 2.6vw, 2rem); font-weight: 900; color: var(--tint, var(--accent-deep)); }
-  .kiosk-top10-teamkm { font-size: clamp(0.9rem, 1.6vw, 1.15rem); font-weight: 800; color: var(--ink-soft); flex-shrink: 0; white-space: nowrap; }
-  .kiosk-top10-cols {
-    flex: 1; display: grid; grid-auto-flow: column; grid-template-rows: repeat(5, auto);
-    align-content: center; gap: clamp(8px, 1.4vh, 14px) clamp(24px, 3vw, 48px);
-  }
-  .kiosk-top10-row { display: flex; align-items: center; gap: clamp(10px, 1.4vw, 18px); padding: clamp(8px, 1.4vh, 16px) clamp(10px, 1.4vw, 18px); border-radius: 14px; }
-  .kiosk-top10-row:nth-child(odd) { background: color-mix(in srgb, var(--tint, var(--accent)) 8%, transparent); }
-  .kiosk-top10-row .rk { width: clamp(24px, 2.2vw, 34px); text-align: center; font-size: clamp(1rem, 1.8vw, 1.5rem); font-weight: 900; color: var(--ink-soft); flex-shrink: 0; }
-  .kiosk-top10-row .rn { flex: 1; min-width: 0; font-size: clamp(1rem, 1.8vw, 1.5rem); font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .kiosk-top10-row .rkm { font-size: clamp(1rem, 1.8vw, 1.5rem); font-weight: 900; font-variant-numeric: tabular-nums; color: var(--tint, var(--accent-deep)); flex-shrink: 0; }
-  .kiosk-top10-empty { grid-column: 1 / -1; align-self: center; text-align: center; font-size: 1rem; color: var(--ink-soft); }
+  /* Hidden outside kiosk mode (see .kiosk-active rule above) — each card carries its own
+     copy so swapping teams is just toggling which card has .kiosk-active, no rebuilding. */
+  .kiosk-names-inline { display: none; flex-direction: column; gap: 2px; overflow-y: auto; height: 100%; }
+  .kiosk-names-row { display: flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 8px; flex-shrink: 0; }
+  .kiosk-names-row:nth-child(odd) { background: color-mix(in srgb, var(--accent, #4a90d9) 8%, transparent); }
+  .kiosk-names-row .rk { width: 20px; text-align: center; font-size: clamp(0.6rem, 1vw, 0.85rem); font-weight: 900; color: var(--ink-soft); flex-shrink: 0; }
+  .kiosk-names-row .rn { flex: 1; min-width: 0; font-size: clamp(0.64rem, 1.05vw, 0.9rem); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kiosk-names-row .rkm { font-size: clamp(0.64rem, 1.05vw, 0.9rem); font-weight: 900; font-variant-numeric: tabular-nums; color: var(--accent-deep); flex-shrink: 0; }
+  .kiosk-names-empty { font-size: 0.78rem; color: var(--ink-soft); text-align: center; padding: 10px 0; }
 
   /* Final stretch — last 50km before Chiang Rai gets a golden glow + a small callout */
   .runner.final-stretch .runner-badge { animation: final-stretch-glow 1.2s ease-in-out infinite; }
@@ -461,20 +447,6 @@
     <div class="kiosk-header" id="kioskHeader">
       <span id="kioskTeamName"></span>
       <button type="button" class="kiosk-exit-btn" id="kioskExit">✕ ออกจากโหมดจอทีวี</button>
-    </div>
-
-    <!-- Second slide the kiosk rotation shows per team, right after that team's map —
-         same fixed-position/size envelope as .team-map-card.kiosk-active so swapping
-         between the two never shifts or reflows anything on screen. -->
-    <div class="kiosk-top10-card" id="kioskTop10Card">
-      <div class="kiosk-top10-head">
-        <div class="kiosk-top10-title">
-          <span class="trophy">🏆</span>
-          <h2>Top 10 ระยะทางสะสม</h2>
-        </div>
-        <div class="kiosk-top10-teamkm"><span id="kioskTop10TeamName"></span> · <span id="kioskTop10Km"></span> กม.</div>
-      </div>
-      <div class="kiosk-top10-cols" id="kioskTop10Body"></div>
     </div>
   </div>
 
