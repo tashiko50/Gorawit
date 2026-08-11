@@ -1066,8 +1066,16 @@
     });
   }
 
+  /* Re-sorted fresh on every call (not cached) so the rotation always reflects whoever is
+     actually in 1st/2nd/3rd right now — if two teams swap places mid-rotation, the very
+     next slide change already picks up the new order instead of waiting for a full lap. */
+  function kioskRankedTeams() {
+    return lastTeamsSnapshot.slice().sort(function (a, b) { return b.km - a.km; });
+  }
+
   function showKioskTeam(i) {
-    var team = lastTeamsSnapshot[i];
+    var ranked = kioskRankedTeams();
+    var team = ranked[i];
     if (!team) return;
     if (kioskCurrentTeamId) {
       var prevRefs = cardRefs.get(kioskCurrentTeamId);
@@ -1079,7 +1087,7 @@
       renderCardTop10(refs, team);
     }
     kioskCurrentTeamId = team.id;
-    kioskTeamNameEl.textContent = team.name;
+    kioskTeamNameEl.textContent = S.rankBadgeText(i + 1) + " " + team.name;
   }
 
   function startKiosk() {
