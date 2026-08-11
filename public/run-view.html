@@ -338,7 +338,7 @@
   .rank10-backdrop.active { display: block; }
   .rank10-sheet {
     display: none; position: fixed; z-index: 57; background: var(--card-bg); color: var(--ink);
-    left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, 92vw); max-height: 84vh;
+    left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(1000px, 92vw); max-height: 84vh;
     border-radius: 20px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4); flex-direction: column; overflow: hidden;
   }
   .rank10-sheet.active { display: flex; }
@@ -362,12 +362,12 @@
     padding-bottom: 5px; border-bottom: 2px solid var(--tint);
   }
   .rank10-team-head .swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--tint); flex-shrink: 0; }
-  .rank10-list { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
-  .rank10-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 8px; }
+  .rank10-list { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+  .rank10-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; }
   .rank10-row:nth-child(odd) { background: color-mix(in srgb, var(--tint) 6%, transparent); }
-  .rank10-row .rk { width: 22px; text-align: center; font-size: 0.7rem; font-weight: 900; color: var(--ink-soft); flex-shrink: 0; }
-  .rank10-row .rn { flex: 1; min-width: 0; font-size: 0.78rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rank10-row .rkm { font-size: 0.78rem; font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .rank10-row .rk { width: clamp(22px, 2vw, 30px); text-align: center; font-size: clamp(0.72rem, 1.1vw, 0.95rem); font-weight: 900; color: var(--ink-soft); flex-shrink: 0; }
+  .rank10-row .rn { flex: 1; min-width: 0; font-size: clamp(0.82rem, 1.25vw, 1.05rem); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank10-row .rkm { font-size: clamp(0.82rem, 1.25vw, 1.05rem); font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .rank10-empty { font-size: 0.8rem; color: var(--ink-soft); text-align: center; padding: 20px 0; }
   .rank10-foot { padding: 8px 18px 16px; font-size: 0.68rem; color: var(--ink-soft); text-align: center; border-top: 1px solid var(--card-border); }
 
