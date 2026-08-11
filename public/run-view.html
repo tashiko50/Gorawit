@@ -336,6 +336,17 @@
     display: none; position: fixed; inset: 0; background: rgba(20, 30, 45, 0.5); z-index: 56;
   }
   .rank10-backdrop.active { display: block; }
+
+  /* .visit-badge lives outside .page as a page-level sibling with its own z-index, so
+     it stacks above .page's ENTIRE subtree regardless of how high a z-index something
+     inside .page (like this sheet, or the kiosk card) sets on itself — the exact trap
+     the .kiosk-header comment above describes, just from the opposite direction. It's
+     non-interactive (pointer-events: none) either way, so simplest fix is just to hide
+     it while either full-screen overlay is up instead of fighting the stacking context. */
+  body:has(.rank10-sheet.active) .visit-badge,
+  body:has(.kiosk-backdrop.active) .visit-badge {
+    display: none;
+  }
   .rank10-sheet {
     display: none; position: fixed; z-index: 57; background: var(--card-bg); color: var(--ink);
     left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(1000px, 92vw); max-height: 84vh;
