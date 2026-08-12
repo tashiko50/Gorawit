@@ -1,8 +1,10 @@
 const express = require("express");
+const compression = require("compression");
 const path = require("path");
 const crypto = require("crypto");
 
 const app = express();
+app.use(compression());
 
 const MAX_EVENTS = 60;
 const KM_PER_LEVEL = 20;
@@ -356,6 +358,10 @@ app.get("/run-view.html", (req, res, next) => {
   next();
 });
 
+// bgm tracks barely ever change, so let browsers cache them for a week instead of
+// re-checking with the server on every page load — if a track is ever swapped out,
+// rename the file (e.g. track2-v2.mp3) so the new one isn't shadowed by the old cache.
+app.use("/audio", express.static(path.join(__dirname, "public", "audio"), { maxAge: "7d" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/state", (req, res) => {
