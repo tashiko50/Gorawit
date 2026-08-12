@@ -2,7 +2,7 @@
   "use strict";
 
   var S = window.Scoreboard;
-  var POLL_MS = 3000;
+  var POLL_MS = 12000; // the sheet itself only refreshes every 20s server-side, so polling faster than that just re-fetches the same data
   var SVG_NS = "http://www.w3.org/2000/svg";
 
   // Sheet-sourced km values can carry long floating-point tails (e.g. item-bonus
