@@ -7,8 +7,9 @@ an account with permission to create resources in the target project.
 
 ## What you'll need before starting
 
-- A GCP project with billing enabled (ask whoever sets up the company account
-  for the project ID, e.g. `tdfb-run-mile`)
+- A GCP project with billing enabled — the company project ID is
+  `sbx-gorawit` (already set up, with Cloud Run / Cloud Build / Artifact
+  Registry / Logging / Monitoring APIs enabled)
 - `gcloud` CLI installed locally, or use Cloud Shell in the GCP Console (no
   local install needed — everything below works there too)
 - The same environment variable values currently set on Render (check the
@@ -26,10 +27,10 @@ an account with permission to create resources in the target project.
 ```bash
 # Log in and pick the project
 gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
+gcloud config set project sbx-gorawit
 
-# Enable the required APIs (only needs to run once per project)
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com
+# APIs are already enabled on this project — no need to run
+# `gcloud services enable ...` unless a future feature needs a new one.
 ```
 
 ## Deploy
@@ -68,6 +69,13 @@ Notes on the flags:
 The command prints a `*.run.app` URL when it finishes — that's the new
 site address. Point the company's usual short link / any bookmarks at it
 once confirmed working.
+
+Budget note: the project has a ~฿1,000/month budget with alerts at
+50/90/100% — these are notifications only, not an automatic cutoff. Cloud
+Run itself costs nothing while idle (no traffic = no charge), so this
+deploy alone won't burn the budget. Only worry about turning things off if
+some other resource (a Compute Engine VM, Cloud SQL, etc.) gets created
+and left running — Cloud Run isn't that kind of resource.
 
 ## After deploying
 
