@@ -26,6 +26,15 @@ const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 20 * 1000;
 // (works, just resets on every cold start).
 const VISIT_COUNTER_URL = process.env.VISIT_COUNTER_URL || "";
 
+// Same Apps Script Web App, different query param — returns name/team/km/submissions/streak
+// per person, computed straight from the private "ตรวจสอบภายใน" sheet. Reuses
+// VISIT_COUNTER_URL instead of a separate env var since it's the same deployment; this call
+// never increments the visit counter (Code.gs branches on ?action=roster before touching it).
+// Missing VISIT_COUNTER_URL just means the roster stays empty — the personal-search feature
+// quietly has nothing to show instead of erroring.
+const ROSTER_URL = VISIT_COUNTER_URL ? `${VISIT_COUNTER_URL}?action=roster` : "";
+const ROSTER_POLL_MS = Number(process.env.ROSTER_POLL_MS) || 30 * 1000;
+
 // Open-Meteo — free, no API key needed, supports current weather for many lat/lon pairs
 // in a single request. Weather doesn't need to track km changes, so this polls on its
 // own, much slower interval.
@@ -160,7 +169,8 @@ function defaultState() {
       makeTeam("t3", "โรงงาน", PALETTE[2])
     ],
     events: [],
-    visitCount: 0
+    visitCount: 0,
+    roster: []
   };
 }
 
@@ -299,6 +309,23 @@ async function refreshFromSheet() {
   }
 }
 
+let rosterSyncOk = false;
+
+async function refreshRoster() {
+  if (!ROSTER_URL) return; // no Apps Script URL configured — feature just stays empty, not broken
+  try {
+    const res = await fetch(ROSTER_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("roster response was not an array");
+    state.roster = data;
+    rosterSyncOk = true;
+  } catch (e) {
+    rosterSyncOk = false;
+    console.error("Run Mile: failed to refresh roster —", e.message);
+  }
+}
+
 let weatherByPlace = {};
 
 // แม่สาย appears in both arrays (chapter 1's last stop, chapter 2's first) — harmless
@@ -381,6 +408,10 @@ app.get("/api/sheet-sync", (req, res) => {
   res.json({ ok: sheetSyncOk, lastSyncAt: sheetSyncAt });
 });
 
+app.get("/api/roster", (req, res) => {
+  res.json(state.roster);
+});
+
 app.get("/api/weather", (req, res) => {
   res.json(weatherByPlace);
 });
@@ -392,4 +423,6 @@ app.listen(PORT, () => {
   setInterval(refreshFromSheet, SHEET_POLL_MS);
   refreshWeather();
   setInterval(refreshWeather, WEATHER_POLL_MS);
+  refreshRoster();
+  setInterval(refreshRoster, ROSTER_POLL_MS);
 });

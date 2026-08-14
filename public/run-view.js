@@ -31,6 +31,16 @@
   var rank10Body = document.getElementById("rank10Body");
   var rank10Close = document.getElementById("rank10Close");
   var rank10ActiveTeamId = null;
+  var searchToggleBtn = document.getElementById("searchToggle");
+  var searchBackdrop = document.getElementById("searchBackdrop");
+  var searchSheet = document.getElementById("searchSheet");
+  var searchClose = document.getElementById("searchClose");
+  var searchInput = document.getElementById("searchInput");
+  var searchSuggest = document.getElementById("searchSuggest");
+  var searchHint = document.getElementById("searchHint");
+  var searchView = document.getElementById("searchView");
+  var searchResultView = document.getElementById("searchResultView");
+  var lastRoster = []; // latest roster array from /api/state, refreshed every poll
 
   // Each entry: { id, label, waypoints, viewBox: {w,h}, finishKm, startKm, routeD,
   // routeSegments, pinOffsets, subTicks } — a team resolves to whichever chapter its own
@@ -976,6 +986,138 @@
     });
   }
 
+  /* ===== "ค้นหาอันดับของฉัน" — search a person's own stats within their team =====
+     Data comes from lastRoster (see render(), cached from /api/state on every poll), which
+     the server fills from the private "ตรวจสอบภายใน" sheet via the same Apps Script Web App
+     the visit counter already uses (?action=roster) — see server.js and Code.gs. Rank/gap
+     are computed here client-side rather than server-side so results update instantly as
+     the user types, same as the validated mockup. */
+
+  function searchTeamStats(person) {
+    var mates = lastRoster.filter(function (p) { return p.team === person.team; })
+      .sort(function (a, b) { return b.km - a.km; });
+    var rank = mates.findIndex(function (p) { return p.name === person.name; }) + 1;
+    var above = rank > 1 ? mates[rank - 2] : null;
+    var gap = above ? Math.round((above.km - person.km) * 10) / 10 : 0;
+    var leaderKm = mates.length ? mates[0].km : 0;
+    var pct = leaderKm > 0 ? Math.max(6, Math.min(100, Math.round((person.km / leaderKm) * 100))) : 6;
+    return { rank: rank, teamSize: mates.length, above: above, gap: gap, pct: pct };
+  }
+
+  function searchMedalFor(rank) {
+    return rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+  }
+
+  function searchFirstName(fullName) { return String(fullName || "").split(" ")[0]; }
+
+  function searchResultHtml(person) {
+    var s = searchTeamStats(person);
+    var medal = searchMedalFor(s.rank);
+    var badgeHtml = medal ? '<span class="search-avatar-medal">' + medal + "</span>" : "";
+    var teamLine = "ทีม" + person.team +
+      (!medal && s.rank >= 4 && s.rank <= 10 ? ' <span class="search-top10-pill">🏆 Top 10 ทีม</span>' : "");
+    var progressLabel = s.rank <= 1
+      ? "🎉 เป็นอันดับ 1 ของทีมตอนนี้!"
+      : "อีก " + s.gap + " กม. จะแซงอันดับที่ " + (s.rank - 1) + " ของทีม" + (s.above ? " (" + searchFirstName(s.above.name) + ")" : "");
+    var streakHtml = person.streak > 0
+      ? '<div class="search-streak">🔥 ส่งหลักฐานติดต่อกัน ' + person.streak + " วัน</div>"
+      : '<div class="search-streak is-inactive">📭 ยังไม่มี streak ติดต่อกัน — ส่งวันนี้เพื่อเริ่มนับ!</div>';
+
+    return (
+      '<div class="search-result-person">' +
+        '<div class="search-result-avatar">🏃' + badgeHtml + "</div>" +
+        "<div><div class=\"search-result-name\">" + person.name + '</div><div class="search-result-team">' + teamLine + "</div></div>" +
+      "</div>" +
+      '<div class="search-stat-grid">' +
+        '<div class="search-stat"><div class="search-stat-num">' + fmtKm(person.km) + '</div><div class="search-stat-label">กม. สะสมรวม</div></div>' +
+        '<div class="search-stat"><div class="search-stat-num">#' + (s.rank || "-") + '</div><div class="search-stat-label">อันดับของทีม' + person.team + '</div></div>' +
+        '<div class="search-stat"><div class="search-stat-num">' + (person.submissions || 0) + '</div><div class="search-stat-label">ครั้งที่ส่งหลักฐานมาแล้ว</div></div>' +
+      "</div>" +
+      '<div class="search-progress">' +
+        '<div class="search-prog-track"><div class="search-prog-fill" style="width:' + s.pct + '%"></div>' +
+        '<div class="search-prog-runner" style="left:' + s.pct + '%">🏃</div></div>' +
+        '<div class="search-progress-label">' + progressLabel + "</div>" +
+      "</div>" +
+      streakHtml
+    );
+  }
+
+  function searchSuggestRowHtml(person, q) {
+    var idx = person.name.indexOf(q);
+    var before = person.name.slice(0, idx), match = person.name.slice(idx, idx + q.length), after = person.name.slice(idx + q.length);
+    return (
+      '<div class="search-suggest-row" data-name="' + person.name.replace(/"/g, "&quot;") + '">' +
+        '<div class="search-suggest-avatar">🏃</div>' +
+        '<div class="search-suggest-name">' + before + "<mark>" + match + "</mark>" + after + "</div>" +
+        '<div class="search-suggest-team">' + person.team + "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderSearchSuggestions() {
+    var q = searchInput.value.trim();
+    if (!q) {
+      searchSuggest.innerHTML = "";
+      searchHint.hidden = false;
+      searchHint.textContent = lastRoster.length ? "พิมพ์ชื่อเล่นด้านบนเพื่อเริ่มค้นหา" : "ยังโหลดรายชื่อไม่สำเร็จ ลองใหม่อีกครั้งภายหลัง";
+      return;
+    }
+    var matches = lastRoster.filter(function (p) { return p.name.indexOf(q) !== -1; }).slice(0, 6);
+    if (!matches.length) {
+      searchSuggest.innerHTML = "";
+      searchHint.hidden = false;
+      searchHint.textContent = "ไม่พบชื่อนี้ ลองพิมพ์คำอื่นหรือสะกดแบบอื่น";
+      return;
+    }
+    searchHint.hidden = true;
+    searchSuggest.innerHTML = matches.map(function (p) { return searchSuggestRowHtml(p, q); }).join("");
+    Array.prototype.forEach.call(searchSuggest.querySelectorAll(".search-suggest-row"), function (row) {
+      row.addEventListener("click", function () { selectSearchPerson(row.getAttribute("data-name")); });
+    });
+  }
+
+  function selectSearchPerson(name) {
+    var person = lastRoster.find(function (p) { return p.name === name; });
+    if (!person) return;
+    searchResultView.innerHTML = searchResultHtml(person);
+    searchView.hidden = true;
+    searchResultView.hidden = false;
+  }
+
+  function openSearchModal() {
+    if (!searchBackdrop) return;
+    searchBackdrop.classList.add("active");
+    searchSheet.classList.add("active");
+    searchInput.value = "";
+    searchView.hidden = false;
+    searchResultView.hidden = true;
+    searchResultView.innerHTML = "";
+    renderSearchSuggestions();
+    searchInput.focus();
+  }
+
+  function closeSearchModal() {
+    if (!searchBackdrop) return;
+    searchBackdrop.classList.remove("active");
+    searchSheet.classList.remove("active");
+  }
+
+  if (searchToggleBtn) {
+    searchToggleBtn.addEventListener("click", openSearchModal);
+    searchClose.addEventListener("click", closeSearchModal);
+    searchBackdrop.addEventListener("click", closeSearchModal);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeSearchModal();
+    });
+    searchInput.addEventListener("input", renderSearchSuggestions);
+    searchInput.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      var q = searchInput.value.trim();
+      var matches = lastRoster.filter(function (p) { return p.name.indexOf(q) !== -1; });
+      if (matches.length === 1) selectSearchPerson(matches[0].name);
+    });
+  }
+
   function render(state) {
     titleEl.textContent = state.title;
     currentRanks = S.computeRanks(state.teams);
@@ -986,6 +1128,7 @@
     renderRankSummary(state.teams);
     renderTopRunnersSummary(state.teams);
     if (rank10Sheet && rank10Sheet.classList.contains("active")) renderTop10Modal(state.teams);
+    if (Array.isArray(state.roster)) lastRoster = state.roster;
     if (visitCountEl && typeof state.visitCount === "number") {
       visitCountEl.textContent = state.visitCount.toLocaleString("th-TH");
       // Math.floor(.../100) comparison catches crossing a hundred even if the count jumps
