@@ -1355,23 +1355,30 @@
       }
     });
 
-    // In-app browsers (e.g. LINE's webview) don't always destroy the page the moment
-    // the user "leaves" — it can sit paused-but-alive in the background, so without this
-    // the music keeps playing after the user thinks they've closed the site. Pause on
-    // hide/pagehide, and only resume on return if the user hadn't explicitly muted it.
+    // pagehide fires on any real navigation-away/close, everywhere — always safe to pause on.
     var bgmWasPlayingBeforeHide = false;
     var handleBgmHide = function () {
       bgmWasPlayingBeforeHide = !bgmEl.paused;
       bgmEl.pause();
     };
-    document.addEventListener("visibilitychange", function () {
-      if (document.hidden) {
-        handleBgmHide();
-      } else if (bgmWasPlayingBeforeHide && !bgmUserPaused) {
-        startPlaying();
-      }
-    });
     window.addEventListener("pagehide", handleBgmHide);
+
+    // In-app browsers (e.g. LINE's webview) don't always fire pagehide when the user
+    // "leaves" — the page can sit paused-but-alive in the background instead, so the music
+    // keeps playing after the user thinks they've closed the site. visibilitychange catches
+    // that case too, but it also fires on an ordinary desktop tab-switch — which should NOT
+    // silence the music — so only wire it up when we're actually inside a known in-app
+    // webview, detected by its user-agent token, rather than for every browser.
+    var isInAppWebview = /\bLine\//i.test(navigator.userAgent);
+    if (isInAppWebview) {
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+          handleBgmHide();
+        } else if (bgmWasPlayingBeforeHide && !bgmUserPaused) {
+          startPlaying();
+        }
+      });
+    }
   }
 
   fetch("/api/route")
