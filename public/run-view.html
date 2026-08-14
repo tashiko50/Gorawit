@@ -305,10 +305,11 @@
     box-shadow: 0 4px 14px var(--panel-shadow); pointer-events: none;
   }
   .company-total-eyebrow { font-size: 0.62rem; font-weight: 700; color: var(--ink-soft); white-space: nowrap; }
+  .company-total-row { display: flex; align-items: baseline; gap: 4px; }
   .company-total-num {
     font-size: 1.15rem; font-weight: 900; color: var(--tint); font-variant-numeric: tabular-nums; line-height: 1.15;
   }
-  .company-total-unit { font-size: 0.62rem; font-weight: 700; color: var(--ink-soft); }
+  .company-total-unit { font-size: 0.58rem; font-weight: 700; color: var(--ink-soft); }
   @media (max-width: 560px) {
     /* Narrow phones don't have empty corner space beside the title — drop the fixed
        corner position and let it sit inline instead, right under the button row. */
@@ -496,8 +497,10 @@
       </div>
       <div class="company-total-badge" id="companyTotalBadge" hidden>
         <span class="company-total-eyebrow">🏢 ทั้งบริษัทวิ่งไปแล้ว</span>
-        <span class="company-total-num" id="companyTotalNum">0</span>
-        <span class="company-total-unit">กม.</span>
+        <span class="company-total-row">
+          <span class="company-total-num" id="companyTotalNum">0</span>
+          <span class="company-total-unit">กม.</span>
+        </span>
       </div>
     </div>
 
