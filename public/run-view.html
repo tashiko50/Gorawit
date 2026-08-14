@@ -290,6 +290,33 @@
   body:has(.rank10-sheet.active) .visit-badge {
     display: none;
   }
+
+  /* Unlike .visit-badge, this one lives INSIDE .page (right after the button row, see
+     markup below) — its z-index (15) only has to beat other .page descendants, and both
+     modal sheets in this file sit at z-index 56/57, so it naturally paints underneath
+     them with no extra hide rule needed. That placement doubles as the mobile layout:
+     on narrow screens it just drops out of "fixed corner" mode and flows in place,
+     right under the buttons, instead of needing a second copy of the markup. */
+  .company-total-badge {
+    position: fixed; right: clamp(10px, 2vw, 24px); top: clamp(10px, 2vw, 24px); z-index: 15;
+    display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center;
+    background: color-mix(in srgb, var(--card-bg) 82%, transparent); backdrop-filter: blur(8px);
+    border: 1px solid var(--card-border); border-radius: 14px; padding: 8px 14px;
+    box-shadow: 0 4px 14px var(--panel-shadow); pointer-events: none;
+  }
+  .company-total-eyebrow { font-size: 0.62rem; font-weight: 700; color: var(--ink-soft); white-space: nowrap; }
+  .company-total-num {
+    font-size: 1.15rem; font-weight: 900; color: var(--tint); font-variant-numeric: tabular-nums; line-height: 1.15;
+  }
+  .company-total-unit { font-size: 0.62rem; font-weight: 700; color: var(--ink-soft); }
+  @media (max-width: 560px) {
+    /* Narrow phones don't have empty corner space beside the title — drop the fixed
+       corner position and let it sit inline instead, right under the button row. */
+    .company-total-badge {
+      position: static; margin: 10px auto 0; width: fit-content; backdrop-filter: none;
+      background: var(--toolbar-bg);
+    }
+  }
   .rank10-sheet {
     display: none; position: fixed; z-index: 57; background: var(--card-bg); color: var(--ink);
     left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(1000px, 92vw); max-height: 84vh;
@@ -466,6 +493,11 @@
         <button type="button" class="page-links-btn" id="bgmToggle">🔈 เพลง</button>
         <button type="button" class="page-links-btn" id="top10Toggle">🏆 Top 10</button>
         <button type="button" class="page-links-btn" id="searchToggle">🔍 ค้นหาอันดับของฉัน</button>
+      </div>
+      <div class="company-total-badge" id="companyTotalBadge" hidden>
+        <span class="company-total-eyebrow">🏢 ทั้งบริษัทวิ่งไปแล้ว</span>
+        <span class="company-total-num" id="companyTotalNum">0</span>
+        <span class="company-total-unit">กม.</span>
       </div>
     </div>
 

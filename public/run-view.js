@@ -40,6 +40,9 @@
   var searchHint = document.getElementById("searchHint");
   var searchView = document.getElementById("searchView");
   var searchResultView = document.getElementById("searchResultView");
+  var companyTotalBadge = document.getElementById("companyTotalBadge");
+  var companyTotalNum = document.getElementById("companyTotalNum");
+  var lastCompanyTotalKm = null;
   var lastRoster = []; // latest roster array from /api/state, refreshed every poll
 
   // Each entry: { id, label, waypoints, viewBox: {w,h}, finishKm, startKm, routeD,
@@ -786,6 +789,20 @@
     });
   }
 
+  /* Sum of every team's km — kept hidden until the first real poll lands (avoids
+     flashing "0" while /api/state is still loading), then just updates the number in
+     place on every poll after that. No count-up animation on every refresh — that was
+     nice for a one-time page-load reveal in the mockup, but replaying it every ~12s
+     poll would be distracting rather than lively. */
+  function renderCompanyTotal(teams) {
+    if (!companyTotalBadge) return;
+    var total = Math.round(teams.reduce(function (sum, t) { return sum + (Number(t.km) || 0); }, 0) * 100) / 100;
+    if (total === lastCompanyTotalKm) return;
+    lastCompanyTotalKm = total;
+    companyTotalNum.textContent = total.toLocaleString("th-TH", { maximumFractionDigits: 2 });
+    companyTotalBadge.hidden = false;
+  }
+
   /* One mini track per team, ranked — the whole race at a glance without opening every
      card. Small enough team count that a full rebuild each poll is simplest and cheap.
      Each row is two lines: name+km on top (full name, never truncated), a thin track
@@ -1166,6 +1183,7 @@
     var order = state.teams.map(function (t) { return t.id; }).join(",");
     if (order !== lastTeamOrder) { fullRebuild(state.teams); applyWeatherToPins(); } else state.teams.forEach(updateCard);
     reorderCards(state.teams);
+    renderCompanyTotal(state.teams);
     renderRankSummary(state.teams);
     renderTopRunnersSummary(state.teams);
     if (rank10Sheet && rank10Sheet.classList.contains("active")) renderTop10Modal(state.teams);
