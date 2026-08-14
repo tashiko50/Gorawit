@@ -20,11 +20,6 @@
   var lastVisitCount = null;
   var rankSummaryEl = document.getElementById("rankSummary");
   var topRunnersSummaryEl = document.getElementById("topRunnersSummary");
-  var kioskToggleBtn = document.getElementById("kioskToggle");
-  var kioskBackdrop = document.getElementById("kioskBackdrop");
-  var kioskHeader = document.getElementById("kioskHeader");
-  var kioskTeamNameEl = document.getElementById("kioskTeamName");
-  var kioskExitBtn = document.getElementById("kioskExit");
   var clockTimeEl = document.getElementById("clockTime");
   var clockDateEl = document.getElementById("clockDate");
   var bgmEl = document.getElementById("bgm");
@@ -48,15 +43,9 @@
   var lastTeamOrder = "";
   var lastFetchTs = null;
   var currentRanks = {}; // teamId -> 1-based rank by km, recomputed every render
-  var lastTeamsSnapshot = []; // latest team array, used by kiosk mode to cycle through
+  var lastTeamsSnapshot = []; // latest team array, reused by the Top 10 modal on re-render
   var VEHICLE_LOOP_MS = 26000;
   var DUST_OFFSETS_KM = [12, 24, 36];
-
-  var kioskActive = false;
-  var kioskIndex = 0;
-  var kioskTimer = null;
-  var kioskCurrentTeamId = null;
-  var KIOSK_INTERVAL_MS = 12000; // longer than the old map-only 8s: there's a Top 10 list to read now too
 
   function pctX(x, chapter) { return (x / chapter.viewBox.w * 100) + "%"; }
   function pctY(y, chapter) { return (y / chapter.viewBox.h * 100) + "%"; }
@@ -599,23 +588,17 @@
     var stamps = document.createElement("div");
     stamps.className = "team-map-stamps";
 
-    // Hidden outside kiosk mode (see .kiosk-names-inline in run-view.html) — replaces the
-    // roster-bar-track's spot on the big TV screen with that team's own Top 10 list instead.
-    var kioskNames = document.createElement("div");
-    kioskNames.className = "kiosk-names-inline";
-
     card.appendChild(header);
     card.appendChild(frame);
     card.appendChild(place);
     card.appendChild(barTrack);
-    card.appendChild(kioskNames);
     card.appendChild(stamps);
 
     var refs = {
       card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,
       pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
       dustEls: dustEls, stampsEl: stamps, stampChips: [], vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
-      lastPlace: null, teamId: team.id, chapter: null, kioskNamesEl: kioskNames
+      lastPlace: null, teamId: team.id, chapter: null
     };
 
     if (chapters.length) {
@@ -757,15 +740,14 @@
      compensating transform back to zero) so a rank swap glides instead of jump-cutting.
      Re-appending the *same* card elements (not rebuilding them) keeps every embedded
      SVG/animation ref in cardRefs valid, so the runner/dust/weather state on each card
-     is untouched by the reshuffle. Skipped during kiosk mode since that card is pulled
-     out of grid flow onto a fixed overlay anyway. Only actually touches the DOM when the
-     rank order itself changed since last time — every poll ticks each team's km by a
-     little, and re-measuring/re-appending on every one of those (even when nobody
-     actually passed anybody) was causing a small pointless snap-transition each cycle,
-     which read as constant jitter rather than the occasional real rank-swap glide. */
+     is untouched by the reshuffle. Only actually touches the DOM when the rank order
+     itself changed since last time — every poll ticks each team's km by a little, and
+     re-measuring/re-appending on every one of those (even when nobody actually passed
+     anybody) was causing a small pointless snap-transition each cycle, which read as
+     constant jitter rather than the occasional real rank-swap glide. */
   var lastRankOrder = "";
   function reorderCards(teams) {
-    if (kioskActive || !teams.length) return;
+    if (!teams.length) return;
     var sorted = teams.slice().sort(function (a, b) { return b.km - a.km; });
     var rankOrder = sorted.map(function (t) { return t.id; }).join(",");
     if (rankOrder === lastRankOrder) return;
@@ -1004,11 +986,6 @@
     renderRankSummary(state.teams);
     renderTopRunnersSummary(state.teams);
     if (rank10Sheet && rank10Sheet.classList.contains("active")) renderTop10Modal(state.teams);
-    if (kioskActive && kioskCurrentTeamId) {
-      var kioskRefs = cardRefs.get(kioskCurrentTeamId);
-      var kioskTeam = state.teams.find(function (t) { return t.id === kioskCurrentTeamId; });
-      if (kioskRefs && kioskTeam) renderCardTop10(kioskRefs, kioskTeam);
-    }
     if (visitCountEl && typeof state.visitCount === "number") {
       visitCountEl.textContent = state.visitCount.toLocaleString("th-TH");
       // Math.floor(.../100) comparison catches crossing a hundred even if the count jumps
@@ -1038,97 +1015,6 @@
     var phase = S.dayPhase();
     cardRefs.forEach(function (refs) { refs.frame.dataset.night = phase; });
   }
-
-  /* Kiosk/TV mode blows up one team's actual card in place (a class toggle, not a
-     reparent) — the card's own .kiosk-names-inline (see run-view.html) fills in for the
-     roster-bar-track on that big screen, showing this team's Top 10 instead of a bare
-     progress percentage — then cycles to the next team on a timer. */
-  function renderCardTop10(refs, team) {
-    var body = refs.kioskNamesEl;
-    body.innerHTML = "";
-    var runners = team.topRunners || [];
-    if (!runners.length) {
-      var empty = document.createElement("div");
-      empty.className = "kiosk-names-empty";
-      empty.textContent = "ยังไม่มีข้อมูลนักวิ่งรายบุคคลของทีมนี้";
-      body.appendChild(empty);
-      return;
-    }
-    runners.forEach(function (runner, i) {
-      var row = document.createElement("div");
-      row.className = "kiosk-names-row";
-      var rk = document.createElement("span");
-      rk.className = "rk";
-      rk.textContent = String(i + 1);
-      var rn = document.createElement("span");
-      rn.className = "rn";
-      rn.textContent = runner.name;
-      var rkm = document.createElement("span");
-      rkm.className = "rkm";
-      rkm.textContent = fmtKm(runner.km) + " กม.";
-      row.appendChild(rk);
-      row.appendChild(rn);
-      row.appendChild(rkm);
-      body.appendChild(row);
-    });
-  }
-
-  /* Re-sorted fresh on every call (not cached) so the rotation always reflects whoever is
-     actually in 1st/2nd/3rd right now — if two teams swap places mid-rotation, the very
-     next slide change already picks up the new order instead of waiting for a full lap. */
-  function kioskRankedTeams() {
-    return lastTeamsSnapshot.slice().sort(function (a, b) { return b.km - a.km; });
-  }
-
-  function showKioskTeam(i) {
-    var ranked = kioskRankedTeams();
-    var team = ranked[i];
-    if (!team) return;
-    if (kioskCurrentTeamId) {
-      var prevRefs = cardRefs.get(kioskCurrentTeamId);
-      if (prevRefs) prevRefs.card.classList.remove("kiosk-active");
-    }
-    var refs = cardRefs.get(team.id);
-    if (refs) {
-      refs.card.classList.add("kiosk-active");
-      renderCardTop10(refs, team);
-    }
-    kioskCurrentTeamId = team.id;
-    kioskTeamNameEl.textContent = S.rankBadgeText(i + 1) + " " + team.name;
-  }
-
-  function startKiosk() {
-    if (!lastTeamsSnapshot.length) return;
-    kioskActive = true;
-    kioskBackdrop.classList.add("active");
-    kioskHeader.classList.add("active");
-    kioskIndex = 0;
-    showKioskTeam(kioskIndex);
-    kioskTimer = setInterval(function () {
-      kioskIndex = (kioskIndex + 1) % lastTeamsSnapshot.length;
-      showKioskTeam(kioskIndex);
-    }, KIOSK_INTERVAL_MS);
-  }
-
-  function stopKiosk() {
-    kioskActive = false;
-    clearInterval(kioskTimer);
-    kioskBackdrop.classList.remove("active");
-    kioskHeader.classList.remove("active");
-    if (kioskCurrentTeamId) {
-      var refs = cardRefs.get(kioskCurrentTeamId);
-      if (refs) refs.card.classList.remove("kiosk-active");
-    }
-    kioskCurrentTeamId = null;
-  }
-
-  kioskToggleBtn.addEventListener("click", function () {
-    if (kioskActive) stopKiosk(); else startKiosk();
-  });
-  kioskExitBtn.addEventListener("click", stopKiosk);
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && kioskActive) stopKiosk();
-  });
 
   function poll() {
     fetch("/api/state")
@@ -1175,8 +1061,6 @@
   /* Background music: browsers block autoplay-with-sound entirely, so we start muted
      (always allowed) and unmute + fade the volume in on the very first click/tap/keypress
      anywhere on the page — in practice that's within a second of load for most visitors.
-     Kiosk/TV screens with nobody touching them will stay silent until someone taps the
-     toggle button once; after that it keeps looping on its own.
 
      Playlist: pick a random track on load, then pick a new random track (never repeating
      the one that just finished) each time one ends — an endless shuffle that lands on a
