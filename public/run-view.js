@@ -1062,7 +1062,8 @@
       "</div>" +
       '<div class="search-never-ran" style="border-color:color-mix(in srgb, ' + teamColor + ' 30%, var(--card-border))">' +
         "👟 ยังไม่เคยส่งหลักฐานวิ่ง/เดินเลย — ลองเริ่มวันนี้ดูนะ!" +
-      "</div>"
+      "</div>" +
+      '<button type="button" class="search-again-btn">🔍 ค้นหาคนอื่น</button>'
     );
   }
 
@@ -1096,7 +1097,8 @@
         '<div class="search-prog-runner" style="left:' + s.pct + '%">🏃</div></div>' +
         '<div class="search-progress-label">' + progressLabel + "</div>" +
       "</div>" +
-      streakHtml
+      streakHtml +
+      '<button type="button" class="search-again-btn">🔍 ค้นหาคนอื่น</button>'
     );
   }
 
@@ -1138,8 +1140,20 @@
     var person = lastRoster.find(function (p) { return p.name === name; });
     if (!person) return;
     searchResultView.innerHTML = searchResultHtml(person);
+    var againBtn = searchResultView.querySelector(".search-again-btn");
+    if (againBtn) againBtn.addEventListener("click", backToSearchView);
     searchView.hidden = true;
     searchResultView.hidden = false;
+  }
+
+  // Returns to the name-entry view without closing the whole modal — lets someone look up
+  // a teammate right after checking their own stats instead of reopening from scratch.
+  function backToSearchView() {
+    searchResultView.hidden = true;
+    searchView.hidden = false;
+    searchInput.value = "";
+    renderSearchSuggestions();
+    searchInput.focus();
   }
 
   function openSearchModal() {

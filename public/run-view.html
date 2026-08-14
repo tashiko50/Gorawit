@@ -455,6 +455,12 @@
     margin: 16px 18px 20px; padding: 16px 14px; border-radius: 12px; border: 1px solid var(--card-border);
     background: var(--toolbar-bg); font-size: 0.86rem; font-weight: 700; text-align: center; line-height: 1.5;
   }
+  .search-again-btn {
+    display: block; width: calc(100% - 36px); margin: 0 18px 18px; padding: 10px; border-radius: 12px;
+    border: 1px dashed var(--card-border); background: none; color: var(--ink-soft); font: inherit;
+    font-size: 0.84rem; font-weight: 700; cursor: pointer;
+  }
+  .search-again-btn:hover { background: color-mix(in srgb, var(--tint) 8%, transparent); color: var(--ink); }
 
   @media (max-width: 720px) {
     .search-sheet {
