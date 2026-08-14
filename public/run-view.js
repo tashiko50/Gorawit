@@ -1008,11 +1008,52 @@
     return rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
   }
 
+  // Same color each team already wears everywhere else on the board (map cards, Top 10
+  // swatches) — falls back to the generic tint if the roster ever names a team that
+  // doesn't match state.teams (e.g. right after a team rename before the next poll).
+  function searchTeamColor(teamName) {
+    var team = lastTeamsSnapshot.find(function (t) { return t.name === teamName; });
+    return (team && team.color) || "var(--tint)";
+  }
+
   function searchFirstName(fullName) { return String(fullName || "").split(" ")[0]; }
 
+  // Tinted with the person's own team color (light background wash + matching border/number)
+  // instead of flat neutral grey — ties the 3 stat tiles visually to the progress bar below,
+  // and the icon gives each tile something to look at besides a bare number.
+  function searchStatTile(icon, value, label, teamColor) {
+    var tintBg = "color-mix(in srgb, " + teamColor + " 12%, var(--card-bg))";
+    var tintBorder = "color-mix(in srgb, " + teamColor + " 30%, var(--card-border))";
+    return (
+      '<div class="search-stat" style="background:' + tintBg + ";border-color:" + tintBorder + '">' +
+        '<div class="search-stat-icon">' + icon + "</div>" +
+        '<div class="search-stat-num" style="color:' + teamColor + '">' + value + "</div>" +
+        '<div class="search-stat-label">' + label + "</div>" +
+      "</div>"
+    );
+  }
+
+  // People who exist in the company roster but have never actually submitted evidence get
+  // a distinct friendly empty-state instead of a stat card — showing "#last of team, 0 km"
+  // would read as a real (discouraging) ranking, when really there's just nothing to rank yet.
+  function searchNeverRanHtml(person) {
+    var teamColor = searchTeamColor(person.team);
+    return (
+      '<div class="search-result-person">' +
+        '<div class="search-result-avatar">🚶</div>' +
+        "<div><div class=\"search-result-name\">" + person.name + '</div><div class="search-result-team">ทีม' + person.team + "</div></div>" +
+      "</div>" +
+      '<div class="search-never-ran" style="border-color:color-mix(in srgb, ' + teamColor + ' 30%, var(--card-border))">' +
+        "🌱 ยังไม่เคยส่งหลักฐานวิ่ง/เดินเลย — ลองเริ่มวันนี้ดูนะ!" +
+      "</div>"
+    );
+  }
+
   function searchResultHtml(person) {
+    if (!person.submissions) return searchNeverRanHtml(person);
     var s = searchTeamStats(person);
     var medal = searchMedalFor(s.rank);
+    var teamColor = searchTeamColor(person.team);
     var badgeHtml = medal ? '<span class="search-avatar-medal">' + medal + "</span>" : "";
     var teamLine = "ทีม" + person.team +
       (!medal && s.rank >= 4 && s.rank <= 10 ? ' <span class="search-top10-pill">🏆 Top 10 ทีม</span>' : "");
@@ -1029,12 +1070,12 @@
         "<div><div class=\"search-result-name\">" + person.name + '</div><div class="search-result-team">' + teamLine + "</div></div>" +
       "</div>" +
       '<div class="search-stat-grid">' +
-        '<div class="search-stat"><div class="search-stat-num">' + fmtKm(person.km) + '</div><div class="search-stat-label">กม. สะสมรวม</div></div>' +
-        '<div class="search-stat"><div class="search-stat-num">#' + (s.rank || "-") + '</div><div class="search-stat-label">อันดับของทีม' + person.team + '</div></div>' +
-        '<div class="search-stat"><div class="search-stat-num">' + (person.submissions || 0) + '</div><div class="search-stat-label">ครั้งที่ส่งหลักฐานมาแล้ว</div></div>' +
+        searchStatTile("📏", fmtKm(person.km), "กม. สะสมรวม", teamColor) +
+        searchStatTile("🎯", "#" + (s.rank || "-"), "อันดับของทีม" + person.team, teamColor) +
+        searchStatTile("📸", String(person.submissions || 0), "ครั้งที่ส่งหลักฐานมาแล้ว", teamColor) +
       "</div>" +
       '<div class="search-progress">' +
-        '<div class="search-prog-track"><div class="search-prog-fill" style="width:' + s.pct + '%"></div>' +
+        '<div class="search-prog-track"><div class="search-prog-fill" style="width:' + s.pct + '%;background:' + teamColor + '"></div>' +
         '<div class="search-prog-runner" style="left:' + s.pct + '%">🏃</div></div>' +
         '<div class="search-progress-label">' + progressLabel + "</div>" +
       "</div>" +
