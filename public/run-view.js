@@ -1340,6 +1340,24 @@
         setToggleLabel(false);
       }
     });
+
+    // In-app browsers (e.g. LINE's webview) don't always destroy the page the moment
+    // the user "leaves" — it can sit paused-but-alive in the background, so without this
+    // the music keeps playing after the user thinks they've closed the site. Pause on
+    // hide/pagehide, and only resume on return if the user hadn't explicitly muted it.
+    var bgmWasPlayingBeforeHide = false;
+    var handleBgmHide = function () {
+      bgmWasPlayingBeforeHide = !bgmEl.paused;
+      bgmEl.pause();
+    };
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        handleBgmHide();
+      } else if (bgmWasPlayingBeforeHide && !bgmUserPaused) {
+        startPlaying();
+      }
+    });
+    window.addEventListener("pagehide", handleBgmHide);
   }
 
   fetch("/api/route")
