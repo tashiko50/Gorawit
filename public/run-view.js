@@ -1044,7 +1044,7 @@
         "<div><div class=\"search-result-name\">" + person.name + '</div><div class="search-result-team">ทีม' + person.team + "</div></div>" +
       "</div>" +
       '<div class="search-never-ran" style="border-color:color-mix(in srgb, ' + teamColor + ' 30%, var(--card-border))">' +
-        "🌱 ยังไม่เคยส่งหลักฐานวิ่ง/เดินเลย — ลองเริ่มวันนี้ดูนะ!" +
+        "👟 ยังไม่เคยส่งหลักฐานวิ่ง/เดินเลย — ลองเริ่มวันนี้ดูนะ!" +
       "</div>"
     );
   }
