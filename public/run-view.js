@@ -40,10 +40,12 @@
   var searchHint = document.getElementById("searchHint");
   var searchView = document.getElementById("searchView");
   var searchResultView = document.getElementById("searchResultView");
+  var searchCompareView = document.getElementById("searchCompareView");
   var companyTotalBadge = document.getElementById("companyTotalBadge");
   var companyTotalNum = document.getElementById("companyTotalNum");
   var lastCompanyTotalKm = null;
   var lastRoster = []; // latest roster array from /api/state, refreshed every poll
+  var lastSearchedPerson = null; // whoever's solo result is currently shown — the "me" side of a comparison
 
   // Each entry: { id, label, waypoints, viewBox: {w,h}, finishKm, startKm, routeD,
   // routeSegments, pinOffsets, subTicks } — a team resolves to whichever chapter its own
@@ -1030,7 +1032,7 @@
   // doesn't match state.teams (e.g. right after a team rename before the next poll).
   function searchTeamColor(teamName) {
     var team = lastTeamsSnapshot.find(function (t) { return t.name === teamName; });
-    return (team && team.color) || "var(--tint)";
+    return (team && team.color) || "#4a90d9";
   }
 
   function searchFirstName(fullName) { return String(fullName || "").split(" ")[0]; }
@@ -1098,7 +1100,65 @@
         '<div class="search-progress-label">' + progressLabel + "</div>" +
       "</div>" +
       streakHtml +
+      '<button type="button" class="search-cta-btn">⚔️ เทียบกับเพื่อน</button>' +
       '<button type="button" class="search-again-btn">🔍 ค้นหาคนอื่น</button>'
+    );
+  }
+
+  // Small avatar+current-medal reused for each side of a "เทียบกับเพื่อน" comparison —
+  // same markup/classes as the solo result view so both features share one visual identity.
+  function compareAvatarHtml(person) {
+    var medal = searchMedalFor(searchTeamStats(person).rank);
+    var badgeHtml = medal ? '<span class="search-avatar-medal">' + medal + "</span>" : "";
+    return '<div class="search-result-avatar">🏃' + badgeHtml + "</div>";
+  }
+
+  // Renders the win/lose/tie comparison between whoever was originally searched
+  // (lastSearchedPerson) and a chosen opponent, across the same 3 stats shown in the solo view.
+  function compareResultHtml(me, opp) {
+    var meColor = searchTeamColor(me.team);
+    var oppColor = searchTeamColor(opp.team);
+    var rows = [
+      { icon: "📏", label: "กม. สะสม", a: me.km, b: opp.km, fmt: fmtKm },
+      { icon: "📸", label: "ครั้งที่ส่ง", a: me.submissions || 0, b: opp.submissions || 0, fmt: String },
+      { icon: "🔥", label: "วันติดต่อกัน", a: me.streak || 0, b: opp.streak || 0, fmt: String }
+    ];
+
+    var aWins = 0, bWins = 0;
+    var rowsHtml = rows.map(function (r) {
+      var aWin = r.a > r.b, bWin = r.b > r.a;
+      if (aWin) aWins++; if (bWin) bWins++;
+      return (
+        '<div class="cmp-row">' +
+          '<div class="cmp-val' + (aWin ? " win" : "") + '" style="color:' + (aWin ? meColor : "var(--ink-soft)") + '"><span class="cmp-crown">👑</span>' + r.fmt(r.a) + "</div>" +
+          '<div class="cmp-mid">' + r.icon + "<br>" + r.label + "</div>" +
+          '<div class="cmp-val' + (bWin ? " win" : "") + '" style="color:' + (bWin ? oppColor : "var(--ink-soft)") + '"><span class="cmp-crown">👑</span>' + r.fmt(r.b) + "</div>" +
+        "</div>"
+      );
+    }).join("");
+
+    var verdictHtml;
+    if (aWins === bWins) {
+      verdictHtml = '<div class="cmp-verdict" style="background:var(--toolbar-bg);color:var(--ink)">🤝 สูสีมาก! เสมอกันไปคนละ ' + aWins + " หมวด</div>";
+    } else {
+      var winner = aWins > bWins ? me : opp;
+      var winnerColor = aWins > bWins ? meColor : oppColor;
+      verdictHtml = '<div class="cmp-verdict" style="background:color-mix(in srgb, ' + winnerColor + ' 16%, var(--card-bg));color:' + winnerColor + '">🏆 ' +
+        winner.name + " ชนะไป " + Math.max(aWins, bWins) + " ใน " + rows.length + " หมวด!</div>";
+    }
+
+    return (
+      '<div class="cmp-heads">' +
+        '<div class="cmp-side">' + compareAvatarHtml(me) + '<div class="cmp-side-name">' + me.name + '</div><div class="cmp-side-team">' + me.team + "</div></div>" +
+        '<div class="cmp-vs">VS</div>' +
+        '<div class="cmp-side">' + compareAvatarHtml(opp) + '<div class="cmp-side-name">' + opp.name + '</div><div class="cmp-side-team">' + opp.team + "</div></div>" +
+      "</div>" +
+      '<div class="cmp-rows">' + rowsHtml + "</div>" +
+      verdictHtml +
+      '<div class="cmp-actions">' +
+        '<button type="button" class="search-cta-btn" id="cmpAgainBtn">⚔️ เทียบกับคนอื่นอีก</button>' +
+        '<button type="button" class="search-again-btn" id="cmpBackBtn">← กลับไปดูของฉัน</button>' +
+      "</div>"
     );
   }
 
@@ -1139,9 +1199,13 @@
   function selectSearchPerson(name) {
     var person = lastRoster.find(function (p) { return p.name === name; });
     if (!person) return;
+    lastSearchedPerson = person;
     searchResultView.innerHTML = searchResultHtml(person);
     var againBtn = searchResultView.querySelector(".search-again-btn");
     if (againBtn) againBtn.addEventListener("click", backToSearchView);
+    var compareBtn = searchResultView.querySelector(".search-cta-btn");
+    if (compareBtn) compareBtn.addEventListener("click", openComparePicker);
+    searchCompareView.hidden = true;
     searchView.hidden = true;
     searchResultView.hidden = false;
   }
@@ -1150,10 +1214,51 @@
   // a teammate right after checking their own stats instead of reopening from scratch.
   function backToSearchView() {
     searchResultView.hidden = true;
+    searchCompareView.hidden = true;
     searchView.hidden = false;
     searchInput.value = "";
     renderSearchSuggestions();
     searchInput.focus();
+  }
+
+  // "เทียบกับเพื่อน" — reuses the same input+suggestion-row markup/classes as the main name
+  // search (search-input-wrap/search-input/search-suggest-list/search-suggest-row) so the
+  // picker looks and behaves identically, just inside searchCompareView instead of searchView.
+  function openComparePicker() {
+    if (!lastSearchedPerson) return;
+    searchResultView.hidden = true;
+    searchCompareView.hidden = false;
+    searchCompareView.innerHTML =
+      '<h3 class="cmp-title">พิมพ์ชื่อเพื่อนที่จะเทียบกับ ' + searchFirstName(lastSearchedPerson.name) + "</h3>" +
+      '<p class="cmp-sub">เลือกใครก็ได้ในบริษัท จะเทียบ กม. สะสม / จำนวนครั้งที่ส่ง / streak ให้ทันที</p>' +
+      '<div class="search-input-wrap" style="margin:0 18px"><span class="search-icon">🔍</span>' +
+        '<input class="search-input" id="cmpOpponentInput" placeholder="พิมพ์ชื่อเล่น เช่น ไก่น้อย" autocomplete="off"></div>' +
+      '<div class="search-suggest-list" id="cmpOpponentSuggest" style="margin:8px 18px 20px"></div>';
+
+    var input = document.getElementById("cmpOpponentInput");
+    var suggest = document.getElementById("cmpOpponentSuggest");
+    function renderOpponentSuggestions(q) {
+      var candidates = lastRoster.filter(function (p) { return p.name !== lastSearchedPerson.name; });
+      var matches = (q ? candidates.filter(function (p) { return p.name.indexOf(q) !== -1; }) : candidates).slice(0, 6);
+      suggest.innerHTML = matches.map(function (p) { return searchSuggestRowHtml(p, q); }).join("");
+      Array.prototype.forEach.call(suggest.querySelectorAll(".search-suggest-row"), function (row) {
+        row.addEventListener("click", function () { renderComparisonResult(row.getAttribute("data-name")); });
+      });
+    }
+    renderOpponentSuggestions("");
+    input.addEventListener("input", function () { renderOpponentSuggestions(input.value.trim()); });
+    input.focus();
+  }
+
+  function renderComparisonResult(opponentName) {
+    var opponent = lastRoster.find(function (p) { return p.name === opponentName; });
+    if (!opponent) return;
+    searchCompareView.innerHTML = compareResultHtml(lastSearchedPerson, opponent);
+    document.getElementById("cmpAgainBtn").addEventListener("click", openComparePicker);
+    document.getElementById("cmpBackBtn").addEventListener("click", function () {
+      searchCompareView.hidden = true;
+      selectSearchPerson(lastSearchedPerson.name);
+    });
   }
 
   function openSearchModal() {
@@ -1164,6 +1269,8 @@
     searchView.hidden = false;
     searchResultView.hidden = true;
     searchResultView.innerHTML = "";
+    searchCompareView.hidden = true;
+    searchCompareView.innerHTML = "";
     renderSearchSuggestions();
     searchInput.focus();
   }

@@ -390,13 +390,13 @@
     width: 100%; font: inherit; font-size: 0.95rem; padding: 11px 14px 11px 38px; border-radius: 12px;
     border: 2px solid var(--card-border); background: var(--toolbar-bg); color: var(--ink);
   }
-  .search-input:focus { outline: 2px solid var(--tint); outline-offset: 1px; }
+  .search-input:focus { outline: 2px solid var(--tint, #4a90d9); outline-offset: 1px; }
   .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 0.95rem; opacity: 0.6; }
   .search-suggest-list { margin: 8px 18px 0; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; max-height: 260px; }
   .search-suggest-row {
     display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; font-size: 0.88rem; cursor: pointer;
   }
-  .search-suggest-row:hover { background: color-mix(in srgb, var(--tint) 10%, transparent); }
+  .search-suggest-row:hover { background: color-mix(in srgb, var(--tint, #4a90d9) 10%, transparent); }
   .search-suggest-avatar {
     width: 28px; height: 28px; border-radius: 50%; background: var(--toolbar-bg); display: flex;
     align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;
@@ -408,7 +408,7 @@
 
   .search-result-person { display: flex; align-items: center; gap: 12px; padding: 16px 18px 4px; }
   .search-result-avatar {
-    width: 48px; height: 48px; border-radius: 50%; background: color-mix(in srgb, var(--tint) 18%, var(--card-bg));
+    width: 48px; height: 48px; border-radius: 50%; background: color-mix(in srgb, var(--tint, #4a90d9) 18%, var(--card-bg));
     display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; position: relative;
   }
   /* Live standing, not a collected trophy — reflects this person's CURRENT team rank, so it
@@ -460,7 +460,45 @@
     border: 1px dashed var(--card-border); background: none; color: var(--ink-soft); font: inherit;
     font-size: 0.84rem; font-weight: 700; cursor: pointer;
   }
-  .search-again-btn:hover { background: color-mix(in srgb, var(--tint) 8%, transparent); color: var(--ink); }
+  .search-again-btn:hover { background: color-mix(in srgb, var(--tint, #4a90d9) 8%, transparent); color: var(--ink); }
+
+  .search-cta-btn {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    width: calc(100% - 36px); margin: 0 18px 9px; padding: 11px; border-radius: 12px; border: none;
+    background: var(--tint, #4a90d9); color: #fff; font: inherit; font-size: 0.85rem; font-weight: 800; cursor: pointer;
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--tint, #4a90d9) 40%, transparent);
+  }
+  .search-cta-btn:hover { filter: brightness(1.05); }
+
+  /* ===== "เทียบกับเพื่อน" — pick-opponent screen reuses the same input/suggest markup+classes
+     as the name search screen (search-input-wrap/search-input/search-suggest-list/search-suggest-row)
+     so it looks and behaves identically, just inside a different container. ===== */
+  .cmp-title { font-size: 0.92rem; font-weight: 900; margin: 16px 18px 3px; }
+  .cmp-sub { font-size: 0.76rem; color: var(--ink-soft); margin: 0 18px 14px; }
+
+  .cmp-heads { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 16px 18px 0; }
+  .cmp-side { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; min-width: 0; }
+  .cmp-side-name { font-weight: 900; font-size: 0.86rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .cmp-side-team { font-size: 0.66rem; color: var(--ink-soft); font-weight: 700; }
+  .cmp-vs {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--card-bg);
+    display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 900;
+    box-shadow: 0 4px 10px var(--panel-shadow); flex-shrink: 0;
+  }
+  .cmp-rows { margin: 16px 18px 0; display: flex; flex-direction: column; gap: 8px; }
+  .cmp-row {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px;
+    background: var(--toolbar-bg); border-radius: 12px; padding: 10px 12px;
+  }
+  .cmp-val {
+    font-size: 1.02rem; font-weight: 900; font-variant-numeric: tabular-nums; text-align: center; color: var(--ink-soft);
+  }
+  .cmp-val.win { font-size: 1.16rem; }
+  .cmp-val .cmp-crown { display: block; font-size: 0.78rem; margin-bottom: 1px; opacity: 0; }
+  .cmp-val.win .cmp-crown { opacity: 1; }
+  .cmp-mid { text-align: center; font-size: 0.66rem; color: var(--ink-soft); font-weight: 800; line-height: 1.25; white-space: nowrap; }
+  .cmp-verdict { margin: 16px 18px 0; text-align: center; padding: 14px 16px; border-radius: 14px; font-size: 0.86rem; font-weight: 800; line-height: 1.5; }
+  .cmp-actions { margin: 16px 18px 20px; display: flex; flex-direction: column; gap: 8px; }
 
   @media (max-width: 720px) {
     .search-sheet {
@@ -544,6 +582,7 @@
         <div class="search-hint" id="searchHint">พิมพ์ชื่อเล่นด้านบนเพื่อเริ่มค้นหา</div>
       </div>
       <div id="searchResultView" hidden></div>
+      <div id="searchCompareView" hidden></div>
     </div>
   </div>
 
