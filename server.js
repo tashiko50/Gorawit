@@ -113,25 +113,31 @@ const ROUTE = [
 const ROUTE_VIEWBOX = { w: 520, h: 860 };
 const ROUTE_FINISH_KM = 830;
 
-// Chapter 2 — kept parked (built, not wired to any deploy toggle) for whenever a team
-// gets close to 890km and the "will we even reach the finish" question becomes real.
-// Absolute km continues straight on from chapter 1 (no reset at the border) — แม่สาย is
-// shared as chapter 1's last stop and chapter 2's first, so the handoff is seamless.
-// Real road distances researched leg-by-leg (see chat for sources); lat/lon are
-// approximate town centers, close enough for the weather lookup.
+// Chapter 2 — a "warp" chapter, not a driving continuation of chapter 1. แม่สาย becomes a
+// portal instead of a border crossing to walk through: the map skips straight to ฮานอย
+// (เวียดนาม) and continues through cities Thai people actually recognize (ฮ่องกง/ไทเป before
+// the Taiwan Strait, then ญี่ปุ่น) rather than a literal drivable road from Thailand, which
+// doesn't exist. Absolute km still continues straight on from chapter 1 (no reset at the
+// border) so the whole-race progress bar stays continuous — the warp itself costs no km,
+// ฮานอย just picks up numbering exactly where แม่สาย (890km) left off.
+// The ไทเป → โอกินาว่า leg is flown, not run (no bridge/ferry route makes sense there) —
+// marked `flight: true` on the ไทเป waypoint so computeSubTicks skips the usual 50km ticks
+// across that specific gap (see run-view.js). Distances are approximate real-world
+// city-to-city distances (driving where a road exists, flight distance across open sea),
+// not verified routing data like ROUTE above — good enough for a pitch, not for real GPS.
+// lat/lon are real city centers (Izumo for the Hikawa-cho/Shimane finish, since Hikawa-cho
+// merged into Izumo City in 2011), close enough for the weather lookup.
 const ROUTE_CHAPTER2 = [
-  { name: "แม่สาย (ชายแดน)", km: 890, x: 250, y: 720, lat: 20.4258, lon: 99.8756 },
-  { name: "ท่าขี้เหล็ก", km: 895, x: 275, y: 705, lat: 20.4486, lon: 99.8767 },
-  { name: "เชียงตุง", km: 1052, x: 320, y: 615, lat: 21.2953, lon: 99.6152 },
-  { name: "มงลา / ต้าลั่ว", km: 1155, x: 300, y: 545, lat: 21.4900, lon: 100.5000 },
-  { name: "เมิ่งไห่", km: 1236, x: 255, y: 490, lat: 21.9578, lon: 100.4514 },
-  { name: "จิ่งหง", km: 1285, x: 210, y: 455, lat: 22.0017, lon: 100.7975 },
-  { name: "ผูเอ่อร์", km: 1407, x: 255, y: 375, lat: 22.8167, lon: 100.9667 },
-  { name: "คุนหมิง 🏁", km: 1837, x: 235, y: 90, lat: 24.8801, lon: 102.8329 }
+  { name: "ฮานอย", km: 890, x: 130, y: 700, lat: 21.0285, lon: 105.8542 },
+  { name: "ฮ่องกง", km: 1790, x: 230, y: 560, lat: 22.3193, lon: 114.1694 },
+  { name: "ไทเป", km: 2595, x: 300, y: 430, lat: 25.0330, lon: 121.5654, flight: true },
+  { name: "โอกินาว่า", km: 3225, x: 340, y: 300, lat: 26.2124, lon: 127.6809 },
+  { name: "โอซาก้า", km: 4425, x: 310, y: 170, lat: 34.6937, lon: 135.5023 },
+  { name: "HIKAWA CO., LTD. 🏁🏭", km: 4655, x: 370, y: 80, lat: 35.3667, lon: 132.7667 }
 ];
 const ROUTE_CHAPTER2_VIEWBOX = { w: 480, h: 760 };
-const ROUTE_CHAPTER2_FINISH_KM = 1837;
-const ROUTE_CHAPTER2_LABEL = "บทที่ 2 — มุ่งสู่คุนหมิง";
+const ROUTE_CHAPTER2_FINISH_KM = 4655;
+const ROUTE_CHAPTER2_LABEL = "บทใหม่ — วาร์ปสู่ญี่ปุ่น 🇯🇵";
 
 function placeForKm(km) {
   const k = Math.max(0, Number(km) || 0);
@@ -328,8 +334,6 @@ async function refreshRoster() {
 
 let weatherByPlace = {};
 
-// แม่สาย appears in both arrays (chapter 1's last stop, chapter 2's first) — harmless
-// duplicate fetch, same coordinates both times, just overwrites itself in `next`.
 const ALL_ROUTE_WAYPOINTS = [...ROUTE, ...ROUTE_CHAPTER2];
 
 async function refreshWeather() {
@@ -399,7 +403,7 @@ app.get("/api/route", (req, res) => {
   res.json({
     chapters: [
       { id: "th", startKm: 0, waypoints: ROUTE, viewBox: ROUTE_VIEWBOX, finishKm: ROUTE_FINISH_KM },
-      { id: "cn", startKm: 890, label: ROUTE_CHAPTER2_LABEL, waypoints: ROUTE_CHAPTER2, viewBox: ROUTE_CHAPTER2_VIEWBOX, finishKm: ROUTE_CHAPTER2_FINISH_KM }
+      { id: "jp", startKm: 890, label: ROUTE_CHAPTER2_LABEL, waypoints: ROUTE_CHAPTER2, viewBox: ROUTE_CHAPTER2_VIEWBOX, finishKm: ROUTE_CHAPTER2_FINISH_KM }
     ]
   });
 });

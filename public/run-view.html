@@ -73,6 +73,22 @@
   }
   @media (prefers-reduced-motion: reduce) { .ambient-vehicle { display: none; } }
 
+  /* Spinning warp-portal rings — drawn as static SVG art at แม่สาย (chapter 1) and ฮานอย
+     (the Japan chapter's start), see chapter1SvgMarkup/chapter2SvgMarkup. */
+  .warp-ring { animation: warp-spin 6s linear infinite; transform-origin: center; }
+  .warp-ring.warp-ring-b { animation-direction: reverse; animation-duration: 4s; }
+  @keyframes warp-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .warp-ring { animation: none; } }
+
+  /* Static "this leg is flown, not run" note for the Japan chapter's ไทเป → โอกินาว่า leg —
+     shown/hidden and positioned per-chapter in setupMapFrame (see run-view.js). HTML rather
+     than SVG <text> because the ✈️ emoji doesn't reliably render as SVG text everywhere. */
+  .flight-note {
+    position: absolute; transform: translate(-50%, -50%); display: none; align-items: center; gap: 4px;
+    font-size: 0.6rem; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55); z-index: 2;
+    white-space: nowrap; pointer-events: none;
+  }
+
   .route-path { fill: none; stroke: #fff8e6; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 3 10; }
   .route-glow { fill: none; stroke: rgba(255, 255, 255, 0.45); stroke-width: 10; stroke-linecap: round; }
   /* Traveled portion of the road, filled solid in the team's own color — built from the

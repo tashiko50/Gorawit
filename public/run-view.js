@@ -134,8 +134,19 @@
 
   // กรุงเทพฯ sits only ~40km (and visually just ~85 canvas units) from ปทุมธานี — the
   // standard offset isn't enough to keep the two place-name pins apart, so it gets pushed
-  // further out specifically.
-  var PIN_OFFSET_OVERRIDES = { "กรุงเทพฯ (TDFB HQ)": 78 };
+  // further out specifically. The Japan-chapter entries below are the same idea: sharp
+  // turns in the route (ground → flight → ground) mean the standard perpendicular offset
+  // isn't enough to clear both the incoming and outgoing curve at once — tuned by actually
+  // running the server locally and looking at the rendered map, not computed analytically.
+  var PIN_OFFSET_OVERRIDES = {
+    "กรุงเทพฯ (TDFB HQ)": 78,
+    // pushed further out so its label pill doesn't sit on top of the new warp-portal icon
+    // drawn at the same point (see chapter1SvgMarkup) — the two used to overlap.
+    "แม่สาย (ชายแดน)": 60,
+    "ไทเป": 60,
+    "โอซาก้า": 90,
+    "HIKAWA CO., LTD. 🏁🏭": 70
+  };
 
   function computePinOffsets(chapter) {
     var OFFSET = 38;
@@ -148,12 +159,16 @@
   }
 
   /* Small unlabeled dots every 50km between the named waypoints, purely so the road
-     reads with finer progress granularity than just the big province markers. */
+     reads with finer progress granularity than just the big province markers. Skipped
+     entirely across a waypoint marked `flight: true` (the leg FROM it is flown, not run —
+     e.g. ไทเป → โอกินาว่า in the Japan chapter) since evenly-spaced roadside ticks would
+     read as "you ran this" exactly where the map is saying the opposite. */
   function computeSubTicks(chapter) {
     var wps = chapter.waypoints;
     var ticks = [];
     for (var i = 0; i < wps.length - 1; i++) {
       var a = wps[i], b = wps[i + 1];
+      if (a.flight) continue;
       for (var k = Math.ceil(a.km / 50) * 50; k < b.km; k += 50) {
         if (k <= a.km) continue;
         var t = (k - a.km) / ((b.km - a.km) || 1);
@@ -277,6 +292,10 @@
           '<pattern id="paddyHatch-' + uid + '" width="26" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(8)">' +
             '<line x1="0" y1="14" x2="26" y2="0" stroke="#8fae55" stroke-width="2" opacity="0.35" />' +
           "</pattern>" +
+          '<radialGradient id="warpGlow-' + uid + '">' +
+            '<stop offset="0%" stop-color="#5fd0e8" stop-opacity="0.9" />' +
+            '<stop offset="100%" stop-color="#5fd0e8" stop-opacity="0" />' +
+          "</radialGradient>" +
         "</defs>" +
         '<rect x="0" y="0" width="520" height="860" fill="url(#terrainGrad-' + uid + ')" />' +
         '<rect x="0" y="600" width="520" height="260" fill="url(#paddyHatch-' + uid + ')" />' +
@@ -304,42 +323,103 @@
         '<g class="pin-leaders" stroke="#7a5230" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"></g>' +
         '<g class="sub-ticks"></g>' +
         '<g class="pin-dots"></g>' +
+        /* Warp portal at แม่สาย (255,21) — drawn LAST (after route-glow/pin-dots) so its
+           rings actually show on top; drawing it earlier put the fat, soft .route-glow
+           stroke (width 10, since the road ends right at this point) over the rings and
+           washed them out to invisible. The chapter 2 handoff no longer walks across the
+           border, it warps straight to ฮานอย instead (see chapter2SvgMarkup below, which
+           draws the matching warp-in ring at its own ฮานอย waypoint). Purely decorative. */
+        '<g transform="translate(255,21)">' +
+          '<circle r="15" fill="url(#warpGlow-' + uid + ')" />' +
+          '<circle class="warp-ring" r="10" fill="none" stroke="#fff" stroke-width="1.8" stroke-dasharray="3 3" opacity="0.95" />' +
+          '<circle class="warp-ring warp-ring-b" r="6.5" fill="none" stroke="#eafcff" stroke-width="1.6" stroke-dasharray="2 2" opacity="0.9" />' +
+          '<text y="3" text-anchor="middle" font-size="10">\u{1F300}</text>' +
+        "</g>" +
       "</svg>";
   }
 
-  /* Myanmar/Yunnan backdrop for chapter "cn" (แม่สาย → คุนหมิง) — same structural class
-     hooks as chapter1SvgMarkup (route-path/route-glow/route-progress/pin-dots/night-overlay) so all
-     the existing weather-filter and day/night CSS keeps working unchanged on this frame
-     too. The terrain gradient runs misty highland (top, near Kunming) into warmer lowland
-     green (bottom, near the แม่สาย handoff) so the two chapters read as a continuous climb
-     north rather than an arbitrary palette swap. */
+  /* Japan-warp backdrop for chapter "jp" (ฮานอย → HIKAWA CO., LTD. ที่ชิมาเนะ) — same
+     structural class hooks as chapter1SvgMarkup (route-path/route-glow/route-progress/
+     pin-dots/pin-leaders/sub-ticks/night-overlay) so all the existing weather-filter,
+     day/night CSS, and pin-rendering logic keep working unchanged on this frame too.
+     Sky gradient runs a full day→dusk→night band top-to-bottom purely as scenery (the
+     real day/night state is still driven by .night-overlay/.night-stars like every other
+     chapter — this gradient is just backdrop color, same idea as chapter1/2's terrain tint).
+     Known limitation: .route-path/.route-progress are still drawn as ONE continuous line
+     through every waypoint (see smoothPathD/progressPathD) — there's no per-segment dash
+     style, so the ไทเป→โอกินาว่า flight leg doesn't visually look different on the route
+     line itself. The plane note + skipped sub-ticks (see computeSubTicks) + turquoise sea
+     art carry that signal instead. Properly splitting the line style would need a deeper
+     change to how routeD/routeProgress are built — left as a follow-up, not attempted here. */
   function chapter2SvgMarkup(uid) {
     return "" +
       '<svg viewBox="0 0 480 760" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
         "<defs>" +
-          '<linearGradient id="terrainGrad2-' + uid + '" x1="0" y1="0" x2="0" y2="1">' +
-            '<stop offset="0%" stop-color="#9FC2B8" />' +
-            '<stop offset="35%" stop-color="#5F9A6E" />' +
-            '<stop offset="70%" stop-color="#3E6E4C" />' +
-            '<stop offset="100%" stop-color="#4D7A58" />' +
+          '<linearGradient id="skyJp-' + uid + '" x1="0" y1="1" x2="0" y2="0">' +
+            '<stop offset="0%" stop-color="#7FAE6F" />' +
+            '<stop offset="20%" stop-color="#dcebe0" />' +
+            '<stop offset="42%" stop-color="#bfe0e6" />' +
+            '<stop offset="62%" stop-color="#e6c199" />' +
+            '<stop offset="78%" stop-color="#3d5468" />' +
+            '<stop offset="92%" stop-color="#16233a" />' +
+            '<stop offset="100%" stop-color="#e85c7a" />' +
           "</linearGradient>" +
-          '<pattern id="terraceHatch-' + uid + '" width="30" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-4)">' +
-            '<rect width="30" height="6" fill="#CDB15E" opacity="0.3" />' +
+          '<pattern id="paddyHatchJp-' + uid + '" width="26" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(8)">' +
+            '<line x1="0" y1="14" x2="26" y2="0" stroke="#274d3a" stroke-width="2" opacity="0.3" />' +
           "</pattern>" +
+          '<radialGradient id="warpGlowJp-' + uid + '">' +
+            '<stop offset="0%" stop-color="#5fd0e8" stop-opacity="0.9" />' +
+            '<stop offset="100%" stop-color="#5fd0e8" stop-opacity="0" />' +
+          "</radialGradient>" +
         "</defs>" +
-        '<rect x="0" y="0" width="480" height="760" fill="url(#terrainGrad2-' + uid + ')" />' +
-        '<path d="M0,190 L70,120 L130,175 L210,100 L280,165 L360,110 L480,150 L480,0 L0,0 Z" fill="#AECABF" opacity="0.55" />' +
-        '<path d="M0,240 L90,165 L160,220 L250,150 L330,215 L420,170 L480,205 L480,0 L0,0 Z" fill="#3E6E4C" opacity="0.35" />' +
-        '<rect x="0" y="520" width="480" height="240" fill="url(#terraceHatch-' + uid + ')" />' +
-        '<path d="M-10,760 C60,700 90,620 140,560 C170,525 165,480 210,455 C225,435 190,400 200,340 C205,300 185,240 195,180" fill="none" stroke="#2F7EA8" stroke-width="4" stroke-linecap="round" opacity="0.35" />' +
-        '<path d="M-10,760 C60,700 90,620 140,560 C170,525 165,480 210,455 C225,435 190,400 200,340 C205,300 185,240 195,180" fill="none" stroke="#4FA0CE" stroke-width="20" stroke-linecap="round" opacity="0.55" />' +
-        '<g opacity="0.8">' +
-          '<polygon points="345,592 351,606 339,606" fill="#D99F2E" /><rect x="337" y="606" width="16" height="9" fill="#C0553A" />' +
-          '<polygon points="363,598 367,608 359,608" fill="#D99F2E" /><rect x="360" y="608" width="8" height="6" fill="#C0553A" />' +
+        '<rect x="0" y="0" width="480" height="760" fill="url(#skyJp-' + uid + ')" />' +
+        // zone: ฮานอย — Red River delta + rice paddy, full-width river band (not a small
+        // patch) so it actually reads as "the river ฮานอย sits on"
+        '<path d="M0,660 L80,615 L170,650 L250,605 L360,635 L480,615 L480,760 L0,760 Z" fill="#274d3a" opacity="0.5" />' +
+        '<path d="M0,700 L90,660 L180,690 L260,650 L370,675 L480,660 L480,760 L0,760 Z" fill="#274d3a" opacity="0.8" />' +
+        '<rect x="0" y="700" width="480" height="60" fill="url(#paddyHatchJp-' + uid + ')" />' +
+        '<path d="M0,708 C60,695 100,722 160,710 C220,698 260,722 320,708 C380,694 420,720 480,706 L480,760 L0,760 Z" fill="#4FA0CE" opacity="0.55" />' +
+        '<g transform="translate(96,676) scale(0.5)" opacity="0.9" fill="#1b2d3a">' +
+          '<ellipse cx="0" cy="10" rx="28" ry="6" opacity="0.35" />' +
+          '<rect x="-3" y="-70" width="6" height="70" />' +
+          '<path d="M-8,-52 L8,-52 L14,-44 L-14,-44 Z" /><rect x="-6" y="-44" width="12" height="10" />' +
+          '<path d="M-14,-34 L14,-34 L22,-24 L-22,-24 Z" /><rect x="-10" y="-24" width="20" height="10" />' +
+          '<path d="M-22,-14 L22,-14 L30,-2 L-30,-2 Z" /><rect x="-14" y="-2" width="28" height="14" />' +
         "</g>" +
-        '<g opacity="0.85">' +
-          '<rect x="170" y="454" width="20" height="8" fill="#C0553A" /><polygon points="167,454 193,454 180,442" fill="#D99F2E" />' +
-          '<rect x="173" y="434" width="14" height="8" fill="#C0553A" /><polygon points="171,434 189,434 180,424" fill="#D99F2E" />' +
+        // zone: ฮ่องกง/ไทเป — faint coastal shimmer only, full skyline detail lives in the
+        // filmstrip-equivalent (there's no filmstrip on the real site, so these stay simple)
+        '<path d="M60,530 C110,518 140,538 195,524 L195,565 L60,565 Z" fill="#3a5f78" opacity="0.3" />' +
+        '<path d="M140,415 C185,403 210,420 260,408 L260,448 L140,448 Z" fill="#2f5570" opacity="0.28" />' +
+        // zone: โอกินาว่า — turquoise sea + red torii, first landfall in Japan after the flight
+        '<path d="M280,320 C320,308 350,325 400,312 L400,350 L280,350 Z" fill="#2ec4c6" opacity="0.35" />' +
+        '<g transform="translate(300,320)" opacity="0.9">' +
+          '<rect x="-3" y="-2" width="6" height="26" fill="#c0392b" />' +
+          '<rect x="-14" y="-8" width="28" height="6" fill="#c0392b" />' +
+          '<rect x="-11" y="-16" width="22" height="6" fill="#c0392b" />' +
+        "</g>" +
+        // zone: โอซาก้า — castle silhouette, pushed left of the route's sharp turn there so
+        // it doesn't sit on top of the road or the finish's torii (both close by up here)
+        '<g transform="translate(250,148) scale(0.8)" opacity="0.92" fill="#1b2d3a">' +
+          '<rect x="-16" y="-6" width="32" height="16" />' +
+          '<polygon points="-20,-6 20,-6 0,-20" />' +
+          '<rect x="-10" y="-30" width="20" height="14" />' +
+          '<polygon points="-13,-30 13,-30 0,-42" />' +
+          '<rect x="-2" y="-50" width="4" height="10" />' +
+        "</g>" +
+        '<g fill="#ff6fae" opacity="0.85">' +
+          '<circle cx="260" cy="200" r="1.6" /><circle cx="345" cy="195" r="1.6" /><circle cx="330" cy="215" r="1.4" />' +
+        "</g>" +
+        // zone: เส้นชัยจริง — HIKAWA CO., LTD. ที่ชิมาเนะ (ไม่ใช่เมืองท่องเที่ยว) — torii
+        // gate + shrine roofline (Izumo Taisha, the area's real famous landmark, sits near
+        // Hikawa-cho/Izumo), pushed right of the finish dot/route so the icon doesn't sit
+        // directly on top of either
+        '<g transform="translate(422,116) scale(0.85)">' +
+          '<path d="M-26,12 L26,12 L15,-10 L-15,-10 Z" fill="#e8edf2" opacity="0.85" />' +
+          '<rect x="-11" y="12" width="22" height="16" fill="#e8edf2" opacity="0.85" />' +
+          '<g fill="#c0392b">' +
+            '<rect x="-17" y="-8" width="4.5" height="42" /><rect x="12.5" y="-8" width="4.5" height="42" />' +
+            '<rect x="-23" y="-17" width="46" height="7" /><rect x="-19" y="-4" width="38" height="4.5" />' +
+          "</g>" +
         "</g>" +
         '<rect class="night-overlay" x="0" y="0" width="480" height="760" />' +
         '<g fill="#fff" class="night-stars">' +
@@ -352,11 +432,21 @@
         '<g class="pin-leaders" stroke="#7a3320" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"></g>' +
         '<g class="sub-ticks"></g>' +
         '<g class="pin-dots"></g>' +
+        // warp-in ring at ฮานอย (130,700) — matching pair to the warp-out ring at แม่สาย in
+        // chapter1SvgMarkup, so the two maps visually read as one continuous "jump". Drawn
+        // last (after route-glow/pin-dots) for the same reason as the แม่สาย ring — earlier
+        // in the paint order, the road's own glow washed the thin rings out to invisible.
+        '<g transform="translate(130,700)">' +
+          '<circle r="15" fill="url(#warpGlowJp-' + uid + ')" />' +
+          '<circle class="warp-ring" r="10" fill="none" stroke="#fff" stroke-width="1.8" stroke-dasharray="3 3" opacity="0.95" />' +
+          '<circle class="warp-ring warp-ring-b" r="6.5" fill="none" stroke="#eafcff" stroke-width="1.6" stroke-dasharray="2 2" opacity="0.9" />' +
+          '<text y="3" text-anchor="middle" font-size="10">\u{1F300}</text>' +
+        "</g>" +
       "</svg>";
   }
 
   function mapSvgMarkup(chapterId, uid) {
-    return chapterId === "cn" ? chapter2SvgMarkup(uid) : chapter1SvgMarkup(uid);
+    return chapterId === "jp" ? chapter2SvgMarkup(uid) : chapter1SvgMarkup(uid);
   }
 
   function renderSubTicks(refs, chapter) {
@@ -512,6 +602,20 @@
     refs.chapter = chapter;
     S.applyWeather(refs.frame);
     refs.frame.dataset.night = S.dayPhase();
+
+    // The Japan chapter's ไทเป → โอกินาว่า leg is flown, not run (see the `flight: true`
+    // waypoint flag) — this static note is the plain-HTML twin of chapter2SvgMarkup's other
+    // decorations. It's HTML rather than SVG <text> specifically because ✈️ silently fails
+    // to render as an SVG glyph on some renderers (no color-emoji font for SVG text there)
+    // while the exact same glyph renders fine in ordinary HTML everywhere.
+    if (refs.flightNoteEl) {
+      var isJp = chapter.id === "jp";
+      refs.flightNoteEl.style.display = isJp ? "flex" : "none";
+      if (isJp) {
+        refs.flightNoteEl.style.left = pctX(220, chapter);
+        refs.flightNoteEl.style.top = pctY(380, chapter);
+      }
+    }
   }
 
   function buildTeamMapCard(team) {
@@ -546,6 +650,14 @@
     vehicleEl.className = "ambient-vehicle";
     vehicleEl.setAttribute("aria-hidden", "true");
     vehicleEl.textContent = "\u{1F6F5}";
+    var flightNoteEl = document.createElement("div");
+    flightNoteEl.className = "flight-note";
+    flightNoteEl.setAttribute("aria-hidden", "true");
+    flightNoteEl.style.display = "none";
+    var flightNoteIcon = document.createElement("span");
+    flightNoteIcon.textContent = "✈️";
+    flightNoteEl.appendChild(flightNoteIcon);
+    flightNoteEl.appendChild(document.createTextNode(" บินข้ามทะเล ~630 กม."));
     var pinsLayer = document.createElement("div");
     pinsLayer.className = "pins-layer";
     var runnersLayer = document.createElement("div");
@@ -555,6 +667,7 @@
     frame.appendChild(pinsLayer);
     frame.appendChild(runnersLayer);
     frame.appendChild(vehicleEl);
+    frame.appendChild(flightNoteEl);
 
     var dustEls = [1, 2, 3].map(function (n) {
       var d = document.createElement("div");
@@ -612,7 +725,7 @@
     var refs = {
       card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,
       pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
-      dustEls: dustEls, stampsEl: stamps, stampChips: [], vehicleEl: vehicleEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
+      dustEls: dustEls, stampsEl: stamps, stampChips: [], vehicleEl: vehicleEl, flightNoteEl: flightNoteEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
       lastPlace: null, teamId: team.id, chapter: null
     };
 
