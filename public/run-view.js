@@ -255,7 +255,7 @@
     var first = wps[0], last = wps[wps.length - 1];
     if (k <= first.km) {
       var seg0 = wps[1] || first;
-      return { x: first.x, y: first.y, place: first.name, nextPlace: seg0.name, kmToNext: Math.max(0, seg0.km - k), overshoot: 0 };
+      return { x: first.x, y: first.y, place: first.name, nextPlace: seg0.name, kmToNext: Math.max(0, seg0.km - k), overshoot: 0, inFlight: false };
     }
     for (var i = 0; i < wps.length - 1; i++) {
       var a = wps[i], b = wps[i + 1];
@@ -263,11 +263,12 @@
         var t = (k - a.km) / ((b.km - a.km) || 1);
         return {
           x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
-          place: a.name, nextPlace: b.name, kmToNext: Math.max(0, Math.round(b.km - k)), overshoot: 0
+          place: a.name, nextPlace: b.name, kmToNext: Math.max(0, Math.round(b.km - k)), overshoot: 0,
+          inFlight: !!a.flight
         };
       }
     }
-    return { x: last.x, y: last.y, place: last.name, nextPlace: null, kmToNext: 0, overshoot: Math.round(k - last.km) };
+    return { x: last.x, y: last.y, place: last.name, nextPlace: null, kmToNext: 0, overshoot: Math.round(k - last.km), inFlight: false };
   }
 
   function svgEl(name, attrs) {
@@ -728,7 +729,7 @@
 
     var refs = {
       card: card, nameEl: nameEl, kmEl: kmEl, rankEl: rankEl, placeEl: place, barFill: barFill, frame: frame,
-      pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
+      pinsLayer: pinsLayer, runnerWrap: runnerWrap, runnerEmojiEl: emoji, runnerName: runnerName, runnerKm: runnerKm, tagEl: tag,
       dustEls: dustEls, stampsEl: stamps, stampChips: [], vehicleEl: vehicleEl, flightNoteEl: flightNoteEl, vehiclePhase: Math.random() * VEHICLE_LOOP_MS,
       lastPlace: null, teamId: team.id, chapter: null
     };
@@ -813,6 +814,11 @@
     refs.runnerWrap.style.top = pctY(p.y, chapter);
     refs.runnerName.textContent = team.name;
     refs.runnerKm.textContent = fmtKm(team.km) + " กม.";
+    // On the flown leg (ไทเป -> โอกินาว่า in the Japan chapter, see the `flight` waypoint
+    // flag), the team marker itself was still a running-person emoji gliding along the
+    // route line — thematically backwards, since the whole point of that leg is "you flew
+    // here, you didn't run it". Swap to a plane for exactly that stretch.
+    if (refs.runnerEmojiEl) refs.runnerEmojiEl.textContent = p.inFlight ? "✈️" : "\u{1F3C3}";
 
     /* The name+km tag is centered on the runner by default, but near the map's left/right
        edges (e.g. right at the start point) that centering pushes it past the frame's
@@ -969,7 +975,8 @@
       fill.style.width = pct + "%";
       var runner = document.createElement("span");
       runner.className = "rank-runner";
-      runner.textContent = "\u{1F3C3}";
+      var teamPos = positionForKm(team.km, chapterForKm(team.km));
+      runner.textContent = teamPos.inFlight ? "✈️" : "\u{1F3C3}";
       runner.style.left = pct + "%";
       track.appendChild(fill);
       track.appendChild(runner);
