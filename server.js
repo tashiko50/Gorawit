@@ -122,21 +122,25 @@ const ROUTE_FINISH_KM = 830;
 // ฮานอย just picks up numbering exactly where แม่สาย (890km) left off.
 // The ไทเป → โอกินาว่า leg is flown, not run (no bridge/ferry route makes sense there) —
 // marked `flight: true` on the ไทเป waypoint so computeSubTicks skips the usual 50km ticks
-// across that specific gap (see run-view.js). Distances are approximate real-world
-// city-to-city distances (driving where a road exists, flight distance across open sea),
-// not verified routing data like ROUTE above — good enough for a pitch, not for real GPS.
+// across that specific gap (see run-view.js). km values here are a deliberately compressed
+// scale, NOT real city-to-city distances — the real total (~3765km) would put the finish
+// completely out of reach for any real team, defeating the point of a finish line at all.
+// Picked so the whole chapter spans 890 (continuing straight from chapter 1's 890) to
+// 1999, just under the 2000km/level-100 milestone cap, while keeping each leg's relative
+// length roughly proportional to the real one, so the pacing still feels sensible leg-to-leg.
 // lat/lon are real city centers (Izumo for the Hikawa-cho/Shimane finish, since Hikawa-cho
-// merged into Izumo City in 2011), close enough for the weather lookup.
+// merged into Izumo City in 2011), close enough for the weather lookup — unaffected by the
+// km rescale above, since weather is looked up per-place, not per-km.
 const ROUTE_CHAPTER2 = [
   { name: "ฮานอย", km: 890, x: 130, y: 700, lat: 21.0285, lon: 105.8542 },
-  { name: "ฮ่องกง", km: 1790, x: 230, y: 560, lat: 22.3193, lon: 114.1694 },
-  { name: "ไทเป", km: 2595, x: 300, y: 430, lat: 25.0330, lon: 121.5654, flight: true },
-  { name: "โอกินาว่า", km: 3225, x: 340, y: 300, lat: 26.2124, lon: 127.6809 },
-  { name: "โอซาก้า", km: 4425, x: 310, y: 170, lat: 34.6937, lon: 135.5023 },
-  { name: "HIKAWA CO., LTD. 🏁🏭", km: 4655, x: 370, y: 80, lat: 35.3667, lon: 132.7667 }
+  { name: "ฮ่องกง", km: 1150, x: 230, y: 560, lat: 22.3193, lon: 114.1694 },
+  { name: "ไทเป", km: 1350, x: 300, y: 430, lat: 25.0330, lon: 121.5654, flight: true },
+  { name: "โอกินาว่า", km: 1550, x: 340, y: 300, lat: 26.2124, lon: 127.6809 },
+  { name: "โอซาก้า", km: 1850, x: 310, y: 170, lat: 34.6937, lon: 135.5023 },
+  { name: "HIKAWA CO., LTD. 🏁🏭", km: 1999, x: 370, y: 80, lat: 35.3667, lon: 132.7667 }
 ];
 const ROUTE_CHAPTER2_VIEWBOX = { w: 480, h: 760 };
-const ROUTE_CHAPTER2_FINISH_KM = 4655;
+const ROUTE_CHAPTER2_FINISH_KM = 1999;
 const ROUTE_CHAPTER2_LABEL = "บทใหม่ — วาร์ปสู่ญี่ปุ่น 🇯🇵";
 
 function placeForKm(km) {
