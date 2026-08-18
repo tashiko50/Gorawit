@@ -657,7 +657,11 @@
     var flightNoteIcon = document.createElement("span");
     flightNoteIcon.textContent = "✈️";
     flightNoteEl.appendChild(flightNoteIcon);
-    flightNoteEl.appendChild(document.createTextNode(" บินข้ามทะเล ~630 กม."));
+    // No specific km figure here — the ~630km real flight distance doesn't match the
+    // 200km gap the rescaled ไทเป->โอกินาว่า km values (see server.js) actually assign to
+    // this leg, and stating a number that disagrees with the km shown everywhere else on
+    // the card would read as a bug rather than flavor text.
+    flightNoteEl.appendChild(document.createTextNode(" บินข้ามทะเล"));
     var pinsLayer = document.createElement("div");
     pinsLayer.className = "pins-layer";
     var runnersLayer = document.createElement("div");
