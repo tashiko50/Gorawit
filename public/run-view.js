@@ -1381,18 +1381,17 @@
   updateClock();
   setInterval(updateClock, 1000);
 
-  /* Background music: browsers block autoplay-with-sound entirely, so we start muted
-     (always allowed) and unmute + fade the volume in on the very first click/tap/keypress
-     anywhere on the page — in practice that's within a second of load for most visitors.
+  /* Background music: off by default, only starts when the visitor presses the 🔈 เพลง
+     button themselves — no autoplay attempt at all, muted or otherwise.
 
-     Playlist: pick a random track on load, then pick a new random track (never repeating
-     the one that just finished) each time one ends — an endless shuffle that lands on a
-     different song per visit instead of always looping the same one. */
+     Playlist: pick a random track on load (queued up, not played), then pick a new random
+     track (never repeating the one that just finished) each time one ends — an endless
+     shuffle that lands on a different song per visit instead of always looping the same one. */
   if (bgmEl && bgmToggleBtn) {
     var BGM_TRACKS = ["audio/theme.mp3", "audio/track2.mp3", "audio/track3.mp3", "audio/track4.mp3"];
     var BGM_TARGET_VOLUME = 0.18;
     var BGM_FADE_MS = 4000;
-    var bgmUserPaused = false;
+    var bgmUserPaused = true; // starts true: nothing plays until the user presses the button
     var bgmCurrentTrack = null;
     var bgmReduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -1439,20 +1438,10 @@
     bgmCurrentTrack = pickNextTrack();
     bgmEl.src = bgmCurrentTrack;
     bgmEl.volume = 0;
-    bgmEl.muted = true;
-    bgmEl.play().catch(function () {});
-
-    ["click", "touchstart", "keydown"].forEach(function (evt) {
-      document.addEventListener(evt, function firstInteraction() {
-        startPlaying();
-        ["click", "touchstart", "keydown"].forEach(function (e2) {
-          document.removeEventListener(e2, firstInteraction);
-        });
-      }, { once: true });
-    });
+    setToggleLabel(false);
 
     bgmToggleBtn.addEventListener("click", function () {
-      if (bgmEl.paused || bgmEl.muted) {
+      if (bgmEl.paused) {
         bgmUserPaused = false;
         startPlaying();
       } else {
