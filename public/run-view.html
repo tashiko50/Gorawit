@@ -31,6 +31,24 @@
   .map-frame[data-weather="rain"] { filter: saturate(0.8) brightness(0.9); }
   .map-frame[data-weather="snow"] { filter: saturate(0.92) brightness(1.03); }
 
+  /* Scoreboard.applyWeather (shared.js) already spawns .raindrop/.snowflake elements, but
+     shared.css's rain-fall/snow-fall keyframes travel a fixed distance in vh — sized for the
+     village view's full-viewport scene-sky. Each map-frame here is a small, independently-sized
+     card, not the viewport, so those vh distances shoot the drops far past the card in a
+     fraction of the animation — they're essentially invisible. Override with a fall that
+     travels using top:%, which resolves against this card's own height at any card size. */
+  .map-frame .raindrop, .map-frame .snowflake { top: -8%; z-index: 2; }
+  .map-frame .raindrop { animation-name: card-rain-fall; }
+  .map-frame .snowflake { animation-name: card-snow-fall; }
+  @keyframes card-rain-fall { from { top: -8%; } to { top: 108%; } }
+  @keyframes card-snow-fall {
+    from { top: -8%; transform: translateX(0) rotate(0deg); }
+    to { top: 108%; transform: translateX(20px) rotate(180deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .map-frame .raindrop, .map-frame .snowflake { display: none; }
+  }
+
   /* Small drifting clouds — purely decorative, clipped by the frame's overflow:hidden */
   .map-cloud {
     position: absolute; top: 8%; left: -25%; width: 46px; height: 16px; background: rgba(255, 255, 255, 0.85);
