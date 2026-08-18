@@ -26,6 +26,15 @@ const SHEET_POLL_MS = Number(process.env.SHEET_POLL_MS) || 20 * 1000;
 // (works, just resets on every cold start).
 const VISIT_COUNTER_URL = process.env.VISIT_COUNTER_URL || "";
 
+// Same Apps Script Web App, different query param — returns name/team/km/submissions/streak
+// per person, computed straight from the private "ตรวจสอบภายใน" sheet. Reuses
+// VISIT_COUNTER_URL instead of a separate env var since it's the same deployment; this call
+// never increments the visit counter (Code.gs branches on ?action=roster before touching it).
+// Missing VISIT_COUNTER_URL just means the roster stays empty — the personal-search feature
+// quietly has nothing to show instead of erroring.
+const ROSTER_URL = VISIT_COUNTER_URL ? `${VISIT_COUNTER_URL}?action=roster` : "";
+const ROSTER_POLL_MS = Number(process.env.ROSTER_POLL_MS) || 30 * 1000;
+
 // Open-Meteo — free, no API key needed, supports current weather for many lat/lon pairs
 // in a single request. Weather doesn't need to track km changes, so this polls on its
 // own, much slower interval.
@@ -104,6 +113,36 @@ const ROUTE = [
 const ROUTE_VIEWBOX = { w: 520, h: 860 };
 const ROUTE_FINISH_KM = 830;
 
+// Chapter 2 — a "warp" chapter, not a driving continuation of chapter 1. แม่สาย becomes a
+// portal instead of a border crossing to walk through: the map skips straight to ฮานอย
+// (เวียดนาม) and continues through cities Thai people actually recognize (ฮ่องกง/ไทเป before
+// the Taiwan Strait, then ญี่ปุ่น) rather than a literal drivable road from Thailand, which
+// doesn't exist. Absolute km still continues straight on from chapter 1 (no reset at the
+// border) so the whole-race progress bar stays continuous — the warp itself costs no km,
+// ฮานอย just picks up numbering exactly where แม่สาย (890km) left off.
+// The ไทเป → โอกินาว่า leg is flown, not run (no bridge/ferry route makes sense there) —
+// marked `flight: true` on the ไทเป waypoint so computeSubTicks skips the usual 50km ticks
+// across that specific gap (see run-view.js). km values here are a deliberately compressed
+// scale, NOT real city-to-city distances — the real total (~3765km) would put the finish
+// completely out of reach for any real team, defeating the point of a finish line at all.
+// Picked so the whole chapter spans 890 (continuing straight from chapter 1's 890) to
+// 1999, just under the 2000km/level-100 milestone cap, while keeping each leg's relative
+// length roughly proportional to the real one, so the pacing still feels sensible leg-to-leg.
+// lat/lon are real city centers (Izumo for the Hikawa-cho/Shimane finish, since Hikawa-cho
+// merged into Izumo City in 2011), close enough for the weather lookup — unaffected by the
+// km rescale above, since weather is looked up per-place, not per-km.
+const ROUTE_CHAPTER2 = [
+  { name: "ฮานอย", km: 890, x: 130, y: 700, lat: 21.0285, lon: 105.8542 },
+  { name: "ฮ่องกง", km: 1150, x: 230, y: 560, lat: 22.3193, lon: 114.1694 },
+  { name: "ไทเป", km: 1350, x: 300, y: 430, lat: 25.0330, lon: 121.5654, flight: true },
+  { name: "โอกินาว่า", km: 1550, x: 340, y: 300, lat: 26.2124, lon: 127.6809 },
+  { name: "โอซาก้า", km: 1850, x: 310, y: 170, lat: 34.6937, lon: 135.5023 },
+  { name: "HIKAWA CO., LTD. 🏁🏭", km: 1999, x: 370, y: 80, lat: 35.3667, lon: 132.7667 }
+];
+const ROUTE_CHAPTER2_VIEWBOX = { w: 480, h: 760 };
+const ROUTE_CHAPTER2_FINISH_KM = 1999;
+const ROUTE_CHAPTER2_LABEL = "บทใหม่ — วาร์ปสู่ญี่ปุ่น 🇯🇵";
+
 function placeForKm(km) {
   const k = Math.max(0, Number(km) || 0);
   let current = ROUTE[0];
@@ -140,7 +179,8 @@ function defaultState() {
       makeTeam("t3", "โรงงาน", PALETTE[2])
     ],
     events: [],
-    visitCount: 0
+    visitCount: 0,
+    roster: []
   };
 }
 
@@ -279,19 +319,38 @@ async function refreshFromSheet() {
   }
 }
 
+let rosterSyncOk = false;
+
+async function refreshRoster() {
+  if (!ROSTER_URL) return; // no Apps Script URL configured — feature just stays empty, not broken
+  try {
+    const res = await fetch(ROSTER_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("roster response was not an array");
+    state.roster = data;
+    rosterSyncOk = true;
+  } catch (e) {
+    rosterSyncOk = false;
+    console.error("Run Mile: failed to refresh roster —", e.message);
+  }
+}
+
 let weatherByPlace = {};
+
+const ALL_ROUTE_WAYPOINTS = [...ROUTE, ...ROUTE_CHAPTER2];
 
 async function refreshWeather() {
   try {
-    const lats = ROUTE.map((wp) => wp.lat).join(",");
-    const lons = ROUTE.map((wp) => wp.lon).join(",");
+    const lats = ALL_ROUTE_WAYPOINTS.map((wp) => wp.lat).join(",");
+    const lons = ALL_ROUTE_WAYPOINTS.map((wp) => wp.lon).join(",");
     const url = `${WEATHER_API_BASE}?latitude=${lats}&longitude=${lons}&current=temperature_2m,weather_code&timezone=Asia%2FBangkok`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const results = Array.isArray(data) ? data : [data];
     const next = {};
-    ROUTE.forEach((wp, i) => {
+    ALL_ROUTE_WAYPOINTS.forEach((wp, i) => {
       const current = results[i] && results[i].current;
       if (!current) return;
       const code = WEATHER_CODE_MAP[current.weather_code] || { emoji: "🌡️", label: "ไม่ทราบสภาพอากาศ", color: "#8a97a6" };
@@ -345,11 +404,20 @@ app.get("/api/state", (req, res) => {
 });
 
 app.get("/api/route", (req, res) => {
-  res.json({ waypoints: ROUTE, viewBox: ROUTE_VIEWBOX, finishKm: ROUTE_FINISH_KM });
+  res.json({
+    chapters: [
+      { id: "th", startKm: 0, waypoints: ROUTE, viewBox: ROUTE_VIEWBOX, finishKm: ROUTE_FINISH_KM },
+      { id: "jp", startKm: 890, label: ROUTE_CHAPTER2_LABEL, waypoints: ROUTE_CHAPTER2, viewBox: ROUTE_CHAPTER2_VIEWBOX, finishKm: ROUTE_CHAPTER2_FINISH_KM }
+    ]
+  });
 });
 
 app.get("/api/sheet-sync", (req, res) => {
   res.json({ ok: sheetSyncOk, lastSyncAt: sheetSyncAt });
+});
+
+app.get("/api/roster", (req, res) => {
+  res.json(state.roster);
 });
 
 app.get("/api/weather", (req, res) => {
@@ -363,4 +431,6 @@ app.listen(PORT, () => {
   setInterval(refreshFromSheet, SHEET_POLL_MS);
   refreshWeather();
   setInterval(refreshWeather, WEATHER_POLL_MS);
+  refreshRoster();
+  setInterval(refreshRoster, ROSTER_POLL_MS);
 });
