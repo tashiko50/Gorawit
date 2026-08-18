@@ -603,16 +603,10 @@
     var stamps = document.createElement("div");
     stamps.className = "team-map-stamps";
 
-    // Hidden outside kiosk mode (see .kiosk-names-inline in run-view.html) — replaces the
-    // roster-bar-track's spot on the big TV screen with that team's own Top 10 list instead.
-    var kioskNames = document.createElement("div");
-    kioskNames.className = "kiosk-names-inline";
-
     card.appendChild(header);
     card.appendChild(frame);
     card.appendChild(place);
     card.appendChild(barTrack);
-    card.appendChild(kioskNames);
     card.appendChild(stamps);
 
     var refs = {
