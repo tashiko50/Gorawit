@@ -339,6 +339,21 @@
       "</svg>";
   }
 
+  /* One circular city-scene badge for the jp chapter map: a dotted leader from the real
+     waypoint (wpx,wpy) out to a small themed circle at (bx,by), with a hand-drawn icon
+     inside and an outlined text label underneath. Text uses paint-order stroke instead of
+     a background pill so it stays legible over whatever backdrop art it lands on without
+     needing a per-label measured rect. */
+  function cityBadgeMarkup(bx, by, wpx, wpy, bgColor, iconColor, label, iconMarkup) {
+    return "" +
+      '<line x1="' + wpx + '" y1="' + wpy + '" x2="' + bx + '" y2="' + by + '" stroke="#7a3320" stroke-width="1" stroke-dasharray="2 2" opacity="0.45" />' +
+      '<g transform="translate(' + bx + ',' + by + ')">' +
+        '<circle r="19" fill="' + bgColor + '" stroke="#fff" stroke-width="2" />' +
+        '<g fill="' + iconColor + '">' + iconMarkup + "</g>" +
+        '<text y="33" text-anchor="middle" font-size="9" font-weight="600" fill="#1b2d3a" stroke="#fff" stroke-width="3" stroke-linejoin="round" paint-order="stroke">' + label + "</text>" +
+      "</g>";
+  }
+
   /* Japan-warp backdrop for chapter "jp" (ฮานอย → HIKAWA CO., LTD. ที่ชิมาเนะ) — same
      structural class hooks as chapter1SvgMarkup (route-path/route-glow/route-progress/
      pin-dots/pin-leaders/sub-ticks/night-overlay) so all the existing weather-filter,
@@ -433,6 +448,42 @@
         '<g class="pin-leaders" stroke="#7a3320" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"></g>' +
         '<g class="sub-ticks"></g>' +
         '<g class="pin-dots"></g>' +
+        // Circular city-scene badges — one per waypoint, confirmed for this chapter only
+        // (not chapter 1). Kept as a plain vertical column at the map's left margin
+        // (x=42, clear of the route which stays x>=130 the whole way, and clear of every
+        // existing backdrop element) with a dotted leader back to the real waypoint —
+        // simpler and safer than reusing <symbol>/<use> across the icon + a filmstrip
+        // (there's no filmstrip here to share it with, unlike the original mockup), and
+        // avoids re-touching any of the working backdrop art above. Drawn after
+        // pin-dots so the badges never sit under the route-glow's paint order.
+        '<g class="city-badges" font-family="inherit">' +
+          cityBadgeMarkup(42, 700, 130, 700, "#f0a84e", "#7a3320", "ฮานอย",
+            '<g transform="translate(0,-2) scale(0.22)"><rect x="-3" y="-70" width="6" height="70" />' +
+            '<path d="M-8,-52 L8,-52 L14,-44 L-14,-44 Z" /><rect x="-6" y="-44" width="12" height="10" />' +
+            '<path d="M-14,-34 L14,-34 L22,-24 L-22,-24 Z" /><rect x="-10" y="-24" width="20" height="10" />' +
+            '<path d="M-22,-14 L22,-14 L30,-2 L-30,-2 Z" /><rect x="-14" y="-2" width="28" height="14" /></g>') +
+          cityBadgeMarkup(42, 560, 230, 560, "#3a6ea5", "#12263a", "ฮ่องกง",
+            '<g transform="translate(0,4) scale(0.9)"><rect x="-16" y="-8" width="6" height="8" /><rect x="-9" y="-14" width="6" height="14" />' +
+            '<rect x="-2" y="-6" width="5" height="6" /><rect x="4" y="-18" width="6" height="18" />' +
+            '<polygon points="9,-18 5,-18 7,-23" /><rect x="11" y="-10" width="5" height="10" /></g>') +
+          cityBadgeMarkup(42, 430, 300, 430, "#e0925a", "#3a2418", "ไทเป",
+            '<g transform="translate(0,4) scale(0.9)"><rect x="-1.5" y="-30" width="3" height="4" /><rect x="-4" y="-26" width="8" height="4" />' +
+            '<rect x="-3" y="-22" width="6" height="3" /><rect x="-5" y="-19" width="10" height="3" />' +
+            '<rect x="-4" y="-16" width="8" height="3" /><rect x="-6" y="-13" width="12" height="3" />' +
+            '<rect x="-5" y="-10" width="10" height="3" /><rect x="-7" y="-7" width="14" height="7" /></g>') +
+          cityBadgeMarkup(42, 300, 340, 300, "#2ec4c6", "#c0392b", "โอกินาว่า",
+            '<g transform="translate(0,2) scale(0.55)"><rect x="-3" y="-2" width="6" height="26" />' +
+            '<rect x="-14" y="-8" width="28" height="6" /><rect x="-11" y="-16" width="22" height="6" /></g>') +
+          cityBadgeMarkup(42, 170, 310, 170, "#5c6b7a", "#0d1a26", "โอซาก้า",
+            '<g transform="translate(0,2) scale(0.5)"><rect x="-16" y="-6" width="32" height="16" /><polygon points="-20,-6 20,-6 0,-20" />' +
+            '<rect x="-10" y="-30" width="20" height="14" /><polygon points="-13,-30 13,-30 0,-42" />' +
+            '<rect x="-2" y="-50" width="4" height="10" /></g>') +
+          cityBadgeMarkup(42, 80, 370, 80, "#f4c95d", "#e8edf2", "HIKAWA",
+            '<g transform="translate(0,3) scale(0.42)" fill="#e8edf2"><path d="M-26,12 L26,12 L15,-10 L-15,-10 Z" opacity="0.9" />' +
+            '<rect x="-11" y="12" width="22" height="16" opacity="0.9" /></g>' +
+            '<g transform="translate(0,3) scale(0.42)" fill="#c0392b"><rect x="-17" y="-8" width="4.5" height="42" /><rect x="12.5" y="-8" width="4.5" height="42" />' +
+            '<rect x="-23" y="-17" width="46" height="7" /><rect x="-19" y="-4" width="38" height="4.5" /></g>') +
+        "</g>" +
         // warp-in ring at ฮานอย (130,700) — matching pair to the warp-out ring at แม่สาย in
         // chapter1SvgMarkup, so the two maps visually read as one continuous "jump". Drawn
         // last (after route-glow/pin-dots) for the same reason as the แม่สาย ring — earlier
