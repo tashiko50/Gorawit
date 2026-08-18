@@ -834,12 +834,19 @@
       celebrateRunner(refs, true);
       showToast(refs, "\u{1F30F} ข้ามพรมแดนแล้ว! เริ่ม" + (chapter.label || "บทใหม่"));
     } else if (refs.lastPlace !== null && p.place !== refs.lastPlace) {
-      var isChiangRai = p.place.indexOf("เชียงราย") !== -1;
-      var isKunming = p.place.indexOf("คุนหมิง") !== -1;
-      var big = isChiangRai || isKunming;
-      celebrateRunner(refs, big);
-      var msg = isKunming ? "\u{1F386} ถึงคุนหมิงแล้ว! จบการเดินทางสุดยิ่งใหญ่!"
-        : isChiangRai ? "\u{1F3C5} ถึงเชียงรายแล้ว!"
+      // Was hardcoded to specific city names ("เชียงราย"/"คุนหมิง") — that silently stopped
+      // matching the moment chapter 2's finish became a different place (HIKAWA CO., LTD.)
+      // instead of คุนหมิง. Generalized to "is this waypoint the chapter's actual finishKm"
+      // so it stays correct for any future chapter/finish-place change too.
+      var arrivedWp = null;
+      for (var wi = 0; wi < chapter.waypoints.length; wi++) {
+        if (chapter.waypoints[wi].name === p.place) { arrivedWp = chapter.waypoints[wi]; break; }
+      }
+      var isChapterFinish = !!arrivedWp && arrivedWp.km === chapter.finishKm;
+      var isOverallFinish = isChapterFinish && chapter === chapters[chapters.length - 1];
+      celebrateRunner(refs, isChapterFinish);
+      var msg = isOverallFinish ? "\u{1F386} ถึง" + p.place + "แล้ว! จบการเดินทางสุดยิ่งใหญ่!"
+        : isChapterFinish ? "\u{1F3C5} ถึง" + p.place + "แล้ว!"
         : "\u{1F4CD} ถึง" + p.place + "แล้ว!";
       showToast(refs, msg);
     }
