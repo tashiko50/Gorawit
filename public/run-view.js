@@ -1110,6 +1110,8 @@
 
   function openRank10Modal() {
     if (!rank10Backdrop) return;
+    closeSearchModal(); // the two full-screen sheets shared no mutual-exclusion before —
+    // opening one while the other was already open left both stacked on screen at once.
     renderTop10Modal(lastTeamsSnapshot);
     rank10Backdrop.classList.add("active");
     rank10Sheet.classList.add("active");
@@ -1142,6 +1144,15 @@
      the visit counter already uses (?action=roster) — see server.js and Code.gs. Rank/gap
      are computed here client-side rather than server-side so results update instantly as
      the user types, same as the validated mockup. */
+
+  // Names/teams below come straight from the roster sheet (real people can type anything
+  // into their own nickname field) and get concatenated into innerHTML — escape every one
+  // instead of trusting the source, so a stray "<"/"&"/quote in someone's name can't inject
+  // markup that runs for everyone else who searches for or sees that name.
+  var HTML_ESCAPE_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return HTML_ESCAPE_MAP[c]; });
+  }
 
   function searchTeamStats(person) {
     var mates = lastRoster.filter(function (p) { return p.team === person.team; })
@@ -1191,7 +1202,7 @@
     return (
       '<div class="search-result-person">' +
         '<div class="search-result-avatar">🚶</div>' +
-        "<div><div class=\"search-result-name\">" + person.name + '</div><div class="search-result-team">ทีม' + person.team + "</div></div>" +
+        "<div><div class=\"search-result-name\">" + escapeHtml(person.name) + '</div><div class="search-result-team">ทีม' + escapeHtml(person.team) + "</div></div>" +
       "</div>" +
       '<div class="search-never-ran" style="border-color:color-mix(in srgb, ' + teamColor + ' 30%, var(--card-border))">' +
         "👟 ยังไม่เคยส่งหลักฐานวิ่ง/เดินเลย — ลองเริ่มวันนี้ดูนะ!" +
@@ -1206,11 +1217,11 @@
     var medal = searchMedalFor(s.rank);
     var teamColor = searchTeamColor(person.team);
     var badgeHtml = medal ? '<span class="search-avatar-medal">' + medal + "</span>" : "";
-    var teamLine = "ทีม" + person.team +
+    var teamLine = "ทีม" + escapeHtml(person.team) +
       (!medal && s.rank >= 4 && s.rank <= 10 ? ' <span class="search-top10-pill">🏆 Top 10 ทีม</span>' : "");
     var progressLabel = s.rank <= 1
       ? "🎉 เป็นอันดับ 1 ของทีมตอนนี้!"
-      : "อีก " + s.gap + " กม. จะแซงอันดับที่ " + (s.rank - 1) + " ของทีม" + (s.above ? " (" + searchFirstName(s.above.name) + ")" : "");
+      : "อีก " + s.gap + " กม. จะแซงอันดับที่ " + (s.rank - 1) + " ของทีม" + (s.above ? " (" + escapeHtml(searchFirstName(s.above.name)) + ")" : "");
     var streakHtml = person.streak > 0
       ? '<div class="search-streak">🔥 ส่งหลักฐานติดต่อกัน ' + person.streak + " วัน</div>"
       : '<div class="search-streak is-inactive">📭 ยังไม่มี streak ติดต่อกัน — ส่งวันนี้เพื่อเริ่มนับ!</div>';
@@ -1218,11 +1229,11 @@
     return (
       '<div class="search-result-person">' +
         '<div class="search-result-avatar">🏃' + badgeHtml + "</div>" +
-        "<div><div class=\"search-result-name\">" + person.name + '</div><div class="search-result-team">' + teamLine + "</div></div>" +
+        "<div><div class=\"search-result-name\">" + escapeHtml(person.name) + '</div><div class="search-result-team">' + teamLine + "</div></div>" +
       "</div>" +
       '<div class="search-stat-grid">' +
         searchStatTile("📏", fmtKm(person.km), "กม. สะสมรวม", teamColor) +
-        searchStatTile("🎯", "#" + (s.rank || "-"), "อันดับของทีม" + person.team, teamColor) +
+        searchStatTile("🎯", "#" + (s.rank || "-"), "อันดับของทีม" + escapeHtml(person.team), teamColor) +
         searchStatTile("📸", String(person.submissions || 0), "ครั้งที่ส่งหลักฐานมาแล้ว", teamColor) +
       "</div>" +
       '<div class="search-progress">' +
@@ -1275,14 +1286,14 @@
       var winner = aWins > bWins ? me : opp;
       var winnerColor = aWins > bWins ? meColor : oppColor;
       verdictHtml = '<div class="cmp-verdict" style="background:color-mix(in srgb, ' + winnerColor + ' 16%, var(--card-bg));color:' + winnerColor + '">🏆 ' +
-        winner.name + " ชนะไป " + Math.max(aWins, bWins) + " ใน " + rows.length + " หมวด!</div>";
+        escapeHtml(winner.name) + " ชนะไป " + Math.max(aWins, bWins) + " ใน " + rows.length + " หมวด!</div>";
     }
 
     return (
       '<div class="cmp-heads">' +
-        '<div class="cmp-side">' + compareAvatarHtml(me) + '<div class="cmp-side-name">' + me.name + '</div><div class="cmp-side-team">' + me.team + "</div></div>" +
+        '<div class="cmp-side">' + compareAvatarHtml(me) + '<div class="cmp-side-name">' + escapeHtml(me.name) + '</div><div class="cmp-side-team">' + escapeHtml(me.team) + "</div></div>" +
         '<div class="cmp-vs">VS</div>' +
-        '<div class="cmp-side">' + compareAvatarHtml(opp) + '<div class="cmp-side-name">' + opp.name + '</div><div class="cmp-side-team">' + opp.team + "</div></div>" +
+        '<div class="cmp-side">' + compareAvatarHtml(opp) + '<div class="cmp-side-name">' + escapeHtml(opp.name) + '</div><div class="cmp-side-team">' + escapeHtml(opp.team) + "</div></div>" +
       "</div>" +
       '<div class="cmp-rows">' + rowsHtml + "</div>" +
       verdictHtml +
@@ -1297,10 +1308,10 @@
     var idx = person.name.indexOf(q);
     var before = person.name.slice(0, idx), match = person.name.slice(idx, idx + q.length), after = person.name.slice(idx + q.length);
     return (
-      '<div class="search-suggest-row" data-name="' + person.name.replace(/"/g, "&quot;") + '">' +
+      '<div class="search-suggest-row" data-name="' + escapeHtml(person.name) + '" data-team="' + escapeHtml(person.team) + '">' +
         '<div class="search-suggest-avatar">🏃</div>' +
-        '<div class="search-suggest-name">' + before + "<mark>" + match + "</mark>" + after + "</div>" +
-        '<div class="search-suggest-team">' + person.team + "</div>" +
+        '<div class="search-suggest-name">' + escapeHtml(before) + "<mark>" + escapeHtml(match) + "</mark>" + escapeHtml(after) + "</div>" +
+        '<div class="search-suggest-team">' + escapeHtml(person.team) + "</div>" +
       "</div>"
     );
   }
@@ -1323,12 +1334,16 @@
     searchHint.hidden = true;
     searchSuggest.innerHTML = matches.map(function (p) { return searchSuggestRowHtml(p, q); }).join("");
     Array.prototype.forEach.call(searchSuggest.querySelectorAll(".search-suggest-row"), function (row) {
-      row.addEventListener("click", function () { selectSearchPerson(row.getAttribute("data-name")); });
+      row.addEventListener("click", function () { selectSearchPerson(row.getAttribute("data-name"), row.getAttribute("data-team")); });
     });
   }
 
-  function selectSearchPerson(name) {
-    var person = lastRoster.find(function (p) { return p.name === name; });
+  // Matched on name+team together, not name alone — two people sharing a common nickname
+  // on different teams used to silently resolve to whichever of them happened to sit first
+  // in lastRoster, regardless of which suggestion row (labeled with the correct team) was
+  // actually clicked.
+  function selectSearchPerson(name, team) {
+    var person = lastRoster.find(function (p) { return p.name === name && p.team === team; });
     if (!person) return;
     lastSearchedPerson = person;
     searchResultView.innerHTML = searchResultHtml(person);
@@ -1360,7 +1375,7 @@
     searchResultView.hidden = true;
     searchCompareView.hidden = false;
     searchCompareView.innerHTML =
-      '<h3 class="cmp-title">พิมพ์ชื่อเพื่อนที่จะเทียบกับ ' + searchFirstName(lastSearchedPerson.name) + "</h3>" +
+      '<h3 class="cmp-title">พิมพ์ชื่อเพื่อนที่จะเทียบกับ ' + escapeHtml(searchFirstName(lastSearchedPerson.name)) + "</h3>" +
       '<p class="cmp-sub">เลือกใครก็ได้ในบริษัท จะเทียบ กม. สะสม / จำนวนครั้งที่ส่ง / streak ให้ทันที</p>' +
       '<div class="search-input-wrap" style="margin:0 18px"><span class="search-icon">🔍</span>' +
         '<input class="search-input" id="cmpOpponentInput" placeholder="พิมพ์ชื่อเล่น เช่น ไก่น้อย" autocomplete="off"></div>' +
@@ -1369,11 +1384,18 @@
     var input = document.getElementById("cmpOpponentInput");
     var suggest = document.getElementById("cmpOpponentSuggest");
     function renderOpponentSuggestions(q) {
-      var candidates = lastRoster.filter(function (p) { return p.name !== lastSearchedPerson.name; });
+      // Excludes only the literal same person (name+team), not everyone who happens to
+      // share their nickname on a different team — those are legitimate opponents. Matched
+      // by value (not object reference) since lastRoster can be replaced wholesale by a
+      // roster poll between picking a person and opening this picker, which would make a
+      // reference comparison against the stale lastSearchedPerson object match nobody.
+      var candidates = lastRoster.filter(function (p) {
+        return !(p.name === lastSearchedPerson.name && p.team === lastSearchedPerson.team);
+      });
       var matches = (q ? candidates.filter(function (p) { return p.name.indexOf(q) !== -1; }) : candidates).slice(0, 6);
       suggest.innerHTML = matches.map(function (p) { return searchSuggestRowHtml(p, q); }).join("");
       Array.prototype.forEach.call(suggest.querySelectorAll(".search-suggest-row"), function (row) {
-        row.addEventListener("click", function () { renderComparisonResult(row.getAttribute("data-name")); });
+        row.addEventListener("click", function () { renderComparisonResult(row.getAttribute("data-name"), row.getAttribute("data-team")); });
       });
     }
     renderOpponentSuggestions("");
@@ -1381,19 +1403,20 @@
     input.focus();
   }
 
-  function renderComparisonResult(opponentName) {
-    var opponent = lastRoster.find(function (p) { return p.name === opponentName; });
+  function renderComparisonResult(opponentName, opponentTeam) {
+    var opponent = lastRoster.find(function (p) { return p.name === opponentName && p.team === opponentTeam; });
     if (!opponent) return;
     searchCompareView.innerHTML = compareResultHtml(lastSearchedPerson, opponent);
     document.getElementById("cmpAgainBtn").addEventListener("click", openComparePicker);
     document.getElementById("cmpBackBtn").addEventListener("click", function () {
       searchCompareView.hidden = true;
-      selectSearchPerson(lastSearchedPerson.name);
+      selectSearchPerson(lastSearchedPerson.name, lastSearchedPerson.team);
     });
   }
 
   function openSearchModal() {
     if (!searchBackdrop) return;
+    closeRank10Modal();
     searchBackdrop.classList.add("active");
     searchSheet.classList.add("active");
     searchInput.value = "";
@@ -1424,7 +1447,7 @@
       if (e.key !== "Enter") return;
       var q = searchInput.value.trim();
       var matches = lastRoster.filter(function (p) { return p.name.indexOf(q) !== -1; });
-      if (matches.length === 1) selectSearchPerson(matches[0].name);
+      if (matches.length === 1) selectSearchPerson(matches[0].name, matches[0].team);
     });
   }
 
@@ -1556,8 +1579,15 @@
     var startPlaying = function () {
       if (bgmUserPaused) return;
       bgmEl.muted = false;
-      bgmEl.play().then(fadeIn).catch(function () {});
-      setToggleLabel(true);
+      // Label only flips to "on" once play() actually resolves — setting it eagerly here
+      // meant a rejected play() (blocked autoplay policy, a corrupt/missing track, etc.)
+      // left the button forever claiming music was on while nothing was actually playing.
+      bgmEl.play().then(function () {
+        setToggleLabel(true);
+        fadeIn();
+      }).catch(function () {
+        setToggleLabel(false);
+      });
     };
 
     bgmEl.addEventListener("ended", function () {
