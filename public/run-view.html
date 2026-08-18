@@ -75,7 +75,10 @@
 
   /* Spinning warp-portal rings — drawn as static SVG art at แม่สาย (chapter 1) and ฮานอย
      (the Japan chapter's start), see chapter1SvgMarkup/chapter2SvgMarkup. */
-  .warp-ring { animation: warp-spin 6s linear infinite; transform-origin: center; }
+  /* transform-box is required here — without it, `transform-origin: center` on an SVG
+     shape resolves against the nearest SVG viewport instead of the circle's own geometry,
+     so the ring orbits in a huge sweep across the whole map instead of spinning in place. */
+  .warp-ring { animation: warp-spin 6s linear infinite; transform-box: fill-box; transform-origin: center; }
   .warp-ring.warp-ring-b { animation-direction: reverse; animation-duration: 4s; }
   @keyframes warp-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .warp-ring { animation: none; } }
