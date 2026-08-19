@@ -41,6 +41,10 @@
   var searchView = document.getElementById("searchView");
   var searchResultView = document.getElementById("searchResultView");
   var searchCompareView = document.getElementById("searchCompareView");
+  var searchShareBtn = document.getElementById("searchShareBtn");
+  var searchShareView = document.getElementById("searchShareView");
+  var shareCardLayout = "watermark"; // "watermark" | "mascot" — remembered across opens in the same session
+  var shareCardGender = "male"; // "male" | "female"
   var companyTotalBadge = document.getElementById("companyTotalBadge");
   var companyTotalNum = document.getElementById("companyTotalNum");
   var lastCompanyTotalKm = null;
@@ -1405,8 +1409,10 @@
     var compareBtn = searchResultView.querySelector(".search-cta-btn");
     if (compareBtn) compareBtn.addEventListener("click", openComparePicker);
     searchCompareView.hidden = true;
+    searchShareView.hidden = true;
     searchView.hidden = true;
     searchResultView.hidden = false;
+    if (searchShareBtn) searchShareBtn.hidden = false;
   }
 
   // Returns to the name-entry view without closing the whole modal — lets someone look up
@@ -1414,7 +1420,9 @@
   function backToSearchView() {
     searchResultView.hidden = true;
     searchCompareView.hidden = true;
+    searchShareView.hidden = true;
     searchView.hidden = false;
+    if (searchShareBtn) searchShareBtn.hidden = true;
     searchInput.value = "";
     renderSearchSuggestions();
     searchInput.focus();
@@ -1426,6 +1434,7 @@
   function openComparePicker() {
     if (!lastSearchedPerson) return;
     searchResultView.hidden = true;
+    if (searchShareBtn) searchShareBtn.hidden = true;
     searchCompareView.hidden = false;
     searchCompareView.innerHTML =
       '<h3 class="cmp-title">พิมพ์ชื่อเพื่อนที่จะเทียบกับ ' + escapeHtml(searchFirstName(lastSearchedPerson.name)) + "</h3>" +
@@ -1478,6 +1487,9 @@
     searchResultView.innerHTML = "";
     searchCompareView.hidden = true;
     searchCompareView.innerHTML = "";
+    searchShareView.hidden = true;
+    searchShareView.innerHTML = "";
+    if (searchShareBtn) searchShareBtn.hidden = true;
     renderSearchSuggestions();
     searchInput.focus();
   }
@@ -1487,6 +1499,260 @@
     searchBackdrop.classList.remove("active");
     searchSheet.classList.remove("active");
   }
+
+  /* ===== downloadable share-card (📸 button in the search header) =====
+     Rendered on a plain rectangular <canvas> (no rounded corners/border baked into the
+     exported PNG — a "card" frame only makes sense as a UI element, not as a standalone
+     photo someone posts to a story). Monochrome-only per the agreed design: no team-color
+     theming, so it always looks the same regardless of which team is viewing/sharing it. */
+  var SHARE_CANVAS_W = 1080;
+  var SHARE_CANVAS_H = 1350;
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawShareCardTexture(ctx) {
+    var w = SHARE_CANVAS_W, h = SHARE_CANVAS_H;
+    ctx.save();
+    ctx.fillStyle = "#fafafa";
+    ctx.fillRect(0, 0, w, h);
+
+    // sparse dot-grid texture, very faint
+    ctx.globalAlpha = 0.05;
+    ctx.fillStyle = "#1a1a1a";
+    for (var gy = 20; gy < h; gy += 90) {
+      for (var gx = 20; gx < w; gx += 90) {
+        ctx.beginPath();
+        ctx.arc(gx, gy, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // checkered "finish flag" corner motif, top-right
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.translate(w - 50, 50);
+    ctx.rotate((20 * Math.PI) / 180);
+    var checkSize = 26;
+    for (var cy = -260; cy < 160; cy += checkSize) {
+      for (var cx = -160; cx < 260; cx += checkSize) {
+        var odd = (Math.round(cx / checkSize) + Math.round(cy / checkSize)) % 2 === 0;
+        if (odd) { ctx.fillStyle = "#1a1a1a"; ctx.fillRect(cx, cy, checkSize, checkSize); }
+      }
+    }
+    ctx.restore();
+
+    // winding dashed "route" line, faint — same visual idea as the real route map
+    ctx.strokeStyle = "#1a1a1a";
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = 6;
+    ctx.setLineDash([5, 24]);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-50, 1300);
+    ctx.bezierCurveTo(175, 1200, 125, 1050, 300, 1000);
+    ctx.bezierCurveTo(400, 970, 475, 800, 425, 700);
+    ctx.bezierCurveTo(375, 600, 625, 550, 575, 425);
+    ctx.bezierCurveTo(525, 300, 775, 250, 1150, 200);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Shrinks the font until `text` fits within maxWidth (down to a floor so it never becomes
+  // illegibly tiny) — team names and especially people's own names have no fixed length, so
+  // a fixed font size overflows the canvas edge for anyone with a longer-than-average name.
+  // Leaves ctx.font set to the chosen size/family on return; caller still does the fillText.
+  function shareFitFont(ctx, text, maxWidth, weight, startSize, minSize) {
+    var size = startSize;
+    while (size > minSize) {
+      ctx.font = weight + " " + size + "px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
+      if (ctx.measureText(text).width <= maxWidth) break;
+      size -= 2;
+    }
+    return size;
+  }
+
+  function shareRunnerEmoji(gender) {
+    return gender === "female" ? "\u{1F3C3}‍♀️" : "\u{1F3C3}‍♂️";
+  }
+
+  function drawShareCard(canvas, person, layout, gender) {
+    canvas.width = SHARE_CANVAS_W;
+    canvas.height = SHARE_CANVAS_H;
+    var ctx = canvas.getContext("2d");
+    var w = SHARE_CANVAS_W;
+    var emoji = shareRunnerEmoji(gender);
+
+    drawShareCardTexture(ctx);
+    ctx.fillStyle = "#1a1a1a";
+    ctx.textBaseline = "alphabetic";
+
+    // watermark layout draws its giant faded emoji first, underneath everything else
+    if (layout === "watermark") {
+      ctx.save();
+      ctx.globalAlpha = 0.09;
+      ctx.filter = "grayscale(1) brightness(0)";
+      ctx.translate(230, 560);
+      ctx.rotate((-8 * Math.PI) / 180);
+      ctx.font = "1000px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(emoji, 0, 0);
+      ctx.restore();
+    }
+
+    // top row: brand + team pill
+    ctx.textAlign = "left";
+    ctx.font = "900 40px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
+    ctx.fillText("\u{1F3C3} RUN MILE", 68, 108);
+
+    var teamText = person.team;
+    var teamPadX = 28, teamH = 56, teamMaxTextWidth = 420;
+    shareFitFont(ctx, teamText, teamMaxTextWidth, "800", 30, 16);
+    var teamW = Math.min(teamMaxTextWidth, ctx.measureText(teamText).width) + teamPadX * 2;
+    var teamX = w - 68 - teamW, teamY = 68;
+    roundRectPath(ctx, teamX, teamY, teamW, teamH, teamH / 2);
+    ctx.strokeStyle = "#1a1a1a";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.textAlign = "center";
+    ctx.fillText(teamText, teamX + teamW / 2, teamY + 39);
+    ctx.textAlign = "left";
+
+    // name — shrinks to fit so it never runs past the canvas edge regardless of length
+    shareFitFont(ctx, person.name, w - 136, "900", 58, 28);
+    ctx.fillText(person.name, 68, 236);
+
+    var numY, unitY, dividerY, bottomY;
+    if (layout === "mascot") {
+      ctx.save();
+      ctx.font = "300px sans-serif";
+      ctx.textAlign = "center";
+      ctx.filter = "grayscale(1) brightness(0)";
+      ctx.fillText(emoji, w / 2, 540);
+      ctx.restore();
+      numY = 760; unitY = 822; dividerY = 900; bottomY = 940;
+    } else {
+      numY = 620; unitY = 682; dividerY = 770; bottomY = 810;
+    }
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#1a1a1a";
+    ctx.font = "900 200px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
+    ctx.fillText(fmtKm(person.km), w / 2, numY);
+    ctx.font = "800 34px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
+    ctx.globalAlpha = 0.6;
+    ctx.fillText("กิโลเมตรสะสม", w / 2, unitY);
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = "#1a1a1a";
+    ctx.globalAlpha = 0.15;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(68, dividerY);
+    ctx.lineTo(w - 68, dividerY);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    var rank = searchTeamStats(person).rank;
+    ctx.textAlign = "left";
+    ctx.font = "900 52px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
+    ctx.fillText(rank ? "#" + rank : "-", 68, bottomY);
+    ctx.font = "700 26px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
+    ctx.globalAlpha = 0.6;
+    ctx.fillText("อันดับในทีม", 68, bottomY + 40);
+    ctx.globalAlpha = 1;
+
+    ctx.textAlign = "right";
+    ctx.font = "900 52px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
+    ctx.fillText(person.streak + "\u{1F525}", w - 68, bottomY);
+    ctx.font = "700 26px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
+    ctx.globalAlpha = 0.6;
+    ctx.fillText("วันติดต่อกัน", w - 68, bottomY + 40);
+    ctx.globalAlpha = 1;
+  }
+
+  function openShareCardView() {
+    if (!lastSearchedPerson) return;
+    searchResultView.hidden = true;
+    searchShareView.hidden = false;
+    searchShareView.innerHTML =
+      '<h3 class="share-card-title">\u{1F4F8} บันทึกการ์ดของฉัน</h3>' +
+      '<p class="share-card-sub">เลือกแบบที่ชอบแล้วกดดาวน์โหลดเป็นรูปได้เลย</p>' +
+      '<div class="share-picker-label">เลือกเลย์เอาต์</div>' +
+      '<div class="share-picker-row" id="shareLayoutPicker">' +
+        '<button type="button" class="share-picker-btn" data-layout="watermark">▦ วอเตอร์มาร์ก</button>' +
+        '<button type="button" class="share-picker-btn" data-layout="mascot">\u{1F3C3} มาสคอต</button>' +
+      "</div>" +
+      '<div class="share-picker-label">เลือกเพศนักวิ่ง</div>' +
+      '<div class="share-picker-row" id="shareGenderPicker">' +
+        '<button type="button" class="share-picker-btn" data-gender="male">\u{1F3C3}‍♂️ ชาย</button>' +
+        '<button type="button" class="share-picker-btn" data-gender="female">\u{1F3C3}‍♀️ หญิง</button>' +
+      "</div>" +
+      '<div class="share-canvas-wrap"><canvas id="shareCardCanvas"></canvas></div>' +
+      '<button type="button" class="share-download-btn" id="shareDownloadBtn">⬇️ ดาวน์โหลดรูป</button>' +
+      '<button type="button" class="search-again-btn" id="shareBackBtn">← กลับไปดูของฉัน</button>';
+
+    var canvas = document.getElementById("shareCardCanvas");
+    var layoutBtns = searchShareView.querySelectorAll("#shareLayoutPicker .share-picker-btn");
+    var genderBtns = searchShareView.querySelectorAll("#shareGenderPicker .share-picker-btn");
+
+    function syncPickers() {
+      Array.prototype.forEach.call(layoutBtns, function (b) { b.classList.toggle("is-selected", b.getAttribute("data-layout") === shareCardLayout); });
+      Array.prototype.forEach.call(genderBtns, function (b) { b.classList.toggle("is-selected", b.getAttribute("data-gender") === shareCardGender); });
+    }
+    function redraw() {
+      syncPickers();
+      drawShareCard(canvas, lastSearchedPerson, shareCardLayout, shareCardGender);
+    }
+
+    Array.prototype.forEach.call(layoutBtns, function (b) {
+      b.addEventListener("click", function () { shareCardLayout = b.getAttribute("data-layout"); redraw(); });
+    });
+    Array.prototype.forEach.call(genderBtns, function (b) {
+      b.addEventListener("click", function () { shareCardGender = b.getAttribute("data-gender"); redraw(); });
+    });
+
+    var downloadBtn = document.getElementById("shareDownloadBtn");
+    downloadBtn.addEventListener("click", function () {
+      canvas.toBlob(function (blob) {
+        if (!blob) return;
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "run-mile-" + lastSearchedPerson.name.replace(/\s+/g, "-") + ".png";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        downloadBtn.textContent = "✅ บันทึกรูปแล้ว!";
+        downloadBtn.classList.add("is-saved");
+        setTimeout(function () {
+          downloadBtn.textContent = "⬇️ ดาวน์โหลดรูป";
+          downloadBtn.classList.remove("is-saved");
+        }, 1800);
+      }, "image/png");
+    });
+
+    document.getElementById("shareBackBtn").addEventListener("click", function () {
+      searchShareView.hidden = true;
+      selectSearchPerson(lastSearchedPerson.name, lastSearchedPerson.team);
+    });
+
+    redraw();
+  }
+
+  if (searchShareBtn) searchShareBtn.addEventListener("click", openShareCardView);
 
   if (searchToggleBtn) {
     searchToggleBtn.addEventListener("click", openSearchModal);
