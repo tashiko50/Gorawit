@@ -422,6 +422,37 @@
     width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--toolbar-bg); color: var(--ink);
     font-size: 0.9rem; font-weight: 800; cursor: pointer; flex-shrink: 0; line-height: 1;
   }
+  .search-share-btn {
+    width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--toolbar-bg); color: var(--ink);
+    font-size: 0.85rem; cursor: pointer; flex-shrink: 0; line-height: 1; display: flex; align-items: center; justify-content: center;
+  }
+  /* Setting `display` above breaks the native [hidden] behavior (author CSS always wins over
+     the UA stylesheet's `[hidden] { display: none }`, regardless of selector specificity) —
+     restore it explicitly, or the button stays visible across searches/reopens. */
+  .search-share-btn[hidden] { display: none; }
+
+  /* ===== share-card view (own/searched person's downloadable stat card) — monochrome only,
+     deliberately not theme/team-colored per the agreed design (see share-card mockups). ===== */
+  .share-card-title { font-size: 0.92rem; font-weight: 900; margin: 14px 18px 4px; color: var(--ink); }
+  .share-card-sub { font-size: 0.78rem; color: var(--ink-soft); margin: 0 18px 12px; }
+  .share-picker-label { font-size: 0.76rem; font-weight: 800; color: var(--ink-soft); margin: 12px 18px 6px; }
+  .share-picker-row { display: flex; gap: 8px; margin: 0 18px; }
+  .share-picker-btn {
+    flex: 1; border: 2px solid var(--card-border); border-radius: 12px; background: var(--card-bg); color: var(--ink-soft);
+    font: inherit; font-size: 0.78rem; font-weight: 800; padding: 9px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .share-picker-btn.is-selected { border-color: #1a1a1a; background: color-mix(in srgb, #1a1a1a 6%, var(--card-bg)); color: var(--ink); }
+  .share-canvas-wrap {
+    margin: 16px auto 0; width: 210px; aspect-ratio: 4 / 5; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18); border: 2px solid #1a1a1a;
+  }
+  .share-canvas-wrap canvas { width: 100%; height: 100%; display: block; }
+  .share-download-btn {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    width: calc(100% - 36px); margin: 16px 18px 9px; padding: 11px; border-radius: 12px; border: none;
+    background: #1a1a1a; color: #fff; font: inherit; font-size: 0.85rem; font-weight: 800; cursor: pointer;
+  }
+  .share-download-btn.is-saved { background: #2f9e52; }
   .search-input-wrap { position: relative; margin: 16px 18px 0; }
   .search-input {
     width: 100%; font: inherit; font-size: 0.95rem; padding: 11px 14px 11px 38px; border-radius: 12px;
@@ -608,6 +639,7 @@
     <div class="search-sheet" id="searchSheet">
       <div class="search-head">
         <h2>🔍 ค้นหาอันดับของฉัน</h2>
+        <button type="button" class="search-share-btn" id="searchShareBtn" aria-label="บันทึกการ์ดของฉัน" hidden>📸</button>
         <button type="button" class="search-close" id="searchClose" aria-label="ปิด">✕</button>
       </div>
       <div id="searchView">
@@ -620,6 +652,7 @@
       </div>
       <div id="searchResultView" hidden></div>
       <div id="searchCompareView" hidden></div>
+      <div id="searchShareView" hidden></div>
     </div>
   </div>
 
