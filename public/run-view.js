@@ -43,7 +43,6 @@
   var searchCompareView = document.getElementById("searchCompareView");
   var searchShareBtn = document.getElementById("searchShareBtn");
   var searchShareView = document.getElementById("searchShareView");
-  var shareCardLayout = "watermark"; // "watermark" | "mascot" — remembered across opens in the same session
   var shareCardGender = "male"; // "male" | "female"
   var shareCardBg = "dark"; // "dark" | "light"
   var companyTotalBadge = document.getElementById("companyTotalBadge");
@@ -1623,7 +1622,7 @@
     return gender === "female" ? "\u{1F3C3}‍♀️" : "\u{1F3C3}‍♂️";
   }
 
-  function drawShareCard(canvas, person, layout, gender, bg) {
+  function drawShareCard(canvas, person, gender, bg) {
     canvas.width = SHARE_CANVAS_W;
     canvas.height = SHARE_CANVAS_H;
     var ctx = canvas.getContext("2d");
@@ -1641,19 +1640,6 @@
     drawShareCardTexture(ctx, preset);
     ctx.fillStyle = ink;
     ctx.textBaseline = "alphabetic";
-
-    // watermark layout draws its giant faded emoji first, underneath everything else
-    if (layout === "watermark") {
-      ctx.save();
-      ctx.globalAlpha = 0.09;
-      ctx.filter = emojiFilter;
-      ctx.translate(230, 560);
-      ctx.rotate((-8 * Math.PI) / 180);
-      ctx.font = "1000px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(emoji, 0, 0);
-      ctx.restore();
-    }
 
     // top row: event logo (replaces the old "RUN MILE" text — the logo already reads
     // "Run Mile") + team pill. Logo drawn at its real aspect ratio, fixed height.
@@ -1682,18 +1668,13 @@
     shareFitFont(ctx, person.name, w - 136, "900", 58, 28);
     ctx.fillText(person.name, 68, 236);
 
-    var numY, unitY, dividerY, bottomY;
-    if (layout === "mascot") {
-      ctx.save();
-      ctx.font = "300px sans-serif";
-      ctx.textAlign = "center";
-      ctx.filter = emojiFilter;
-      ctx.fillText(emoji, w / 2, 540);
-      ctx.restore();
-      numY = 760; unitY = 822; dividerY = 900; bottomY = 940;
-    } else {
-      numY = 620; unitY = 682; dividerY = 770; bottomY = 810;
-    }
+    ctx.save();
+    ctx.font = "300px sans-serif";
+    ctx.textAlign = "center";
+    ctx.filter = emojiFilter;
+    ctx.fillText(emoji, w / 2, 540);
+    ctx.restore();
+    var numY = 760, unitY = 822, dividerY = 900, bottomY = 940;
 
     ctx.textAlign = "center";
     ctx.fillStyle = ink;
@@ -1744,11 +1725,6 @@
         '<button type="button" class="share-picker-btn" data-bg="dark">⬛ พื้นดำ</button>' +
         '<button type="button" class="share-picker-btn" data-bg="light">⬜ พื้นขาว</button>' +
       "</div>" +
-      '<div class="share-picker-label">เลือกเลย์เอาต์</div>' +
-      '<div class="share-picker-row" id="shareLayoutPicker">' +
-        '<button type="button" class="share-picker-btn" data-layout="watermark">▦ วอเตอร์มาร์ก</button>' +
-        '<button type="button" class="share-picker-btn" data-layout="mascot">\u{1F3C3} มาสคอต</button>' +
-      "</div>" +
       '<div class="share-picker-label">เลือกเพศนักวิ่ง</div>' +
       '<div class="share-picker-row" id="shareGenderPicker">' +
         '<button type="button" class="share-picker-btn" data-gender="male">\u{1F3C3}‍♂️ ชาย</button>' +
@@ -1760,17 +1736,15 @@
 
     var canvas = document.getElementById("shareCardCanvas");
     var bgBtns = searchShareView.querySelectorAll("#shareBgPicker .share-picker-btn");
-    var layoutBtns = searchShareView.querySelectorAll("#shareLayoutPicker .share-picker-btn");
     var genderBtns = searchShareView.querySelectorAll("#shareGenderPicker .share-picker-btn");
 
     function syncPickers() {
       Array.prototype.forEach.call(bgBtns, function (b) { b.classList.toggle("is-selected", b.getAttribute("data-bg") === shareCardBg); });
-      Array.prototype.forEach.call(layoutBtns, function (b) { b.classList.toggle("is-selected", b.getAttribute("data-layout") === shareCardLayout); });
       Array.prototype.forEach.call(genderBtns, function (b) { b.classList.toggle("is-selected", b.getAttribute("data-gender") === shareCardGender); });
     }
     function redraw() {
       syncPickers();
-      drawShareCard(canvas, lastSearchedPerson, shareCardLayout, shareCardGender, shareCardBg);
+      drawShareCard(canvas, lastSearchedPerson, shareCardGender, shareCardBg);
     }
     // Re-fires the current redraw if the logo image was still loading the first time this
     // view opened — clearing this reference is handled below (back button) and on modal reset.
@@ -1778,9 +1752,6 @@
 
     Array.prototype.forEach.call(bgBtns, function (b) {
       b.addEventListener("click", function () { shareCardBg = b.getAttribute("data-bg"); redraw(); });
-    });
-    Array.prototype.forEach.call(layoutBtns, function (b) {
-      b.addEventListener("click", function () { shareCardLayout = b.getAttribute("data-layout"); redraw(); });
     });
     Array.prototype.forEach.call(genderBtns, function (b) {
       b.addEventListener("click", function () { shareCardGender = b.getAttribute("data-gender"); redraw(); });
