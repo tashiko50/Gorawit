@@ -45,6 +45,7 @@
   var searchShareView = document.getElementById("searchShareView");
   var shareCardLayout = "watermark"; // "watermark" | "mascot" — remembered across opens in the same session
   var shareCardGender = "male"; // "male" | "female"
+  var shareCardBg = "dark"; // "dark" | "light"
   var companyTotalBadge = document.getElementById("companyTotalBadge");
   var companyTotalNum = document.getElementById("companyTotalNum");
   var lastCompanyTotalKm = null;
@@ -1410,6 +1411,7 @@
     if (compareBtn) compareBtn.addEventListener("click", openComparePicker);
     searchCompareView.hidden = true;
     searchShareView.hidden = true;
+    shareCardOnAssetLoad = null;
     searchView.hidden = true;
     searchResultView.hidden = false;
     if (searchShareBtn) searchShareBtn.hidden = false;
@@ -1421,6 +1423,7 @@
     searchResultView.hidden = true;
     searchCompareView.hidden = true;
     searchShareView.hidden = true;
+    shareCardOnAssetLoad = null;
     searchView.hidden = false;
     if (searchShareBtn) searchShareBtn.hidden = true;
     searchInput.value = "";
@@ -1489,6 +1492,7 @@
     searchCompareView.innerHTML = "";
     searchShareView.hidden = true;
     searchShareView.innerHTML = "";
+    shareCardOnAssetLoad = null;
     if (searchShareBtn) searchShareBtn.hidden = true;
     renderSearchSuggestions();
     searchInput.focus();
@@ -1508,6 +1512,26 @@
   var SHARE_CANVAS_W = 1080;
   var SHARE_CANVAS_H = 1350;
 
+  // "dark" (black bg/white ink, no border needed — already stands out against IG's white
+  // chrome) and "light" (white bg/black ink, needs the dashed frame below for the same
+  // reason) — the only two backgrounds offered, per the agreed design.
+  var SHARE_BG_PRESETS = {
+    dark: { bg: "#141414", ink: "#fafafa", logoSrc: "/img/logo-mono-white.png" },
+    light: { bg: "#fafafa", ink: "#1a1a1a", logoSrc: "/img/logo-mono-black.png" }
+  };
+
+  // Preloaded once at page load rather than per-render — these are tiny local assets, so by
+  // the time anyone reaches the share panel (search → pick a result → open share view) they're
+  // essentially always ready, but onload still re-fires the current redraw just in case a very
+  // fast/automated interaction beats the network.
+  var shareLogoImgs = { white: new Image(), black: new Image() };
+  var shareCardOnAssetLoad = null;
+  shareLogoImgs.white.src = "/img/logo-mono-white.png";
+  shareLogoImgs.black.src = "/img/logo-mono-black.png";
+  shareLogoImgs.white.onload = shareLogoImgs.black.onload = function () {
+    if (shareCardOnAssetLoad) shareCardOnAssetLoad();
+  };
+
   function roundRectPath(ctx, x, y, w, h, r) {
     if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
     ctx.beginPath();
@@ -1519,15 +1543,15 @@
     ctx.closePath();
   }
 
-  function drawShareCardTexture(ctx) {
+  function drawShareCardTexture(ctx, preset) {
     var w = SHARE_CANVAS_W, h = SHARE_CANVAS_H;
     ctx.save();
-    ctx.fillStyle = "#fafafa";
+    ctx.fillStyle = preset.bg;
     ctx.fillRect(0, 0, w, h);
 
     // sparse dot-grid texture, very faint
-    ctx.globalAlpha = 0.05;
-    ctx.fillStyle = "#1a1a1a";
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = preset.ink;
     for (var gy = 20; gy < h; gy += 90) {
       for (var gx = 20; gx < w; gx += 90) {
         ctx.beginPath();
@@ -1539,20 +1563,20 @@
 
     // checkered "finish flag" corner motif, top-right
     ctx.save();
-    ctx.globalAlpha = 0.06;
+    ctx.globalAlpha = 0.08;
     ctx.translate(w - 50, 50);
     ctx.rotate((20 * Math.PI) / 180);
     var checkSize = 26;
     for (var cy = -260; cy < 160; cy += checkSize) {
       for (var cx = -160; cx < 260; cx += checkSize) {
         var odd = (Math.round(cx / checkSize) + Math.round(cy / checkSize)) % 2 === 0;
-        if (odd) { ctx.fillStyle = "#1a1a1a"; ctx.fillRect(cx, cy, checkSize, checkSize); }
+        if (odd) { ctx.fillStyle = preset.ink; ctx.fillRect(cx, cy, checkSize, checkSize); }
       }
     }
     ctx.restore();
 
     // winding dashed "route" line, faint — same visual idea as the real route map
-    ctx.strokeStyle = "#1a1a1a";
+    ctx.strokeStyle = preset.ink;
     ctx.globalAlpha = 0.4;
     ctx.lineWidth = 6;
     ctx.setLineDash([5, 24]);
@@ -1567,6 +1591,18 @@
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
     ctx.restore();
+
+    // dashed border frame — only the light (white) background needs it to read as a distinct
+    // photo against IG's own white chrome; the dark background already stands out on its own.
+    if (preset.bg !== "#141414") {
+      ctx.save();
+      ctx.strokeStyle = preset.ink;
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 6;
+      ctx.setLineDash([12, 16]);
+      ctx.strokeRect(40, 40, w - 80, h - 80);
+      ctx.restore();
+    }
   }
 
   // Shrinks the font until `text` fits within maxWidth (down to a floor so it never becomes
@@ -1587,22 +1623,30 @@
     return gender === "female" ? "\u{1F3C3}‍♀️" : "\u{1F3C3}‍♂️";
   }
 
-  function drawShareCard(canvas, person, layout, gender) {
+  function drawShareCard(canvas, person, layout, gender, bg) {
     canvas.width = SHARE_CANVAS_W;
     canvas.height = SHARE_CANVAS_H;
     var ctx = canvas.getContext("2d");
     var w = SHARE_CANVAS_W;
     var emoji = shareRunnerEmoji(gender);
+    var preset = SHARE_BG_PRESETS[bg] || SHARE_BG_PRESETS.dark;
+    var ink = preset.ink;
+    // grayscale+brightness(0) turns any emoji into a solid black silhouette regardless of its
+    // real colors; invert(1) flips that to white for the dark background. Applying only
+    // grayscale/brightness without the invert (or only invert without grayscale) both let the
+    // emoji's real colors bleed through faintly — this exact combination is required.
+    var emojiFilter = bg === "light" ? "grayscale(1) brightness(0)" : "grayscale(1) brightness(0) invert(1)";
+    var logoImg = bg === "light" ? shareLogoImgs.black : shareLogoImgs.white;
 
-    drawShareCardTexture(ctx);
-    ctx.fillStyle = "#1a1a1a";
+    drawShareCardTexture(ctx, preset);
+    ctx.fillStyle = ink;
     ctx.textBaseline = "alphabetic";
 
     // watermark layout draws its giant faded emoji first, underneath everything else
     if (layout === "watermark") {
       ctx.save();
       ctx.globalAlpha = 0.09;
-      ctx.filter = "grayscale(1) brightness(0)";
+      ctx.filter = emojiFilter;
       ctx.translate(230, 560);
       ctx.rotate((-8 * Math.PI) / 180);
       ctx.font = "1000px sans-serif";
@@ -1611,25 +1655,30 @@
       ctx.restore();
     }
 
-    // top row: brand + team pill
-    ctx.textAlign = "left";
-    ctx.font = "900 40px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
-    ctx.fillText("\u{1F3C3} RUN MILE", 68, 108);
+    // top row: event logo (replaces the old "RUN MILE" text — the logo already reads
+    // "Run Mile") + team pill. Logo drawn at its real aspect ratio, fixed height.
+    if (logoImg.complete && logoImg.naturalWidth) {
+      var logoH = 72, logoW = logoH * (logoImg.naturalWidth / logoImg.naturalHeight);
+      ctx.drawImage(logoImg, 68, 60, logoW, logoH);
+    }
 
+    ctx.textAlign = "left";
     var teamText = person.team;
     var teamPadX = 28, teamH = 56, teamMaxTextWidth = 420;
     shareFitFont(ctx, teamText, teamMaxTextWidth, "800", 30, 16);
     var teamW = Math.min(teamMaxTextWidth, ctx.measureText(teamText).width) + teamPadX * 2;
     var teamX = w - 68 - teamW, teamY = 68;
     roundRectPath(ctx, teamX, teamY, teamW, teamH, teamH / 2);
-    ctx.strokeStyle = "#1a1a1a";
+    ctx.strokeStyle = ink;
     ctx.lineWidth = 3;
     ctx.stroke();
+    ctx.fillStyle = ink;
     ctx.textAlign = "center";
     ctx.fillText(teamText, teamX + teamW / 2, teamY + 39);
     ctx.textAlign = "left";
 
     // name — shrinks to fit so it never runs past the canvas edge regardless of length
+    ctx.fillStyle = ink;
     shareFitFont(ctx, person.name, w - 136, "900", 58, 28);
     ctx.fillText(person.name, 68, 236);
 
@@ -1638,7 +1687,7 @@
       ctx.save();
       ctx.font = "300px sans-serif";
       ctx.textAlign = "center";
-      ctx.filter = "grayscale(1) brightness(0)";
+      ctx.filter = emojiFilter;
       ctx.fillText(emoji, w / 2, 540);
       ctx.restore();
       numY = 760; unitY = 822; dividerY = 900; bottomY = 940;
@@ -1647,7 +1696,7 @@
     }
 
     ctx.textAlign = "center";
-    ctx.fillStyle = "#1a1a1a";
+    ctx.fillStyle = ink;
     ctx.font = "900 200px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
     ctx.fillText(fmtKm(person.km), w / 2, numY);
     ctx.font = "800 34px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
@@ -1655,7 +1704,7 @@
     ctx.fillText("กิโลเมตรสะสม", w / 2, unitY);
     ctx.globalAlpha = 1;
 
-    ctx.strokeStyle = "#1a1a1a";
+    ctx.strokeStyle = ink;
     ctx.globalAlpha = 0.15;
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -1674,6 +1723,7 @@
     ctx.globalAlpha = 1;
 
     ctx.textAlign = "right";
+    ctx.fillStyle = ink;
     ctx.font = "900 52px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
     ctx.fillText(person.streak + "\u{1F525}", w - 68, bottomY);
     ctx.font = "700 26px ui-rounded, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif";
@@ -1689,6 +1739,11 @@
     searchShareView.innerHTML =
       '<h3 class="share-card-title">\u{1F4F8} บันทึกการ์ดของฉัน</h3>' +
       '<p class="share-card-sub">เลือกแบบที่ชอบแล้วกดดาวน์โหลดเป็นรูปได้เลย</p>' +
+      '<div class="share-picker-label">เลือกพื้นหลัง</div>' +
+      '<div class="share-picker-row" id="shareBgPicker">' +
+        '<button type="button" class="share-picker-btn" data-bg="dark">⬛ พื้นดำ</button>' +
+        '<button type="button" class="share-picker-btn" data-bg="light">⬜ พื้นขาว</button>' +
+      "</div>" +
       '<div class="share-picker-label">เลือกเลย์เอาต์</div>' +
       '<div class="share-picker-row" id="shareLayoutPicker">' +
         '<button type="button" class="share-picker-btn" data-layout="watermark">▦ วอเตอร์มาร์ก</button>' +
@@ -1704,18 +1759,26 @@
       '<button type="button" class="search-again-btn" id="shareBackBtn">← กลับไปดูของฉัน</button>';
 
     var canvas = document.getElementById("shareCardCanvas");
+    var bgBtns = searchShareView.querySelectorAll("#shareBgPicker .share-picker-btn");
     var layoutBtns = searchShareView.querySelectorAll("#shareLayoutPicker .share-picker-btn");
     var genderBtns = searchShareView.querySelectorAll("#shareGenderPicker .share-picker-btn");
 
     function syncPickers() {
+      Array.prototype.forEach.call(bgBtns, function (b) { b.classList.toggle("is-selected", b.getAttribute("data-bg") === shareCardBg); });
       Array.prototype.forEach.call(layoutBtns, function (b) { b.classList.toggle("is-selected", b.getAttribute("data-layout") === shareCardLayout); });
       Array.prototype.forEach.call(genderBtns, function (b) { b.classList.toggle("is-selected", b.getAttribute("data-gender") === shareCardGender); });
     }
     function redraw() {
       syncPickers();
-      drawShareCard(canvas, lastSearchedPerson, shareCardLayout, shareCardGender);
+      drawShareCard(canvas, lastSearchedPerson, shareCardLayout, shareCardGender, shareCardBg);
     }
+    // Re-fires the current redraw if the logo image was still loading the first time this
+    // view opened — clearing this reference is handled below (back button) and on modal reset.
+    shareCardOnAssetLoad = redraw;
 
+    Array.prototype.forEach.call(bgBtns, function (b) {
+      b.addEventListener("click", function () { shareCardBg = b.getAttribute("data-bg"); redraw(); });
+    });
     Array.prototype.forEach.call(layoutBtns, function (b) {
       b.addEventListener("click", function () { shareCardLayout = b.getAttribute("data-layout"); redraw(); });
     });
@@ -1746,6 +1809,7 @@
 
     document.getElementById("shareBackBtn").addEventListener("click", function () {
       searchShareView.hidden = true;
+      shareCardOnAssetLoad = null;
       selectSearchPerson(lastSearchedPerson.name, lastSearchedPerson.team);
     });
 
