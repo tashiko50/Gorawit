@@ -375,7 +375,12 @@
      change to how routeD/routeProgress are built — left as a follow-up, not attempted here. */
   function chapter2SvgMarkup(uid) {
     return "" +
-      '<svg viewBox="0 0 480 760" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
+      // preserveAspectRatio="none": chapter 2's own 480:760 viewBox doesn't match the fixed
+      // 520:860 card shape every team-map-card uses (kept fixed so cards stay uniform size in
+      // the grid regardless of which chapter each team is in) — "meet" would letterbox this
+      // map inside that shape, leaving a visible gap above/below. "none" stretches to fill the
+      // card exactly instead; the ~4% x/y scale difference is not visible at this map's scale.
+      '<svg viewBox="0 0 480 760" preserveAspectRatio="none" aria-hidden="true">' +
         "<defs>" +
           '<linearGradient id="skyJp-' + uid + '" x1="0" y1="1" x2="0" y2="0">' +
             '<stop offset="0%" stop-color="#7FAE6F" />' +
@@ -658,11 +663,6 @@
     renderPins(refs, chapter);
     renderSubTicks(refs, chapter);
     refs.chapter = chapter;
-    // .map-frame's CSS aspect-ratio defaults to chapter 1's 520:860 viewBox — chapter 2 (jp)
-    // uses a different 480:760 viewBox, so without this override its map's preserveAspectRatio
-    // "meet" scaling leaves a visible gap (page background showing through) above and below
-    // the map instead of filling the card edge-to-edge like chapter 1 does.
-    refs.frame.style.aspectRatio = chapter.viewBox.w + " / " + chapter.viewBox.h;
     S.applyWeather(refs.frame);
     refs.frame.dataset.night = S.dayPhase();
 
