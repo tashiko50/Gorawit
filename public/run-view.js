@@ -375,7 +375,12 @@
      change to how routeD/routeProgress are built — left as a follow-up, not attempted here. */
   function chapter2SvgMarkup(uid) {
     return "" +
-      '<svg viewBox="0 0 480 760" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' +
+      // preserveAspectRatio="none": chapter 2's own 480:760 viewBox doesn't match the fixed
+      // 520:860 card shape every team-map-card uses (kept fixed so cards stay uniform size in
+      // the grid regardless of which chapter each team is in) — "meet" would letterbox this
+      // map inside that shape, leaving a visible gap above/below. "none" stretches to fill the
+      // card exactly instead; the ~4% x/y scale difference is not visible at this map's scale.
+      '<svg viewBox="0 0 480 760" preserveAspectRatio="none" aria-hidden="true">' +
         "<defs>" +
           '<linearGradient id="skyJp-' + uid + '" x1="0" y1="1" x2="0" y2="0">' +
             '<stop offset="0%" stop-color="#7FAE6F" />' +
