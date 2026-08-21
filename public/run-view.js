@@ -658,6 +658,11 @@
     renderPins(refs, chapter);
     renderSubTicks(refs, chapter);
     refs.chapter = chapter;
+    // .map-frame's CSS aspect-ratio defaults to chapter 1's 520:860 viewBox — chapter 2 (jp)
+    // uses a different 480:760 viewBox, so without this override its map's preserveAspectRatio
+    // "meet" scaling leaves a visible gap (page background showing through) above and below
+    // the map instead of filling the card edge-to-edge like chapter 1 does.
+    refs.frame.style.aspectRatio = chapter.viewBox.w + " / " + chapter.viewBox.h;
     S.applyWeather(refs.frame);
     refs.frame.dataset.night = S.dayPhase();
 
