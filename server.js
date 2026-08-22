@@ -138,7 +138,7 @@ const ROUTE_CHAPTER2 = [
   { name: "ไทเป", km: 1770, x: 300, y: 430, lat: 25.0330, lon: 121.5654, flight: true },
   { name: "โอกินาว่า", km: 2150, x: 340, y: 300, lat: 26.2124, lon: 127.6809 },
   { name: "โอซาก้า", km: 2700, x: 310, y: 170, lat: 34.6937, lon: 135.5023 },
-  { name: "HIKAWA CO., LTD. 🏁🏭", km: 2999, x: 370, y: 80, lat: 35.3667, lon: 132.7667 }
+  { name: "ชิมาเนะ (Shimane) 🏁🏭", km: 2999, x: 370, y: 80, lat: 35.3667, lon: 132.7667 }
 ];
 const ROUTE_CHAPTER2_VIEWBOX = { w: 480, h: 760 };
 const ROUTE_CHAPTER2_FINISH_KM = 2999;
