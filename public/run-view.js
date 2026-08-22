@@ -149,7 +149,7 @@
     "แม่สาย (ชายแดน)": 60,
     "ไทเป": 60,
     "โอซาก้า": 90,
-    "HIKAWA CO., LTD. 🏁🏭": 70
+    "ชิมาเนะ (Shimane) 🏁🏭": 70
   };
 
   function computePinOffsets(chapter) {
@@ -360,7 +360,7 @@
       "</g>";
   }
 
-  /* Japan-warp backdrop for chapter "jp" (ฮานอย → HIKAWA CO., LTD. ที่ชิมาเนะ) — same
+  /* Japan-warp backdrop for chapter "jp" (ฮานอย → ชิมาเนะ) — same
      structural class hooks as chapter1SvgMarkup (route-path/route-glow/route-progress/
      pin-dots/pin-leaders/sub-ticks/night-overlay) so all the existing weather-filter,
      day/night CSS, and pin-rendering logic keep working unchanged on this frame too.
@@ -436,7 +436,7 @@
         '<g fill="#ff6fae" opacity="0.85">' +
           '<circle cx="260" cy="200" r="1.6" /><circle cx="345" cy="195" r="1.6" /><circle cx="330" cy="215" r="1.4" />' +
         "</g>" +
-        // zone: เส้นชัยจริง — HIKAWA CO., LTD. ที่ชิมาเนะ (ไม่ใช่เมืองท่องเที่ยว) — torii
+        // zone: เส้นชัยจริง — ชิมาเนะ (ไม่ใช่เมืองท่องเที่ยว) — torii
         // gate + shrine roofline (Izumo Taisha, the area's real famous landmark, sits near
         // Hikawa-cho/Izumo), pushed right of the finish dot/route so the icon doesn't sit
         // directly on top of either
@@ -489,7 +489,7 @@
             '<g transform="translate(0,3) scale(0.8)"><rect x="-16" y="-6" width="32" height="16" /><polygon points="-20,-6 20,-6 0,-20" />' +
             '<rect x="-10" y="-30" width="20" height="14" /><polygon points="-13,-30 13,-30 0,-42" />' +
             '<rect x="-2" y="-50" width="4" height="10" /></g>') +
-          cityBadgeMarkup(180, 65, 370, 80, "#f4c95d", "#e8edf2", "HIKAWA",
+          cityBadgeMarkup(180, 65, 370, 80, "#f4c95d", "#e8edf2", "ชิมาเนะ",
             '<g transform="translate(0,5) scale(0.65)" fill="#e8edf2"><path d="M-26,12 L26,12 L15,-10 L-15,-10 Z" opacity="0.9" />' +
             '<rect x="-11" y="12" width="22" height="16" opacity="0.9" /></g>' +
             '<g transform="translate(0,5) scale(0.65)" fill="#c0392b"><rect x="-17" y="-8" width="4.5" height="42" /><rect x="12.5" y="-8" width="4.5" height="42" />' +
