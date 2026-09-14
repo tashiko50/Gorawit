@@ -1,11 +1,12 @@
 # Run Mile — Final Celebration · Visual Implementation Specification
 
 > **Status:** Approved specification. Source of truth for visual and implementation work.
-> **Scope of this document:** specification only. No modal, no graphics, and no dashboard
-> wiring exist yet.
+> **Scope of this document:** specification and delivered artwork. The nine approved assets
+> are committed; the modal is **not** implemented and **not** wired to the dashboard yet.
 >
 > **Related files**
 > - `public/final-results-data.js` — the static, deep-frozen config (`window.RunMileFinalConfig`), already committed and **disabled** (`enabled: false`).
+> - `public/img/final-celebration/` — the nine delivered assets (see §6).
 > - `docs/wrapup-mockup.html` — **structural reference only** (see §1).
 
 ---
@@ -84,6 +85,19 @@ itself is never replaced or navigated away from.
 - all buttons must have at least a **44px** touch target
 - typography must remain readable without zooming
 
+#### Vertically scrollable results
+
+On mobile the three team results are a **vertically scrollable list**:
+
+- results stack vertically in rank order 1, 2, 3 and scroll vertically
+- scrolling the results must never introduce horizontal movement
+- the close button stays reachable at all times, regardless of scroll position
+- the podium scene may shrink or pin above the list so results remain reachable without
+  scrolling past a full-height image
+- momentum/inertial scrolling behaves natively; no custom scroll hijacking
+- when the list is scrollable, it must be visually evident that more content follows
+  (partial next row visible, or an affordance) so a result is never silently cut off
+
 ---
 
 ## 3. Content Hierarchy
@@ -127,15 +141,46 @@ display density, and editable without re-exporting artwork.
 | 2 | soft silver |
 | 3 | warm bronze |
 
-### Each team character
+### Each team duo
 
-- soft premium 2.5D runner mascot
-- friendly, celebratory expression
-- **right hand** holds a trophy
-- **left hand** holds a simple blank placard or team-symbol prop
-- the team name must remain **HTML**, not painted into the placard image
+Each team is represented by a **duo of two teammates**, not a single mascot. The pair
+represents colleagues who ran the campaign together.
+
+- soft premium 2.5D runner characters, **two per team**
+- friendly, celebratory expressions
+- the duo **share a single trophy**, held together between them — one trophy per team, not one each
+- **no placards** — the requirement for a blank placard or team-symbol prop is removed.
+  Free hands are used for natural celebration gestures (open wave, thumbs-up, raised fist)
+- team names, ranks and distances remain **HTML labels**; no text is painted onto any prop
 - consistent character proportions and rendering style across all teams
 - **two poses per team** for lightweight pose-swap animation
+
+### Body language — non-romantic coworker framing
+
+The duo must unambiguously read as **teammates/colleagues**, never as a couple.
+
+Required:
+- standing **side by side**, each character self-supporting
+- clear visual separation between the two figures
+- celebration directed **outward to the viewer**, not toward each other
+- shared trophy is the only point of connection between them
+
+Not allowed:
+- embracing, hugging, or arms around shoulders or waist
+- hand-holding
+- leaning on, or into, each other
+- face-to-face or gazing-at-each-other poses
+- any romantic or couple-coded framing
+
+### Podium foot grounding
+
+Both characters in each duo must sit **physically on the podium surface**:
+
+- feet flat and fully in contact with the podium top — no floating, hovering, or clipping
+- a soft contact shadow anchors each character to the podium
+- the **feet baseline must be identical between pose A and pose B**, so the pose swap never
+  makes a character bob off its platform
+- character scale is consistent across all three duos so the three podium steps read as one scene
 
 ---
 
@@ -186,25 +231,36 @@ podium and characters stay the focal point.
 
 ## 6. Graphic Asset Plan
 
-Assets will later be stored under:
+Assets are stored under:
 
 ```
 public/img/final-celebration/
 ```
 
-### Planned assets
+### Delivered assets
 
-| File | Type | Purpose |
-|---|---|---|
-| `final-scene-desktop.webp` | WebP | Full background scene, desktop |
-| `final-scene-mobile.webp` | WebP | Full background scene, mobile |
-| `final-podium.png` | transparent PNG | Podium layer |
-| `factory-pose-a.png` | transparent PNG | โรงงาน character, pose A |
-| `factory-pose-b.png` | transparent PNG | โรงงาน character, pose B |
-| `warehouse-pose-a.png` | transparent PNG | คลังสินค้า character, pose A |
-| `warehouse-pose-b.png` | transparent PNG | คลังสินค้า character, pose B |
-| `samyan-pose-a.png` | transparent PNG | ออฟฟิศสามย่าน character, pose A |
-| `samyan-pose-b.png` | transparent PNG | ออฟฟิศสามย่าน character, pose B |
+All nine approved assets are **delivered and committed**. Dimensions below are the
+as-delivered, verified values.
+
+| File | Type | Delivered size | Purpose |
+|---|---|---|---|
+| `final-scene-desktop.webp` | WebP | 1672 × 941 | Full background scene, desktop (landscape) |
+| `final-scene-mobile.webp` | WebP | 941 × 1672 | Full background scene, mobile (portrait) |
+| `final-podium.png` | transparent PNG (RGBA) | 1536 × 1024 | Podium layer — rank 2 · 1 · 3, gold/silver/bronze trim |
+| `factory-pose-a.png` | transparent PNG (RGBA) | 640 × 960 | โรงงาน **duo**, pose A |
+| `factory-pose-b.png` | transparent PNG (RGBA) | 640 × 960 | โรงงาน **duo**, pose B |
+| `warehouse-pose-a.png` | transparent PNG (RGBA) | 640 × 960 | คลังสินค้า **duo**, pose A |
+| `warehouse-pose-b.png` | transparent PNG (RGBA) | 640 × 960 | คลังสินค้า **duo**, pose B |
+| `samyan-pose-a.png` | transparent PNG (RGBA) | 640 × 960 | ออฟฟิศสามย่าน **duo**, pose A |
+| `samyan-pose-b.png` | transparent PNG (RGBA) | 640 × 960 | ออฟฟิศสามย่าน **duo**, pose B |
+
+Each `*-pose-*.png` contains **both teammates of that team's duo** on one canvas, already
+positioned relative to each other. Pose A is the lower/neutral celebration; pose B raises
+the shared trophy.
+
+Verified at delivery: all three pose pairs share an identical 640 × 960 canvas, carry a real
+alpha channel, keep transparent padding on every edge, and hold their feet baseline steady
+between A and B (drift ≤ 1px), so the pose swap reads as motion rather than a jump.
 
 ### Requirements
 
@@ -375,6 +431,19 @@ the campaign closes — never derived, polled, or scraped:
 - [ ] Right side is **not** Bangkok → Shimane
 - [ ] No location text baked into any bitmap asset
 
+### Team duos, trophy and grounding
+
+- [ ] Each team is shown as a **duo of two teammates**, not a single mascot
+- [ ] Each duo shares **one trophy** held between them — not one trophy each
+- [ ] **No placards** or blank signboards anywhere in the scene
+- [ ] Body language reads as **colleagues, never a couple** — side by side, no embracing,
+      no hand-holding, no leaning, celebration aimed at the viewer
+- [ ] Both characters' feet are **flat on the podium** — no floating, hovering or clipping
+- [ ] Contact shadows anchor each character to the podium surface
+- [ ] Feet baseline is identical between pose A and pose B (no bob off the platform)
+- [ ] Character scale is consistent across all three duos
+- [ ] Team names/ranks/distances are HTML labels — no text painted on any character or prop
+
 ### Desktop behavior
 
 - [ ] Modal centered, max width ≈1180px, fits within viewport height
@@ -387,6 +456,10 @@ the campaign closes — never derived, polled, or scraped:
 - [ ] No horizontal scrolling at any supported width
 - [ ] Modal uses nearly full screen width; content scrolls vertically inside
 - [ ] Results listed vertically in rank order 1, 2, 3
+- [ ] Results list is **vertically scrollable**, with no horizontal movement introduced
+- [ ] Close button reachable at any scroll position
+- [ ] No result row is silently cut off — further content is visually evident
+- [ ] Native momentum scrolling; no scroll hijacking
 - [ ] Rank 1 has the strongest emphasis
 - [ ] All buttons ≥44px touch target
 - [ ] Text readable without zooming
