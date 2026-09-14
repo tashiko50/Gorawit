@@ -85,6 +85,27 @@ itself is never replaced or navigated away from.
 - all buttons must have at least a **44px** touch target
 - typography must remain readable without zooming
 
+#### Mobile composition sequence
+
+Mobile is **not** a shrunken desktop layout. It plays out in two stages, top to bottom:
+
+**Stage 1 — podium overview**
+- First show the **main podium overview** in **2 · 1 · 3** order (same arrangement as desktop).
+- The podium overview uses **pose B for all three teams** (trophies raised).
+
+**Stage 2 — enlarged result cards**
+- After the podium overview, show **enlarged result cards vertically in rank order 1, 2, 3**.
+- Each result card uses the corresponding **pose A** teammate-pair image.
+- Each card includes: **rank**, **HTML team name**, and **HTML final distance**.
+
+**Rules for the sequence**
+- **Do not compress the entire experience into one viewport.** The podium overview and the
+  result cards are meant to be reached by scrolling, not crushed together to fit one screen.
+- **Preserve readable character size through vertical scrolling** — cards stay large enough
+  that both runners' faces, colors, gestures and trophy stay clear. Scrolling is the budget;
+  shrinking the characters is not.
+- **Do not create horizontal scrolling** at any point in either stage.
+
 #### Vertically scrollable results
 
 On mobile the three team results are a **vertically scrollable list**:
@@ -145,6 +166,25 @@ display density, and editable without re-exporting artwork.
 
 Each team is represented by a **duo of two teammates**, not a single mascot. The pair
 represents colleagues who ran the campaign together.
+
+### Duo composition
+
+- Each team is represented by **one male and one female runner**.
+- **Six runners appear on the podium in total: three male and three female.**
+- **Both runners in each duo have equal visual importance** — neither is a background figure,
+  a sidekick, or noticeably smaller, dimmer, or further back than the other.
+- Each duo **symbolically represents the wider team**. It does not imply that only two people
+  contributed; it is a stand-in for everyone on that team.
+
+### Duo scale across ranks
+
+- **Rank 1 remains the largest and most visually prominent duo.**
+- **Rank 2 and rank 3 must still be large enough** that faces, team colors, gestures, and
+  trophies remain clearly recognizable.
+- Prominence is expressed through relative scale and placement, never by degrading rank 2 or
+  rank 3 into small, dim, or indistinct silhouettes.
+
+### Character requirements
 
 - soft premium 2.5D runner characters, **two per team**
 - friendly, celebratory expressions
@@ -261,6 +301,25 @@ the shared trophy.
 Verified at delivery: all three pose pairs share an identical 640 × 960 canvas, carry a real
 alpha channel, keep transparent padding on every edge, and hold their feet baseline steady
 between A and B (drift ≤ 1px), so the pose swap reads as motion rather than a jump.
+
+### Asset immutability
+
+**The nine committed files are the approved visual source assets.**
+
+Not allowed:
+- **do not regenerate, redraw, recolor, or destructively crop them**
+- **do not alter their canvas dimensions or alpha channels**
+- do not re-encode, re-compress, or overwrite them during implementation
+
+Allowed:
+- **CSS may position, scale, and crop them non-destructively at render time**
+  (`transform`, `object-fit`, `object-position`, `clip-path`, sizing, masking) — the files on
+  disk stay byte-identical
+- **all text and data remain HTML** — team names, ranks, distances, dates and the company
+  total are never painted into these bitmaps
+
+Any future change to the artwork itself is a new approved asset delivery, not an edit of
+these files.
 
 ### Requirements
 
@@ -431,6 +490,19 @@ the campaign closes — never derived, polled, or scraped:
 - [ ] Right side is **not** Bangkok → Shimane
 - [ ] No location text baked into any bitmap asset
 
+### Duo composition and scale
+
+- [ ] Each team is represented by **one male and one female runner**
+- [ ] **Six runners total on the podium — three male, three female**
+- [ ] Both runners in each duo have **equal visual importance** (neither is a sidekick,
+      smaller, dimmer, or pushed to the back)
+- [ ] The duo reads as **symbolic of the wider team**, not as "only two people contributed"
+- [ ] **Rank 1 is the largest and most visually prominent duo**
+- [ ] **Rank 2 and rank 3 remain large enough** for faces, team colors, gestures and trophies
+      to stay clearly recognizable
+- [ ] Prominence comes from scale/placement — rank 2 and 3 are never reduced to small, dim or
+      indistinct silhouettes
+
 ### Team duos, trophy and grounding
 
 - [ ] Each team is shown as a **duo of two teammates**, not a single mascot
@@ -455,6 +527,13 @@ the campaign closes — never derived, polled, or scraped:
 
 - [ ] No horizontal scrolling at any supported width
 - [ ] Modal uses nearly full screen width; content scrolls vertically inside
+- [ ] **Stage 1:** podium overview shown first, in **2 · 1 · 3** order
+- [ ] **Stage 1:** podium overview uses **pose B** for all three teams
+- [ ] **Stage 2:** enlarged result cards follow, vertically in rank order **1, 2, 3**
+- [ ] **Stage 2:** each result card uses the corresponding **pose A** teammate-pair image
+- [ ] Each card shows rank + **HTML** team name + **HTML** final distance
+- [ ] The whole experience is **not** compressed into a single viewport
+- [ ] Character size stays readable while scrolling (scroll more rather than shrink)
 - [ ] Results listed vertically in rank order 1, 2, 3
 - [ ] Results list is **vertically scrollable**, with no horizontal movement introduced
 - [ ] Close button reachable at any scroll position
@@ -495,6 +574,14 @@ the campaign closes — never derived, polled, or scraped:
 - [ ] Focus returns to the trophy button on close
 - [ ] Meaningful `aria-label`s present
 - [ ] Rank is communicated by text/number, not trophy color alone
+
+### Asset integrity
+
+- [ ] The nine committed files are used **as-is** as the approved visual source assets
+- [ ] No asset was regenerated, redrawn, recolored, or destructively cropped
+- [ ] No canvas dimension or alpha channel was altered
+- [ ] Any positioning, scaling or cropping is done **non-destructively in CSS** at render time
+- [ ] All text and data remain HTML — nothing baked into the bitmaps
 
 ### Data safety
 
