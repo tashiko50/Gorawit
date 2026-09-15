@@ -11,11 +11,15 @@
  * even after the sheet is edited, archived, or the Apps Script is turned off.
  *
  * ===========================================================================
- * MUST BE FILLED IN BY HAND AFTER THE CAMPAIGN CLOSES (currently null):
+ * MUST BE FILLED IN BY HAND AFTER THE CAMPAIGN CLOSES (currently null — 9 values):
  *   - campaign.closingDateLabel   วันที่ปิดกิจกรรม
  *   - campaign.companyTotalKm     ระยะรวมทั้งบริษัท
- *   - teams[].rank                อันดับสุดท้ายของแต่ละทีม
- *   - teams[].distanceKm          ระยะสะสมสุดท้ายของแต่ละทีม
+ *   - campaign.closingMessageTh   ข้อความปิดท้าย
+ *   - teams[].rank                อันดับสุดท้ายของแต่ละทีม (×3)
+ *   - teams[].distanceKm          ระยะสะสมสุดท้ายของแต่ละทีม (×3)
+ *
+ * The celebration refuses to open until ALL of them are filled in (strict validity gate
+ * in final-celebration.js), so a half-filled commemorative record can never be shown.
  *
  * These values must be typed in manually from the approved final numbers.
  * NEVER compute, poll, scrape or fetch them from Google Sheets, the Apps Script
@@ -42,6 +46,10 @@
       // TODO(after-campaign): final company-wide total in km, as a plain number
       // (e.g. 4210.55). Type in the approved figure — do not derive it from the sheet.
       companyTotalKm: null,
+
+      // TODO(after-campaign): the Thai closing message shown at the end of the
+      // celebration (content item 7 in the visual spec).
+      closingMessageTh: null,
 
       // Declares intent for any future consumer: this screen is fed by literals in
       // this file only. There is no Google Sheets dependency, by design.

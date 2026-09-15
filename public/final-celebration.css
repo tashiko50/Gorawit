@@ -1,0 +1,341 @@
+/* Final Celebration — "Soft Sky Celebration" modal overlay.
+ *
+ * Every selector here is scoped to .fc-* or a #finalCelebration* id, so nothing in this
+ * file can reach the dashboard. No generic element selectors are redefined.
+ *
+ * Nothing in this file renders on its own: the markup it styles is created by
+ * final-celebration.js only after the strict config gate passes, so with `enabled: false`
+ * these rules simply never match anything.
+ *
+ * Animation is transform/opacity only (no width/height/top/left tweening), so the staged
+ * timeline stays on the compositor and never thrashes layout.
+ */
+
+/* ===== stacking =====
+   Dashboard overlays sit at 56/57 (Top 10 + Search) and the grand-finale layer at 69/70.
+   The celebration must out-stack all of them. */
+.fc-backdrop { z-index: 78; }
+.fc-dialog { z-index: 79; }
+.fc-confetti { z-index: 80; }
+
+/* ===== backdrop ===== */
+.fc-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(22, 38, 58, 0.46);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+.fc-backdrop.fc-in { opacity: 1; }
+
+/* The visit badge is a page-level sibling with its own stacking context, so it would paint
+   over the dialog. The dashboard already solves this for its own sheets with a :has() rule;
+   here the body class is the primary mechanism (:has() is only a progressive extra). */
+body.fc-modal-open .visit-badge { display: none; }
+
+/* ===== dialog shell ===== */
+.fc-dialog {
+  position: fixed; left: 50%; top: 50%;
+  width: min(1180px, 94vw);
+  max-height: min(92vh, 900px);
+  transform: translate(-50%, -50%) scale(0.965);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  /* Soft Sky Celebration: pale sky wash, not a dusk gradient. */
+  background: linear-gradient(180deg, #f2f9ff 0%, #eaf4fd 58%, #e6f1fb 100%);
+  color: #23384d;
+  box-shadow: 0 22px 54px rgba(24, 48, 74, 0.28);
+  opacity: 0;
+  transition: opacity 450ms ease, transform 450ms cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+.fc-dialog.fc-in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* ===== sticky header ===== */
+.fc-header {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px 18px 12px;
+  background: linear-gradient(180deg, rgba(242, 249, 255, 0.97), rgba(242, 249, 255, 0.82));
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(90, 140, 185, 0.18);
+}
+.fc-header-text { flex: 1; min-width: 0; }
+.fc-eyebrow {
+  margin: 0; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.16em;
+  text-transform: uppercase; color: #5b87ad;
+}
+.fc-title { margin: 2px 0 0; font-size: clamp(1.15rem, 2.4vw, 1.6rem); font-weight: 900; color: #1c344b; }
+
+/* 44px touch target on every control, per the mobile spec. The dashboard's own 28px close
+   button is deliberately NOT copied here. */
+.fc-close, .fc-replay {
+  font: inherit; cursor: pointer; border: none;
+  min-width: 44px; min-height: 44px;
+}
+.fc-close {
+  flex-shrink: 0;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.82); color: #24445f;
+  font-size: 1rem; font-weight: 800; line-height: 1;
+  box-shadow: 0 2px 8px rgba(30, 60, 90, 0.14);
+}
+.fc-close:hover { background: #fff; }
+
+/* ===== scroll region ===== */
+.fc-body {
+  flex: 1; min-height: 0;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px 18px 22px;
+}
+
+/* ===== meta: date + company total ===== */
+.fc-meta { text-align: center; }
+.fc-date { font-size: 0.82rem; font-weight: 700; color: #5b87ad; }
+.fc-total { margin-top: 6px; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.fc-total-label { font-size: 0.74rem; font-weight: 700; color: #5b87ad; }
+.fc-total-row { display: flex; align-items: baseline; gap: 6px; }
+.fc-total-num {
+  font-size: clamp(1.9rem, 5vw, 3rem); font-weight: 900; color: #2f7fc4; line-height: 1.05;
+  /* fixed-width digits so the rAF count-up never reflows its container */
+  font-variant-numeric: tabular-nums;
+}
+.fc-total-unit { font-size: 0.9rem; font-weight: 800; color: #5b87ad; }
+
+/* ===== journey labels ===== */
+.fc-journey {
+  display: flex; justify-content: center; gap: clamp(10px, 4vw, 44px);
+  margin: 12px 0 4px; flex-wrap: wrap;
+}
+.fc-phase { text-align: center; font-size: 0.74rem; color: #507ea5; }
+.fc-phase-name { font-weight: 800; }
+.fc-phase-km { font-weight: 700; color: #7aa3c4; }
+
+/* ===== layered 2.5D stage =====
+   Layer 1-3 scene · layer 4 podium · layer 5 duos · layer 6 HTML labels. */
+.fc-stage {
+  position: relative; margin: 10px auto 0; width: 100%;
+  border-radius: 18px; overflow: hidden;
+}
+.fc-scene {
+  display: block; width: 100%; height: auto;
+  object-fit: cover; object-position: center;
+}
+.fc-podium-wrap {
+  position: absolute; left: 50%; bottom: 0;
+  width: min(86%, 780px); transform: translateX(-50%);
+}
+.fc-podium {
+  display: block; width: 100%; height: auto;
+  /* contain, never cover — cover would crop the steps and break foot grounding */
+  object-fit: contain;
+}
+
+/* ===== team duos =====
+   Geometry below is measured from the real artwork, not guessed:
+     podium step tops  → rank2 41.5% / rank1 31.3% / rank3 48.9% from the top
+     step centers      → rank2 20.2% / rank1 50.7% / rank3 81.1%
+     transparent space below each duo's shoes (per team, identical in pose A and B):
+                         factory 8.96% · warehouse 9.79% · samyan 7.19% of a 640x960 canvas
+   Feet land on the step because the duo is pushed down by its own foot padding:
+     bottom = step-bottom - (foot-pad x duo-height)
+   Scale and baseline are per-rank CSS variables, all expressed against the same stage. */
+.fc-duo {
+  position: absolute;
+  left: var(--fc-step-x);
+  bottom: calc(var(--fc-step-bottom) - var(--fc-foot-pad) * var(--fc-duo-h));
+  height: var(--fc-duo-h);
+  aspect-ratio: 640 / 960;
+  transform: translateX(-50%) translateY(14px);
+  opacity: 0;
+  transition: opacity 420ms ease, transform 420ms cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+.fc-stage.fc-duos-in .fc-duo { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* --fc-step-bottom is the STANDING LINE: the middle of each step's elliptical top face,
+   not its back edge. The faces were measured off final-podium.png (1536x1024) at each step's
+   centre column — back edge / front edge, as % from the top of the podium art:
+     rank 1  30.9 / 38.3  -> mid 34.6  -> bottom 65.4%
+     rank 2  41.0 / 48.7  -> mid 44.9  -> bottom 55.1%
+     rank 3  48.4 / 56.2  -> mid 52.3  -> bottom 47.7%
+   Anchoring to the back edge instead leaves the characters visibly hovering over the step. */
+.fc-duo[data-rank="1"] { --fc-step-x: 50.7%; --fc-step-bottom: 65.4%; --fc-duo-h: 50%; }
+.fc-duo[data-rank="2"] { --fc-step-x: 20.2%; --fc-step-bottom: 55.1%; --fc-duo-h: 43%; }
+.fc-duo[data-rank="3"] { --fc-step-x: 81.1%; --fc-step-bottom: 47.7%; --fc-duo-h: 40%; }
+
+.fc-duo[data-team="factory"] { --fc-foot-pad: 0.0896; }
+.fc-duo[data-team="warehouse"] { --fc-foot-pad: 0.0979; }
+.fc-duo[data-team="samyan"] { --fc-foot-pad: 0.0719; }
+
+/* Pose A and pose B are stacked in the same wrapper and crossfaded — src is never swapped,
+   which would blank a frame and jump. The two canvases are identical (640x960, same feet
+   baseline), so no repositioning is needed between them. */
+.fc-pose { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.fc-pose-b { opacity: 0; transition: opacity 600ms ease; }
+.fc-pose-a { opacity: 1; transition: opacity 600ms ease; }
+.fc-duo.fc-pose-swapped .fc-pose-b { opacity: 1; }
+.fc-duo.fc-pose-swapped .fc-pose-a { opacity: 0; }
+
+/* soft contact shadow anchoring each duo to the step */
+.fc-duo::after {
+  content: ""; position: absolute; left: 50%; bottom: calc(var(--fc-foot-pad) * 100%);
+  width: 62%; height: 3.2%;
+  transform: translate(-50%, 50%);
+  background: radial-gradient(ellipse at center, rgba(40, 70, 100, 0.26), rgba(40, 70, 100, 0) 70%);
+  pointer-events: none;
+}
+
+/* idle: gentle bob + low-frequency trophy shine, CSS only (no JS timer) */
+.fc-stage.fc-idle .fc-duo { animation: fc-bob 4.2s ease-in-out infinite; }
+.fc-stage.fc-idle .fc-duo[data-rank="2"] { animation-delay: 0.5s; }
+.fc-stage.fc-idle .fc-duo[data-rank="3"] { animation-delay: 1s; }
+@keyframes fc-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-1.2%); }
+}
+.fc-stage.fc-idle .fc-shine { animation: fc-shine 7s ease-in-out infinite; }
+.fc-shine {
+  position: absolute; left: 50%; top: 26%; width: 16%; aspect-ratio: 1; opacity: 0;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(255, 246, 214, 0.85), rgba(255, 246, 214, 0) 68%);
+  pointer-events: none;
+}
+@keyframes fc-shine { 0%, 88%, 100% { opacity: 0; } 93% { opacity: 0.85; } }
+
+/* ===== desktop result labels (layer 6) ===== */
+.fc-results { display: flex; gap: 10px; margin-top: 14px; }
+.fc-result {
+  flex: 1; min-width: 0; text-align: center;
+  padding: 10px 8px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border-top: 3px solid var(--fc-team-color, #8fb6d6);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+.fc-body.fc-results-in .fc-result { opacity: 1; transform: translateY(0); }
+.fc-result-rank { font-size: 0.72rem; font-weight: 900; color: #5b87ad; }
+.fc-result-team { font-size: 0.92rem; font-weight: 900; color: #1c344b; overflow-wrap: anywhere; }
+.fc-result-km { font-size: 0.86rem; font-weight: 800; color: #2f7fc4; font-variant-numeric: tabular-nums; }
+
+/* Mobile-only stage 2 cards; hidden on desktop so the result info is announced once. */
+.fc-cards { display: none; }
+
+/* ===== closing message + replay ===== */
+.fc-closing {
+  margin: 16px auto 0; max-width: 620px; text-align: center;
+  font-size: 0.9rem; font-weight: 700; color: #3d6284; line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.fc-actions { margin-top: 16px; display: flex; justify-content: center; }
+.fc-replay {
+  padding: 11px 22px; border-radius: 999px;
+  background: #2f7fc4; color: #fff; font-size: 0.85rem; font-weight: 800;
+  box-shadow: 0 4px 12px rgba(47, 127, 196, 0.3);
+}
+.fc-replay:hover { background: #2a72b1; }
+
+/* ===== focus visibility ===== */
+.fc-close:focus-visible, .fc-replay:focus-visible, .fc-dialog:focus-visible {
+  outline: 3px solid #f0a848; outline-offset: 2px;
+}
+
+/* ===== confetti — one controlled burst, nodes removed by JS afterwards ===== */
+.fc-confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.fc-confetti-piece {
+  position: absolute; top: -6%; width: 9px; height: 15px; border-radius: 2px;
+  animation: fc-confetti-fall linear forwards;
+}
+@keyframes fc-confetti-fall {
+  to { transform: translateY(106vh) rotate(620deg); opacity: 0.1; }
+}
+
+/* ===== scene layer entrance ===== */
+.fc-scene-layer { opacity: 0; transform: translateY(10px); transition: opacity 450ms ease, transform 450ms ease; }
+.fc-stage.fc-scene-in .fc-scene-layer { opacity: 1; transform: translateY(0); }
+.fc-podium-wrap { opacity: 0; transform: translateX(-50%) translateY(22px); transition: opacity 500ms ease, transform 550ms cubic-bezier(0.22, 0.9, 0.3, 1); }
+.fc-stage.fc-podium-in .fc-podium-wrap { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ===== tablet ===== */
+@media (max-width: 1024px) and (min-width: 721px) {
+  .fc-dialog { width: 94vw; }
+  .fc-podium-wrap { width: min(94%, 680px); }
+}
+
+/* ===== mobile (<=720px) — bottom sheet + two-stage composition ===== */
+@media (max-width: 720px) {
+  .fc-dialog {
+    left: 0; right: 0; bottom: 0; top: auto;
+    width: 100%; max-width: 100%; max-height: 92vh;
+    transform: translateY(16px);
+    border-radius: 22px 22px 0 0;
+  }
+  .fc-dialog.fc-in { transform: translateY(0); }
+
+  .fc-body { padding: 14px 14px 26px; }
+  /* 96% keeps the composition just inside the sheet so no trophy or elbow can clip. */
+  .fc-podium-wrap { width: min(96%, 560px); }
+
+  /* The mobile scene is portrait 941x1672. Letting it set the stage height (the default,
+     height:auto) fills the sheet with empty sky and pushes the result cards a full viewport
+     down — which the spec forbids: "the podium scene may shrink ... so results remain
+     reachable without scrolling past a full-height image". So the stage gets a fixed,
+     squarer box and the scene is cropped from the bottom, keeping the podium, dropping sky.
+     Character size is NOT affected by this — that is driven by .fc-podium-wrap's width,
+     so "scroll more rather than shrink" still holds. */
+  .fc-stage { aspect-ratio: 4 / 5; }
+  .fc-scene-layer { position: absolute; inset: 0; display: block; }
+  .fc-scene { width: 100%; height: 100%; object-position: center bottom; }
+  /* Mobile duos are scaled up together with the podium so the six runners read as people,
+     not as figurines. --fc-duo-h is a % of .fc-podium-wrap's height, so podium and duos
+     scale as one composition and the foot compensation below stays proportional.
+     The steps sit ~30.5% of the podium width apart, which bounds how wide a duo can get
+     before neighbours touch; these values leave ~6px of clearance at 390 and ~7px at 320.
+     Desktop and tablet are untouched — they keep the base 50/43/40. */
+  .fc-duo[data-rank="1"] { --fc-duo-h: 70%; }
+  .fc-duo[data-rank="2"] { --fc-duo-h: 59%; }
+  .fc-duo[data-rank="3"] { --fc-duo-h: 56%; }
+
+  /* Stage 1 is the podium overview (pose B); stage 2 is the card list below it. */
+  .fc-results { display: none; }
+  .fc-cards { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+  .fc-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; border-radius: 16px;
+    background: rgba(255, 255, 255, 0.76);
+    border-left: 5px solid var(--fc-team-color, #8fb6d6);
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 380ms ease, transform 380ms ease;
+  }
+  .fc-body.fc-results-in .fc-card { opacity: 1; transform: translateY(0); }
+  .fc-card-img { width: 38%; max-width: 150px; height: auto; aspect-ratio: 640 / 960; object-fit: contain; flex-shrink: 0; }
+  .fc-card-text { min-width: 0; flex: 1; }
+  .fc-card-rank { font-size: 0.74rem; font-weight: 900; color: #5b87ad; }
+  .fc-card-team { font-size: 1.02rem; font-weight: 900; color: #1c344b; overflow-wrap: anywhere; }
+  .fc-card-km { font-size: 0.94rem; font-weight: 800; color: #2f7fc4; font-variant-numeric: tabular-nums; }
+}
+
+/* ===== reduced motion — completed scene, no staged movement ===== */
+@media (prefers-reduced-motion: reduce) {
+  .fc-backdrop, .fc-dialog, .fc-duo, .fc-pose-a, .fc-pose-b,
+  .fc-result, .fc-card, .fc-scene-layer, .fc-podium-wrap {
+    transition: none !important;
+    animation: none !important;
+  }
+  .fc-stage.fc-idle .fc-duo, .fc-stage.fc-idle .fc-shine { animation: none !important; }
+  .fc-shine { opacity: 0 !important; }
+  .fc-backdrop { opacity: 1; }
+  .fc-dialog { opacity: 1; transform: translate(-50%, -50%); }
+  .fc-scene-layer, .fc-podium-wrap, .fc-duo, .fc-result, .fc-card { opacity: 1 !important; }
+  .fc-duo { transform: translateX(-50%) !important; }
+  .fc-podium-wrap { transform: translateX(-50%) !important; }
+  .fc-scene-layer, .fc-result, .fc-card { transform: none !important; }
+  /* reduced motion shows pose B (the completed, trophy-raised scene) */
+  .fc-pose-a { opacity: 0 !important; }
+  .fc-pose-b { opacity: 1 !important; }
+  @media (max-width: 720px) {
+    .fc-dialog { transform: none; }
+  }
+}

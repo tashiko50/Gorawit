@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Run Mile — เส้นทางวิ่งกรุงเทพฯ→เชียงราย</title>
 <link rel="stylesheet" href="shared.css" />
+<link rel="stylesheet" href="final-celebration.css" />
 <style>
   /* Each location gets its own independent map card — no shared canvas, so one team's
      runner/animation never competes for space or overlaps another's. */
@@ -665,5 +666,10 @@
 
   <script src="shared.js"></script>
   <script src="run-view.js"></script>
+  <!-- Final Celebration. The config is a frozen data file with no side effects; the
+       consumer below builds nothing at all unless config.enabled === true AND every final
+       value has been filled in. Loaded last so the dashboard is fully initialized first. -->
+  <script src="final-results-data.js"></script>
+  <script src="final-celebration.js"></script>
 </body>
 </html>
