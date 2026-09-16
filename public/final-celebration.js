@@ -243,20 +243,27 @@
       duo.appendChild(el("span", "fc-shine"));
       podiumWrap.appendChild(duo);
     });
-    stageEl.appendChild(podiumWrap);
-    bodyEl.appendChild(stageEl);
-
-    /* ---- desktop result labels (rank / team / distance as HTML) ---- */
+    /* ---- desktop/tablet result labels, pinned to each podium step's front face ----
+       They live INSIDE .fc-podium-wrap, not in the body flow, so their positions are
+       percentages of the podium artwork and stay glued to the steps at every width.
+       DOM order stays rank 1,2,3 (reading order); CSS places them visually 2 · 1 · 3.
+       Hidden with display:none at <=720px, where the stage-2 cards take over — so only
+       one result presentation is ever in the accessibility tree. */
     var results = el("div", "fc-results");
     teamsByRank.forEach(function (t) {
       var r = el("div", "fc-result");
+      r.setAttribute("data-rank", String(t.rank));
+      r.setAttribute("data-team", t.assetKey);
       r.style.setProperty("--fc-team-color", t.colorHex || "#8fb6d6");
       r.appendChild(el("div", "fc-result-rank", "อันดับ " + t.rank));
       r.appendChild(el("div", "fc-result-team", t.nameTh));
       r.appendChild(el("div", "fc-result-km", fmtKm(t.distanceKm) + " กม."));
       results.appendChild(r);
     });
-    bodyEl.appendChild(results);
+    podiumWrap.appendChild(results);
+
+    stageEl.appendChild(podiumWrap);
+    bodyEl.appendChild(stageEl);
 
     /* ---- mobile stage 2: enlarged cards, rank order 1,2,3, pose A ---- */
     var cards = el("div", "fc-cards");

@@ -205,20 +205,64 @@ body.fc-modal-open .visit-badge { display: none; }
 }
 @keyframes fc-shine { 0%, 88%, 100% { opacity: 0; } 93% { opacity: 0.85; } }
 
-/* ===== desktop result labels (layer 6) ===== */
-.fc-results { display: flex; gap: 10px; margin-top: 14px; }
+/* ===== desktop/tablet result labels (layer 6) =====
+   One compact panel on the FRONT FACE of each podium step, so the rank, Thai team name and
+   final distance are readable in the opening viewport without scrolling.
+
+   Geometry is measured from final-podium.png (1536x1024), as % of the podium box. Each
+   step's front wall runs from the front edge of its top face down to the base plinth:
+     rank 1  centre 50.7%   front wall 38.3% -> 78.5%   step spans x 34.4% - 67.0%
+     rank 2  centre 20.2%   front wall 48.7% -> 78.1%   step spans x  6.4% - 32.7%
+     rank 3  centre 81.1%   front wall 56.2% -> 78.4%   step spans x 70.6% - 94.6%
+   The duos' standing lines are 34.6% / 44.9% / 52.3% — all ABOVE the front walls, so a label
+   on the wall can never reach the shoes or legs. Each --fc-label-y below is parked inside its
+   own wall band, clear of the plinth that starts around 74%. */
+.fc-results { position: absolute; inset: 0; pointer-events: none; }
 .fc-result {
-  flex: 1; min-width: 0; text-align: center;
-  padding: 10px 8px; border-radius: 14px;
-  background: rgba(255, 255, 255, 0.72);
-  border-top: 3px solid var(--fc-team-color, #8fb6d6);
-  opacity: 0; transform: translateY(8px);
+  position: absolute;
+  left: var(--fc-label-x);
+  top: var(--fc-label-y);
+  width: max-content;
+  max-width: var(--fc-label-max);
+  text-align: center;
+  padding: 5px 9px 6px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--fc-medal, #b6bfc8);
+  box-shadow: 0 2px 7px rgba(28, 52, 75, 0.14);
+  /* the entrance offset rides on top of the centring translate, never replacing it */
+  transform: translate(-50%, -50%) translateY(7px);
+  opacity: 0;
   transition: opacity 380ms ease, transform 380ms ease;
 }
-.fc-body.fc-results-in .fc-result { opacity: 1; transform: translateY(0); }
-.fc-result-rank { font-size: 0.72rem; font-weight: 900; color: #5b87ad; }
-.fc-result-team { font-size: 0.92rem; font-weight: 900; color: #1c344b; overflow-wrap: anywhere; }
-.fc-result-km { font-size: 0.86rem; font-weight: 800; color: #2f7fc4; font-variant-numeric: tabular-nums; }
+.fc-body.fc-results-in .fc-result { opacity: 1; transform: translate(-50%, -50%) translateY(0); }
+
+.fc-result[data-rank="1"] {
+  --fc-label-x: 50.7%; --fc-label-y: 53%; --fc-label-max: 30%;
+  --fc-medal: #d3a13c;                       /* warm gold, the strongest of the three */
+  background: rgba(255, 252, 244, 0.9);
+  box-shadow: 0 3px 10px rgba(120, 88, 20, 0.2);
+}
+.fc-result[data-rank="2"] { --fc-label-x: 20.0%; --fc-label-y: 62%; --fc-label-max: 25%; --fc-medal: #9fabb8; }
+.fc-result[data-rank="3"] { --fc-label-x: 82.3%; --fc-label-y: 66%; --fc-label-max: 23%; --fc-medal: #bd8355; }
+
+/* Team colour appears only as a small dot beside the rank, never as a filled panel. */
+.fc-result-rank { font-size: 0.68rem; font-weight: 900; color: #5b87ad; letter-spacing: 0.02em; }
+.fc-result-rank::before {
+  content: ""; display: inline-block; vertical-align: middle;
+  width: 6px; height: 6px; border-radius: 50%; margin-right: 5px;
+  background: var(--fc-team-color, #8fb6d6);
+}
+.fc-result-team {
+  font-size: 0.86rem; font-weight: 900; color: #16304a; line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.fc-result-km {
+  font-size: 0.8rem; font-weight: 800; color: #2f7fc4;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.fc-result[data-rank="1"] .fc-result-team { font-size: 0.92rem; }
+.fc-result[data-rank="1"] .fc-result-km { font-size: 0.85rem; color: #8a6413; }
 
 /* Mobile-only stage 2 cards; hidden on desktop so the result info is announced once. */
 .fc-cards { display: none; }
@@ -262,6 +306,28 @@ body.fc-modal-open .visit-badge { display: none; }
 @media (max-width: 1024px) and (min-width: 721px) {
   .fc-dialog { width: 94vw; }
   .fc-podium-wrap { width: min(94%, 680px); }
+}
+
+/* ===== portrait tablet =====
+   On a portrait tablet the stage is wide but the scene's own 1672x941 aspect makes it SHORT,
+   while .fc-podium-wrap is bottom-anchored and sized from the stage WIDTH — so the podium
+   plus the duos standing on it are taller than the stage and overflow:hidden cropped the
+   winners' heads (measured: stage 386px vs podium 429.8px at 768x1024, rank 1 clipped 89px).
+
+   The room a duo needs above the stage floor follows directly from the committed variables:
+     duoTop = wrapH * (--fc-step-bottom + --fc-duo-h - --fc-foot-pad * --fc-duo-h)
+     rank 1 = wrapH * 1.10505   (the tallest), and wrapH = wrapW * 1024/1536
+   With wrapW = min(94%, 680px), duoTop peaks at 501px once that 680px cap is reached, so the
+   stage needs ~525px including 24px of head clearance. 4/3 clears that at every width in the
+   band; max-height stops it from growing into a big empty sky once wrapW is capped.
+
+   Nothing is resized or repositioned here — the podium, the duos and their standing lines are
+   untouched. Only the stage box gets taller, so the same composition simply stops being cut. */
+@media (min-width: 721px) and (max-width: 900px) and (orientation: portrait) {
+  .fc-stage { aspect-ratio: 4 / 3; max-height: 560px; }
+  /* the scene must now fill the taller box instead of dictating its height */
+  .fc-scene-layer { position: absolute; inset: 0; display: block; }
+  .fc-scene { width: 100%; height: 100%; }
 }
 
 /* ===== mobile (<=720px) — bottom sheet + two-stage composition ===== */
@@ -331,7 +397,10 @@ body.fc-modal-open .visit-badge { display: none; }
   .fc-scene-layer, .fc-podium-wrap, .fc-duo, .fc-result, .fc-card { opacity: 1 !important; }
   .fc-duo { transform: translateX(-50%) !important; }
   .fc-podium-wrap { transform: translateX(-50%) !important; }
-  .fc-scene-layer, .fc-result, .fc-card { transform: none !important; }
+  .fc-scene-layer, .fc-card { transform: none !important; }
+  /* The podium labels are centred ON their step by transform, so it cannot be cleared to
+     none here — only the entrance offset is dropped, leaving them in the completed state. */
+  .fc-result { transform: translate(-50%, -50%) !important; }
   /* reduced motion shows pose B (the completed, trophy-raised scene) */
   .fc-pose-a { opacity: 0 !important; }
   .fc-pose-b { opacity: 1 !important; }
