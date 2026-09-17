@@ -116,12 +116,25 @@ body.fc-modal-open .visit-badge { display: none; }
 
 /* ===== layered 2.5D stage =====
    Layer 1-3 scene · layer 4 podium · layer 5 duos · layer 6 HTML labels. */
+/* The stage reserves its final height from the very first layout pass.
+
+   Without this, the only in-flow child is the scene <img> at height:auto, so until the
+   browser knows that image's intrinsic size the stage measured 0px: the modal opened 378px
+   tall with the Replay button tucked under the company total, then everything below the
+   stage dropped 644px the instant the image resolved. Declaring the scene's own ratio
+   (final-scene-desktop.webp, 1672x941) reserves exactly the height the image would have
+   produced — 1144 / (1672/941) = 643.9px at 1440 — so the layout never moves.
+   The mobile and portrait-tablet blocks override this ratio with their own. */
 .fc-stage {
   position: relative; margin: 10px auto 0; width: 100%;
+  aspect-ratio: 1672 / 941;
   border-radius: 18px; overflow: hidden;
 }
+/* Absolute so the scene paints inside the reserved box instead of dictating it; its
+   entrance stays opacity + transform only, which never affects layout. */
+.fc-scene-layer { position: absolute; inset: 0; display: block; }
 .fc-scene {
-  display: block; width: 100%; height: auto;
+  display: block; width: 100%; height: 100%;
   object-fit: cover; object-position: center;
 }
 .fc-podium-wrap {
